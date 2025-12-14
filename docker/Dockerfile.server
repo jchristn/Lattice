@@ -1,0 +1,42 @@
+# Lattice Server Dockerfile
+# Multi-stage build for .NET application
+
+# Build stage
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+
+# Copy csproj files and restore
+COPY src/Lattice.Core/Lattice.Core.csproj Lattice.Core/
+COPY src/Lattice.Server/Lattice.Server.csproj Lattice.Server/
+RUN dotnet restore Lattice.Server/Lattice.Server.csproj
+
+# Copy source code and build
+COPY src/Lattice.Core/ Lattice.Core/
+COPY src/Lattice.Server/ Lattice.Server/
+RUN dotnet publish Lattice.Server/Lattice.Server.csproj -c Release -o /app/publish
+
+# Runtime stage
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
+WORKDIR /app
+
+# Create directories for data persistence
+RUN mkdir -p /app/data /app/documents
+
+# Copy published application
+COPY --from=build /app/publish .
+
+# Set environment variables
+ENV ASPNETCORE_URLS=http://+:5099
+ENV Lattice__databaseFilename=/app/data/lattice.db
+ENV Lattice__defaultDocumentsDirectory=/app/documents
+ENV Lattice__inMemory=false
+
+# Expose port
+EXPOSE 5099
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:5099/v1.0/collections || exit 1
+
+# Run the application
+ENTRYPOINT ["dotnet", "Lattice.Server.dll"]

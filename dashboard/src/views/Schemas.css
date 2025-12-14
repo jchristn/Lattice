@@ -1,0 +1,9 @@
+.schemas {
+  max-width: 100%;
+}
+
+.schemas .page-subtitle {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin-top: 4px;
+}

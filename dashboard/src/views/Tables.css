@@ -1,0 +1,21 @@
+.tables {
+  max-width: 100%;
+}
+
+.tables .page-subtitle {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.table-detail {
+  margin-bottom: 12px;
+}
+
+.table-detail strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-transform: uppercase;
+}

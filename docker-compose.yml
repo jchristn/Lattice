@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.server
+    container_name: lattice-server
+    ports:
+      - "5099:5099"
+    volumes:
+      - lattice-data:/app/data
+      - lattice-documents:/app/documents
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - Lattice__databaseFilename=/app/data/lattice.db
+      - Lattice__defaultDocumentsDirectory=/app/documents
+      - Lattice__inMemory=false
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5099/v1.0/collections"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dashboard
+    container_name: lattice-dashboard
+    ports:
+      - "3000:80"
+    depends_on:
+      server:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  lattice-data:
+    name: lattice-data
+  lattice-documents:
+    name: lattice-documents

@@ -1,0 +1,39 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Build outputs
+**/bin
+**/obj
+**/out
+**/Debug
+**/Release
+
+# Node.js
+**/node_modules
+dashboard/dist
+
+# Test artifacts
+**/TestResults
+
+# Documentation
+*.md
+!README.md
+
+# Docker
+Dockerfile*
+docker-compose*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local data
+*.db
+documents/
