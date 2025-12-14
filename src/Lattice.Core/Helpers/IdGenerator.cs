@@ -45,11 +45,6 @@ namespace Lattice.Core.Helpers
         public const string TagPrefix = "tag_";
 
         /// <summary>
-        /// Prefix for collection label IDs.
-        /// </summary>
-        public const string CollectionLabelPrefix = "clb_";
-
-        /// <summary>
         /// Prefix for index table mapping IDs.
         /// </summary>
         public const string IndexTableMappingPrefix = "itm_";
@@ -110,12 +105,6 @@ namespace Lattice.Core.Helpers
         /// </summary>
         /// <returns>K-sortable tag ID.</returns>
         public static string NewTagId() => _Generator.GenerateKSortable(TagPrefix, DefaultIdLength + TagPrefix.Length);
-
-        /// <summary>
-        /// Generate a new collection label ID.
-        /// </summary>
-        /// <returns>K-sortable collection label ID.</returns>
-        public static string NewCollectionLabelId() => _Generator.GenerateKSortable(CollectionLabelPrefix, DefaultIdLength + CollectionLabelPrefix.Length);
 
         /// <summary>
         /// Generate a new index table mapping ID.

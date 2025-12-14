@@ -46,11 +46,6 @@ namespace Lattice.Core.Repositories
         public abstract ITagMethods Tags { get; }
 
         /// <summary>
-        /// Collection label methods.
-        /// </summary>
-        public abstract ICollectionLabelMethods CollectionLabels { get; }
-
-        /// <summary>
         /// Index table methods.
         /// </summary>
         public abstract IIndexMethods Indexes { get; }

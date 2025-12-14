@@ -6,12 +6,14 @@ namespace Lattice.Core.Repositories.Interfaces
     using Lattice.Core.Models;
 
     /// <summary>
-    /// Interface for document label repository methods.
+    /// Interface for label repository methods (unified for collections and documents).
     /// </summary>
     public interface ILabelMethods
     {
+        #region Common
+
         /// <summary>
-        /// Create a document label.
+        /// Create a label.
         /// </summary>
         /// <param name="label">Label to create.</param>
         /// <param name="token">Cancellation token.</param>
@@ -25,6 +27,10 @@ namespace Lattice.Core.Repositories.Interfaces
         /// <param name="token">Cancellation token.</param>
         /// <returns>Created labels.</returns>
         Task<List<Label>> CreateMany(List<Label> labels, CancellationToken token = default);
+
+        #endregion
+
+        #region Document-Labels
 
         /// <summary>
         /// Read all labels for a document.
@@ -64,5 +70,26 @@ namespace Lattice.Core.Repositories.Interfaces
         /// <param name="token">Cancellation token.</param>
         /// <returns>Document IDs that have all specified labels.</returns>
         Task<HashSet<string>> FindDocumentIdsByLabels(List<string> labels, CancellationToken token = default);
+
+        #endregion
+
+        #region Collection-Labels
+
+        /// <summary>
+        /// Read all labels for a collection (collection-level labels only, not document labels).
+        /// </summary>
+        /// <param name="collectionId">Collection ID.</param>
+        /// <param name="token">Cancellation token.</param>
+        /// <returns>Labels.</returns>
+        IAsyncEnumerable<Label> ReadByCollectionId(string collectionId, CancellationToken token = default);
+
+        /// <summary>
+        /// Delete all labels for a collection (collection-level labels only, not document labels).
+        /// </summary>
+        /// <param name="collectionId">Collection ID.</param>
+        /// <param name="token">Cancellation token.</param>
+        Task DeleteByCollectionId(string collectionId, CancellationToken token = default);
+
+        #endregion
     }
 }

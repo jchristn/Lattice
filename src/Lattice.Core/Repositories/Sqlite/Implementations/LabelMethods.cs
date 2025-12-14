@@ -12,7 +12,7 @@ namespace Lattice.Core.Repositories.Sqlite.Implementations
     using Lattice.Core.Repositories.Interfaces;
 
     /// <summary>
-    /// SQLite implementation of document label methods.
+    /// SQLite implementation of label methods (unified for collections and documents).
     /// </summary>
     internal class LabelMethods : ILabelMethods
     {
@@ -23,15 +23,18 @@ namespace Lattice.Core.Repositories.Sqlite.Implementations
             _Repo = repo ?? throw new ArgumentNullException(nameof(repo));
         }
 
+        #region Common
+
         public async Task<Label> Create(Label label, CancellationToken token = default)
         {
             if (label == null) throw new ArgumentNullException(nameof(label));
             token.ThrowIfCancellationRequested();
 
             string query = $@"
-                INSERT INTO labels (id, documentid, labelvalue, createdutc, lastupdateutc)
+                INSERT INTO labels (id, collectionid, documentid, labelvalue, createdutc, lastupdateutc)
                 VALUES ('{Sanitizer.Sanitize(label.Id)}',
-                        '{Sanitizer.Sanitize(label.DocumentId)}',
+                        {(label.CollectionId != null ? $"'{Sanitizer.Sanitize(label.CollectionId)}'" : "NULL")},
+                        {(label.DocumentId != null ? $"'{Sanitizer.Sanitize(label.DocumentId)}'" : "NULL")},
                         '{Sanitizer.Sanitize(label.LabelValue)}',
                         '{Converters.ToTimestamp(label.CreatedUtc)}',
                         '{Converters.ToTimestamp(label.LastUpdateUtc)}');
@@ -56,9 +59,10 @@ namespace Lattice.Core.Repositories.Sqlite.Implementations
             foreach (Label label in labels)
             {
                 sb.AppendLine($@"
-                    INSERT INTO labels (id, documentid, labelvalue, createdutc, lastupdateutc)
+                    INSERT INTO labels (id, collectionid, documentid, labelvalue, createdutc, lastupdateutc)
                     VALUES ('{Sanitizer.Sanitize(label.Id)}',
-                            '{Sanitizer.Sanitize(label.DocumentId)}',
+                            {(label.CollectionId != null ? $"'{Sanitizer.Sanitize(label.CollectionId)}'" : "NULL")},
+                            {(label.DocumentId != null ? $"'{Sanitizer.Sanitize(label.DocumentId)}'" : "NULL")},
                             '{Sanitizer.Sanitize(label.LabelValue)}',
                             '{Converters.ToTimestamp(label.CreatedUtc)}',
                             '{Converters.ToTimestamp(label.LastUpdateUtc)}');
@@ -70,6 +74,10 @@ namespace Lattice.Core.Repositories.Sqlite.Implementations
 
             return labels;
         }
+
+        #endregion
+
+        #region Document-Labels
 
         public async IAsyncEnumerable<Label> ReadByDocumentId(string documentId, [EnumeratorCancellation] CancellationToken token = default)
         {
@@ -128,7 +136,7 @@ namespace Lattice.Core.Repositories.Sqlite.Implementations
         {
             if (string.IsNullOrWhiteSpace(labelValue)) throw new ArgumentNullException(nameof(labelValue));
 
-            string query = $"SELECT DISTINCT documentid FROM labels WHERE labelvalue = '{Sanitizer.Sanitize(labelValue)}';";
+            string query = $"SELECT DISTINCT documentid FROM labels WHERE labelvalue = '{Sanitizer.Sanitize(labelValue)}' AND documentid IS NOT NULL;";
             DataTable result = await _Repo.ExecuteQueryAsync(query, false, token);
 
             foreach (DataRow row in result.Rows)
@@ -149,7 +157,7 @@ namespace Lattice.Core.Repositories.Sqlite.Implementations
             if (labels.Count == 1)
             {
                 // Single label: simple query
-                string query = $"SELECT DISTINCT documentid FROM labels WHERE labelvalue = '{Sanitizer.Sanitize(labels[0])}';";
+                string query = $"SELECT DISTINCT documentid FROM labels WHERE labelvalue = '{Sanitizer.Sanitize(labels[0])}' AND documentid IS NOT NULL;";
                 DataTable dataTable = await _Repo.ExecuteQueryAsync(query, false, token);
                 foreach (DataRow row in dataTable.Rows)
                 {
@@ -173,11 +181,10 @@ namespace Lattice.Core.Repositories.Sqlite.Implementations
                 }
 
                 // Add WHERE clause
-                sb.Append("WHERE ");
+                sb.Append("WHERE l0.documentid IS NOT NULL ");
                 for (int i = 0; i < labels.Count; i++)
                 {
-                    if (i > 0) sb.Append(" AND ");
-                    sb.Append($"l{i}.labelvalue = '{Sanitizer.Sanitize(labels[i])}'");
+                    sb.Append($" AND l{i}.labelvalue = '{Sanitizer.Sanitize(labels[i])}'");
                 }
                 sb.Append(";");
 
@@ -190,5 +197,36 @@ namespace Lattice.Core.Repositories.Sqlite.Implementations
 
             return result;
         }
+
+        #endregion
+
+        #region Collection-Labels
+
+        public async IAsyncEnumerable<Label> ReadByCollectionId(string collectionId, [EnumeratorCancellation] CancellationToken token = default)
+        {
+            if (string.IsNullOrWhiteSpace(collectionId)) throw new ArgumentNullException(nameof(collectionId));
+
+            // Only return collection-level labels (where documentid is NULL)
+            string query = $"SELECT * FROM labels WHERE collectionid = '{Sanitizer.Sanitize(collectionId)}' AND documentid IS NULL;";
+            DataTable result = await _Repo.ExecuteQueryAsync(query, false, token);
+
+            foreach (DataRow row in result.Rows)
+            {
+                token.ThrowIfCancellationRequested();
+                yield return Converters.LabelFromDataRow(row);
+            }
+        }
+
+        public async Task DeleteByCollectionId(string collectionId, CancellationToken token = default)
+        {
+            if (string.IsNullOrWhiteSpace(collectionId)) throw new ArgumentNullException(nameof(collectionId));
+            token.ThrowIfCancellationRequested();
+
+            // Only delete collection-level labels (where documentid is NULL)
+            string query = $"DELETE FROM labels WHERE collectionid = '{Sanitizer.Sanitize(collectionId)}' AND documentid IS NULL;";
+            await _Repo.ExecuteNonQueryAsync(query, token);
+        }
+
+        #endregion
     }
 }

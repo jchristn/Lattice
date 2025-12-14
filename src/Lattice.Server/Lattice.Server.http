@@ -1,6 +1,0 @@
-@Lattice.Server_HostAddress = http://localhost:5134
-
-GET {{Lattice.Server_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

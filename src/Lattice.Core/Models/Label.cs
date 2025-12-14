@@ -4,7 +4,7 @@ namespace Lattice.Core.Models
     using System.Text.Json.Serialization;
 
     /// <summary>
-    /// Represents a label associated with a document.
+    /// Represents a label associated with a collection or document.
     /// </summary>
     public class Label
     {
@@ -17,7 +17,14 @@ namespace Lattice.Core.Models
         public string Id { get; set; } = null;
 
         /// <summary>
-        /// Identifier of the document this label belongs to.
+        /// Identifier of the collection this label belongs to (null for document-only labels).
+        /// For document labels, this should be populated with the document's collection ID.
+        /// </summary>
+        [JsonPropertyName("collectionId")]
+        public string CollectionId { get; set; } = null;
+
+        /// <summary>
+        /// Identifier of the document this label belongs to (null for collection-only labels).
         /// </summary>
         [JsonPropertyName("documentId")]
         public string DocumentId { get; set; } = null;

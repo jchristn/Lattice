@@ -39,9 +39,6 @@ namespace Lattice.Core.Repositories.Sqlite
         public override ITagMethods Tags { get; }
 
         /// <inheritdoc />
-        public override ICollectionLabelMethods CollectionLabels { get; }
-
-        /// <inheritdoc />
         public override IIndexMethods Indexes { get; }
 
         /// <summary>
@@ -110,7 +107,6 @@ namespace Lattice.Core.Repositories.Sqlite
             Values = new ValueMethods(this);
             Labels = new LabelMethods(this);
             Tags = new TagMethods(this);
-            CollectionLabels = new CollectionLabelMethods(this);
             Indexes = new IndexMethods(this);
         }
 

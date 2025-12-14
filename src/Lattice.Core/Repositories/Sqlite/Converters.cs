@@ -79,7 +79,8 @@ namespace Lattice.Core.Repositories.Sqlite
             return new Label
             {
                 Id = row["id"]?.ToString(),
-                DocumentId = row["documentid"]?.ToString(),
+                CollectionId = row["collectionid"] != DBNull.Value ? row["collectionid"]?.ToString() : null,
+                DocumentId = row["documentid"] != DBNull.Value ? row["documentid"]?.ToString() : null,
                 LabelValue = row["labelvalue"]?.ToString(),
                 CreatedUtc = DateTime.Parse(row["createdutc"].ToString()),
                 LastUpdateUtc = DateTime.Parse(row["lastupdateutc"].ToString())
@@ -97,20 +98,6 @@ namespace Lattice.Core.Repositories.Sqlite
                 DocumentId = row["documentid"] != DBNull.Value ? row["documentid"]?.ToString() : null,
                 Key = row["key"]?.ToString(),
                 Value = row["value"]?.ToString(),
-                CreatedUtc = DateTime.Parse(row["createdutc"].ToString()),
-                LastUpdateUtc = DateTime.Parse(row["lastupdateutc"].ToString())
-            };
-        }
-
-        internal static CollectionLabel CollectionLabelFromDataRow(DataRow row)
-        {
-            if (row == null) return null;
-
-            return new CollectionLabel
-            {
-                Id = row["id"]?.ToString(),
-                CollectionId = row["collectionid"]?.ToString(),
-                LabelValue = row["labelvalue"]?.ToString(),
                 CreatedUtc = DateTime.Parse(row["createdutc"].ToString()),
                 LastUpdateUtc = DateTime.Parse(row["lastupdateutc"].ToString())
             };

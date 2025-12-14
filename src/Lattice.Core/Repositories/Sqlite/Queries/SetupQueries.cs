@@ -26,20 +26,6 @@ namespace Lattice.Core.Repositories.Sqlite.Queries
                 CREATE INDEX IF NOT EXISTS idx_collections_lastupdateutc ON collections(lastupdateutc);
                 CREATE INDEX IF NOT EXISTS idx_collections_name_createdutc ON collections(name, createdutc);
 
-                -- Collection labels table
-                CREATE TABLE IF NOT EXISTS collectionlabels (
-                    id TEXT PRIMARY KEY,
-                    collectionid TEXT NOT NULL,
-                    labelvalue TEXT NOT NULL,
-                    createdutc TEXT NOT NULL,
-                    lastupdateutc TEXT NOT NULL,
-                    FOREIGN KEY (collectionid) REFERENCES collections(id) ON DELETE CASCADE
-                );
-                CREATE INDEX IF NOT EXISTS idx_collectionlabels_collectionid ON collectionlabels(collectionid);
-                CREATE INDEX IF NOT EXISTS idx_collectionlabels_labelvalue ON collectionlabels(labelvalue);
-                CREATE INDEX IF NOT EXISTS idx_collectionlabels_collectionid_labelvalue ON collectionlabels(collectionid, labelvalue);
-                CREATE INDEX IF NOT EXISTS idx_collectionlabels_createdutc ON collectionlabels(createdutc);
-
                 -- Schemas table
                 CREATE TABLE IF NOT EXISTS schemas (
                     id TEXT PRIMARY KEY,
@@ -94,17 +80,21 @@ namespace Lattice.Core.Repositories.Sqlite.Queries
                 CREATE INDEX IF NOT EXISTS idx_documents_collectionid_schemaid ON documents(collectionid, schemaid);
                 CREATE INDEX IF NOT EXISTS idx_documents_schemaid_createdutc ON documents(schemaid, createdutc);
 
-                -- Document labels table
+                -- Labels table (unified for collections and documents)
                 CREATE TABLE IF NOT EXISTS labels (
                     id TEXT PRIMARY KEY,
-                    documentid TEXT NOT NULL,
+                    collectionid TEXT,
+                    documentid TEXT,
                     labelvalue TEXT NOT NULL,
                     createdutc TEXT NOT NULL,
                     lastupdateutc TEXT NOT NULL,
+                    FOREIGN KEY (collectionid) REFERENCES collections(id) ON DELETE CASCADE,
                     FOREIGN KEY (documentid) REFERENCES documents(id) ON DELETE CASCADE
                 );
+                CREATE INDEX IF NOT EXISTS idx_labels_collectionid ON labels(collectionid);
                 CREATE INDEX IF NOT EXISTS idx_labels_documentid ON labels(documentid);
                 CREATE INDEX IF NOT EXISTS idx_labels_labelvalue ON labels(labelvalue);
+                CREATE INDEX IF NOT EXISTS idx_labels_collectionid_labelvalue ON labels(collectionid, labelvalue);
                 CREATE INDEX IF NOT EXISTS idx_labels_documentid_labelvalue ON labels(documentid, labelvalue);
                 CREATE INDEX IF NOT EXISTS idx_labels_labelvalue_documentid ON labels(labelvalue, documentid);
                 CREATE INDEX IF NOT EXISTS idx_labels_createdutc ON labels(createdutc);

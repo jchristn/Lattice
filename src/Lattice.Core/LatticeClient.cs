@@ -116,13 +116,14 @@ namespace Lattice.Core
             // Create labels
             if (collection.Labels.Count > 0)
             {
-                List<CollectionLabel> collectionLabels = collection.Labels.Select(l => new CollectionLabel
+                List<Label> collectionLabels = collection.Labels.Select(l => new Label
                 {
-                    Id = IdGenerator.NewCollectionLabelId(),
+                    Id = IdGenerator.NewLabelId(),
                     CollectionId = created.Id,
+                    DocumentId = null,
                     LabelValue = l
                 }).ToList();
-                await _Repo.CollectionLabels.CreateMany(collectionLabels, token);
+                await _Repo.Labels.CreateMany(collectionLabels, token);
             }
 
             // Create tags
@@ -156,7 +157,7 @@ namespace Lattice.Core
             if (collection == null) return null;
 
             // Load labels
-            await foreach (CollectionLabel label in _Repo.CollectionLabels.ReadByCollectionId(id, token))
+            await foreach (Label label in _Repo.Labels.ReadByCollectionId(id, token))
             {
                 collection.Labels.Add(label.LabelValue);
             }
@@ -182,7 +183,7 @@ namespace Lattice.Core
             await foreach (Collection collection in _Repo.Collections.ReadAll(token))
             {
                 // Load labels
-                await foreach (CollectionLabel label in _Repo.CollectionLabels.ReadByCollectionId(collection.Id, token))
+                await foreach (Label label in _Repo.Labels.ReadByCollectionId(collection.Id, token))
                 {
                     collection.Labels.Add(label.LabelValue);
                 }
@@ -216,7 +217,7 @@ namespace Lattice.Core
             }
 
             // Delete collection labels and tags (cascade should handle this)
-            await _Repo.CollectionLabels.DeleteByCollectionId(id, token);
+            await _Repo.Labels.DeleteByCollectionId(id, token);
             await _Repo.Tags.DeleteByCollectionId(id, token);
 
             // Delete collection
@@ -335,24 +336,26 @@ namespace Lattice.Core
             document.Labels = preservedLabels;
             document.Tags = preservedTags;
 
-            // Create labels
+            // Create labels (include collectionId for document-level labels)
             if (document.Labels.Count > 0)
             {
                 List<Label> labelEntities = document.Labels.Select(l => new Label
                 {
                     Id = IdGenerator.NewLabelId(),
+                    CollectionId = collectionId,
                     DocumentId = document.Id,
                     LabelValue = l
                 }).ToList();
                 await _Repo.Labels.CreateMany(labelEntities, token);
             }
 
-            // Create tags
+            // Create tags (include collectionId for document-level tags)
             if (document.Tags.Count > 0)
             {
                 List<Tag> tagEntities = document.Tags.Select(t => new Tag
                 {
                     Id = IdGenerator.NewTagId(),
+                    CollectionId = collectionId,
                     DocumentId = document.Id,
                     Key = t.Key,
                     Value = t.Value
