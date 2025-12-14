@@ -100,6 +100,18 @@ namespace Lattice.Core.Search
         [JsonPropertyName("includeContent")]
         public bool IncludeContent { get; set; } = false;
 
+        /// <summary>
+        /// Include document labels in results.
+        /// </summary>
+        [JsonPropertyName("includeLabels")]
+        public bool IncludeLabels { get; set; } = true;
+
+        /// <summary>
+        /// Include document tags in results.
+        /// </summary>
+        [JsonPropertyName("includeTags")]
+        public bool IncludeTags { get; set; } = true;
+
         #endregion
 
         #region Private-Members

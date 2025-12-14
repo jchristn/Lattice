@@ -413,24 +413,29 @@ namespace Lattice.Core
         /// </summary>
         /// <param name="id">Document ID.</param>
         /// <param name="includeContent">Include raw JSON content.</param>
+        /// <param name="includeLabels">Include document labels.</param>
+        /// <param name="includeTags">Include document tags.</param>
         /// <param name="token">Cancellation token.</param>
         /// <returns>Document or null if not found.</returns>
-        public async Task<Document> GetDocument(string id, bool includeContent = false, CancellationToken token = default)
+        public async Task<Document> GetDocument(
+            string id,
+            bool includeContent = false,
+            bool includeLabels = true,
+            bool includeTags = true,
+            CancellationToken token = default)
         {
-            Document? document = await _Repo.Documents.ReadById(id, token);
+            // Use optimized single JOIN query when labels or tags are requested
+            Document? document;
+            if (includeLabels || includeTags)
+            {
+                document = await _Repo.Documents.ReadByIdWithLabelsAndTags(id, includeLabels, includeTags, token);
+            }
+            else
+            {
+                document = await _Repo.Documents.ReadById(id, token);
+            }
+
             if (document == null) return null;
-
-            // Load labels
-            await foreach (Label label in _Repo.Labels.ReadByDocumentId(id, token))
-            {
-                document.Labels.Add(label.LabelValue);
-            }
-
-            // Load tags
-            await foreach (Tag tag in _Repo.Tags.ReadByDocumentId(id, token))
-            {
-                document.Tags[tag.Key] = tag.Value;
-            }
 
             // Load content if requested
             if (includeContent)
@@ -450,46 +455,102 @@ namespace Lattice.Core
         }
 
         /// <summary>
+        /// Get multiple documents by their IDs in a single optimized query.
+        /// </summary>
+        /// <param name="ids">Document IDs.</param>
+        /// <param name="includeContent">Include raw JSON content.</param>
+        /// <param name="includeLabels">Include document labels.</param>
+        /// <param name="includeTags">Include document tags.</param>
+        /// <param name="token">Cancellation token.</param>
+        /// <returns>Dictionary of document ID to document (missing IDs are not included).</returns>
+        public async Task<Dictionary<string, Document>> GetDocumentsByIds(
+            List<string> ids,
+            bool includeContent = false,
+            bool includeLabels = true,
+            bool includeTags = true,
+            CancellationToken token = default)
+        {
+            if (ids == null || ids.Count == 0)
+                return new Dictionary<string, Document>();
+
+            // Use optimized single JOIN query
+            Dictionary<string, Document> documents;
+            if (includeLabels || includeTags)
+            {
+                documents = await _Repo.Documents.ReadByIdsWithLabelsAndTags(ids, includeLabels, includeTags, token);
+            }
+            else
+            {
+                documents = await _Repo.Documents.ReadByIds(ids, token);
+            }
+
+            // Load content if requested
+            if (includeContent && documents.Count > 0)
+            {
+                // Group by collection to minimize collection lookups
+                var docsByCollection = documents.Values.GroupBy(d => d.CollectionId);
+                foreach (var group in docsByCollection)
+                {
+                    Collection? collection = await _Repo.Collections.ReadById(group.Key, token);
+                    if (collection != null)
+                    {
+                        foreach (Document doc in group)
+                        {
+                            string documentPath = Path.Combine(collection.DocumentsDirectory, $"{doc.Id}.json");
+                            if (File.Exists(documentPath))
+                            {
+                                doc.Content = await File.ReadAllTextAsync(documentPath, token);
+                            }
+                        }
+                    }
+                }
+            }
+
+            return documents;
+        }
+
+        /// <summary>
         /// Get all documents in a collection.
         /// </summary>
         /// <param name="collectionId">Collection ID.</param>
+        /// <param name="includeLabels">Include document labels.</param>
+        /// <param name="includeTags">Include document tags.</param>
         /// <param name="token">Cancellation token.</param>
         /// <returns>List of documents.</returns>
-        public async Task<List<Document>> GetDocuments(string collectionId, CancellationToken token = default)
+        public async Task<List<Document>> GetDocuments(
+            string collectionId,
+            bool includeLabels = true,
+            bool includeTags = true,
+            CancellationToken token = default)
         {
-            // First, get all documents in the collection
-            List<Document> documents = new List<Document>();
+            // First, get all document IDs in the collection
             List<string> documentIds = new List<string>();
 
             await foreach (Document document in _Repo.Documents.ReadAllInCollection(collectionId, token: token))
             {
-                documents.Add(document);
                 documentIds.Add(document.Id);
             }
 
-            if (documentIds.Count == 0) return documents;
+            if (documentIds.Count == 0) return new List<Document>();
 
-            // Batch load labels and tags (eliminates N+1 queries)
-            Dictionary<string, List<string>> labelsByDocId = await _Repo.Labels.ReadByDocumentIds(documentIds, token);
-            Dictionary<string, Dictionary<string, string>> tagsByDocId = await _Repo.Tags.ReadByDocumentIds(documentIds, token);
-
-            // Apply labels and tags to documents
-            foreach (Document document in documents)
+            // Use optimized batch query with JOINs
+            Dictionary<string, Document> documentsById;
+            if (includeLabels || includeTags)
             {
-                if (labelsByDocId.TryGetValue(document.Id, out List<string> labels))
-                {
-                    foreach (string label in labels)
-                    {
-                        document.Labels.Add(label);
-                    }
-                }
+                documentsById = await _Repo.Documents.ReadByIdsWithLabelsAndTags(documentIds, includeLabels, includeTags, token);
+            }
+            else
+            {
+                documentsById = await _Repo.Documents.ReadByIds(documentIds, token);
+            }
 
-                if (tagsByDocId.TryGetValue(document.Id, out Dictionary<string, string> tags))
+            // Return documents in original order
+            List<Document> documents = new List<Document>();
+            foreach (string docId in documentIds)
+            {
+                if (documentsById.TryGetValue(docId, out Document doc))
                 {
-                    foreach (KeyValuePair<string, string> tag in tags)
-                    {
-                        document.Tags[tag.Key] = tag.Value;
-                    }
+                    documents.Add(doc);
                 }
             }
 
@@ -629,12 +690,19 @@ namespace Lattice.Core
                 // Apply pagination
                 List<string> pagedIds = candidateDocIds.Skip(query.Skip).Take(query.MaxResults).ToList();
 
-                // Load full documents using batch operations (eliminates N+1 queries)
+                // Load full documents using optimized single JOIN query
                 if (pagedIds.Count > 0)
                 {
-                    Dictionary<string, Document> documentsById = await _Repo.Documents.ReadByIds(pagedIds, token);
-                    Dictionary<string, List<string>> labelsByDocId = await _Repo.Labels.ReadByDocumentIds(pagedIds, token);
-                    Dictionary<string, Dictionary<string, string>> tagsByDocId = await _Repo.Tags.ReadByDocumentIds(pagedIds, token);
+                    // Use optimized batch query with JOINs for documents, labels, and tags
+                    Dictionary<string, Document> documentsById;
+                    if (query.IncludeLabels || query.IncludeTags)
+                    {
+                        documentsById = await _Repo.Documents.ReadByIdsWithLabelsAndTags(pagedIds, query.IncludeLabels, query.IncludeTags, token);
+                    }
+                    else
+                    {
+                        documentsById = await _Repo.Documents.ReadByIds(pagedIds, token);
+                    }
 
                     // Get collection for content loading if needed
                     Collection? collection = null;
@@ -648,24 +716,6 @@ namespace Lattice.Core
                     {
                         if (documentsById.TryGetValue(docId, out Document doc))
                         {
-                            // Apply labels
-                            if (labelsByDocId.TryGetValue(docId, out List<string> labels))
-                            {
-                                foreach (string label in labels)
-                                {
-                                    doc.Labels.Add(label);
-                                }
-                            }
-
-                            // Apply tags
-                            if (tagsByDocId.TryGetValue(docId, out Dictionary<string, string> tags))
-                            {
-                                foreach (KeyValuePair<string, string> tag in tags)
-                                {
-                                    doc.Tags[tag.Key] = tag.Value;
-                                }
-                            }
-
                             // Load content if requested
                             if (query.IncludeContent)
                             {
@@ -723,9 +773,37 @@ namespace Lattice.Core
         /// <param name="query">Enumeration query.</param>
         /// <param name="token">Cancellation token.</param>
         /// <returns>Enumeration result.</returns>
-        public Task<EnumerationResult<Document>> Enumerate(EnumerationQuery query, CancellationToken token = default)
+        public async Task<EnumerationResult<Document>> Enumerate(EnumerationQuery query, CancellationToken token = default)
         {
-            return _Repo.Documents.Enumerate(query, token);
+            EnumerationResult<Document> result = await _Repo.Documents.Enumerate(query, token);
+
+            // Load labels and tags if requested and there are documents
+            if (result.Objects.Count > 0 && (query.IncludeLabels || query.IncludeTags))
+            {
+                List<string> documentIds = result.Objects.Select(d => d.Id).ToList();
+
+                // Use optimized single JOIN query for labels and tags
+                Dictionary<string, Document> docsWithLabelsAndTags = await _Repo.Documents.ReadByIdsWithLabelsAndTags(
+                    documentIds, query.IncludeLabels, query.IncludeTags, token);
+
+                // Apply labels and tags to existing documents (preserving order)
+                foreach (Document doc in result.Objects)
+                {
+                    if (docsWithLabelsAndTags.TryGetValue(doc.Id, out Document docWithData))
+                    {
+                        foreach (string label in docWithData.Labels)
+                        {
+                            doc.Labels.Add(label);
+                        }
+                        foreach (var tag in docWithData.Tags)
+                        {
+                            doc.Tags[tag.Key] = tag.Value;
+                        }
+                    }
+                }
+            }
+
+            return result;
         }
 
         #endregion

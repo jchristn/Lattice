@@ -465,7 +465,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 404, "Collection not found");
                 }
 
-                List<Document> documents = await _Client.GetDocuments(collectionId, CancellationToken.None);
+                List<Document> documents = await _Client.GetDocuments(collectionId, token: CancellationToken.None);
 
                 return new ResponseContext
                 {
@@ -562,7 +562,7 @@ namespace Lattice.Server.API.REST
                     Boolean.TryParse(includeContentParam, out includeContent);
                 }
 
-                Document? document = await _Client.GetDocument(documentId, includeContent, CancellationToken.None);
+                Document? document = await _Client.GetDocument(documentId, includeContent: includeContent, token: CancellationToken.None);
                 if (document == null || document.CollectionId != collectionId)
                 {
                     return new ResponseContext(false, 404, "Document not found");
@@ -594,7 +594,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Document ID is required");
                 }
 
-                Document? document = await _Client.GetDocument(documentId, false, CancellationToken.None);
+                Document? document = await _Client.GetDocument(documentId, token: CancellationToken.None);
                 if (document == null || document.CollectionId != collectionId)
                 {
                     return new ResponseContext(false, 404, "Document not found");
@@ -625,7 +625,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Document ID is required");
                 }
 
-                Document? document = await _Client.GetDocument(documentId, false, CancellationToken.None);
+                Document? document = await _Client.GetDocument(documentId, token: CancellationToken.None);
                 if (document == null || document.CollectionId != collectionId)
                 {
                     return new ResponseContext(false, 404, "Document not found");

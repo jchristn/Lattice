@@ -75,6 +75,18 @@ namespace Lattice.Core.Search
         public bool IncludeData { get; set; } = false;
 
         /// <summary>
+        /// Include document labels in results.
+        /// </summary>
+        [JsonPropertyName("includeLabels")]
+        public bool IncludeLabels { get; set; } = true;
+
+        /// <summary>
+        /// Include document tags in results.
+        /// </summary>
+        [JsonPropertyName("includeTags")]
+        public bool IncludeTags { get; set; } = true;
+
+        /// <summary>
         /// Prefix filter for name-based enumeration.
         /// </summary>
         [JsonPropertyName("prefix")]

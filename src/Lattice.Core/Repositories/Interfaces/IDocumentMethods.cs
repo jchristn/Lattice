@@ -28,12 +28,32 @@ namespace Lattice.Core.Repositories.Interfaces
         Task<Document> ReadById(string id, CancellationToken token = default);
 
         /// <summary>
+        /// Read a document by ID with labels and tags in a single JOIN query.
+        /// </summary>
+        /// <param name="id">Document ID.</param>
+        /// <param name="includeLabels">Include labels.</param>
+        /// <param name="includeTags">Include tags.</param>
+        /// <param name="token">Cancellation token.</param>
+        /// <returns>Document with labels and tags populated, or null if not found.</returns>
+        Task<Document> ReadByIdWithLabelsAndTags(string id, bool includeLabels = true, bool includeTags = true, CancellationToken token = default);
+
+        /// <summary>
         /// Read multiple documents by their IDs in a single query.
         /// </summary>
         /// <param name="ids">Document IDs.</param>
         /// <param name="token">Cancellation token.</param>
         /// <returns>Dictionary of document ID to document (missing IDs are not included).</returns>
         Task<Dictionary<string, Document>> ReadByIds(List<string> ids, CancellationToken token = default);
+
+        /// <summary>
+        /// Read multiple documents by their IDs with labels and tags in a single JOIN query.
+        /// </summary>
+        /// <param name="ids">Document IDs.</param>
+        /// <param name="includeLabels">Include labels.</param>
+        /// <param name="includeTags">Include tags.</param>
+        /// <param name="token">Cancellation token.</param>
+        /// <returns>Dictionary of document ID to document with labels and tags populated.</returns>
+        Task<Dictionary<string, Document>> ReadByIdsWithLabelsAndTags(List<string> ids, bool includeLabels = true, bool includeTags = true, CancellationToken token = default);
 
         /// <summary>
         /// Read all documents in a collection.

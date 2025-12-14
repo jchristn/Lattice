@@ -80,6 +80,142 @@ namespace Lattice.Core.Repositories.Sqlite.Implementations
             return documents;
         }
 
+        public async Task<Document> ReadByIdWithLabelsAndTags(string id, bool includeLabels = true, bool includeTags = true, CancellationToken token = default)
+        {
+            if (string.IsNullOrWhiteSpace(id)) throw new ArgumentNullException(nameof(id));
+            token.ThrowIfCancellationRequested();
+
+            string sanitizedId = Sanitizer.Sanitize(id);
+
+            // Build a single JOIN query that fetches document, labels, and tags
+            string query = $@"
+                SELECT
+                    d.id, d.collectionid, d.schemaid, d.name, d.createdutc, d.lastupdateutc,
+                    l.labelvalue,
+                    t.key as tagkey, t.value as tagvalue
+                FROM documents d
+                LEFT JOIN labels l ON d.id = l.documentid
+                LEFT JOIN tags t ON d.id = t.documentid
+                WHERE d.id = '{sanitizedId}';
+            ";
+
+            DataTable result = await _Repo.ExecuteQueryAsync(query, false, token);
+
+            if (result.Rows.Count == 0)
+                return null;
+
+            // Parse the first row for document data
+            Document doc = Converters.DocumentFromDataRow(result.Rows[0]);
+
+            // Collect unique labels and tags from all rows
+            HashSet<string> labels = new HashSet<string>();
+            Dictionary<string, string> tags = new Dictionary<string, string>();
+
+            foreach (DataRow row in result.Rows)
+            {
+                if (includeLabels && row["labelvalue"] != DBNull.Value)
+                {
+                    string labelValue = row["labelvalue"]?.ToString();
+                    if (!string.IsNullOrEmpty(labelValue))
+                        labels.Add(labelValue);
+                }
+
+                if (includeTags && row["tagkey"] != DBNull.Value)
+                {
+                    string tagKey = row["tagkey"]?.ToString();
+                    string tagValue = row["tagvalue"]?.ToString();
+                    if (!string.IsNullOrEmpty(tagKey) && !tags.ContainsKey(tagKey))
+                        tags[tagKey] = tagValue;
+                }
+            }
+
+            // Populate document
+            foreach (string label in labels)
+                doc.Labels.Add(label);
+            foreach (var tag in tags)
+                doc.Tags[tag.Key] = tag.Value;
+
+            return doc;
+        }
+
+        public async Task<Dictionary<string, Document>> ReadByIdsWithLabelsAndTags(List<string> ids, bool includeLabels = true, bool includeTags = true, CancellationToken token = default)
+        {
+            Dictionary<string, Document> documents = new Dictionary<string, Document>();
+            if (ids == null || ids.Count == 0) return documents;
+            token.ThrowIfCancellationRequested();
+
+            // Build IN clause with sanitized IDs
+            string inClause = string.Join(",", ids.Select(id => $"'{Sanitizer.Sanitize(id)}'"));
+
+            // Build a single JOIN query that fetches documents, labels, and tags
+            string query = $@"
+                SELECT
+                    d.id, d.collectionid, d.schemaid, d.name, d.createdutc, d.lastupdateutc,
+                    l.labelvalue,
+                    t.key as tagkey, t.value as tagvalue
+                FROM documents d
+                LEFT JOIN labels l ON d.id = l.documentid
+                LEFT JOIN tags t ON d.id = t.documentid
+                WHERE d.id IN ({inClause})
+                ORDER BY d.id;
+            ";
+
+            DataTable result = await _Repo.ExecuteQueryAsync(query, false, token);
+
+            // First pass: create all documents
+            foreach (DataRow row in result.Rows)
+            {
+                string docId = row["id"]?.ToString();
+                if (!string.IsNullOrEmpty(docId) && !documents.ContainsKey(docId))
+                {
+                    documents[docId] = Converters.DocumentFromDataRow(row);
+                }
+            }
+
+            // Second pass: collect labels and tags
+            Dictionary<string, HashSet<string>> labelsByDoc = new Dictionary<string, HashSet<string>>();
+            Dictionary<string, Dictionary<string, string>> tagsByDoc = new Dictionary<string, Dictionary<string, string>>();
+
+            foreach (string docId in documents.Keys)
+            {
+                labelsByDoc[docId] = new HashSet<string>();
+                tagsByDoc[docId] = new Dictionary<string, string>();
+            }
+
+            foreach (DataRow row in result.Rows)
+            {
+                string docId = row["id"]?.ToString();
+                if (string.IsNullOrEmpty(docId) || !documents.ContainsKey(docId))
+                    continue;
+
+                if (includeLabels && row["labelvalue"] != DBNull.Value)
+                {
+                    string labelValue = row["labelvalue"]?.ToString();
+                    if (!string.IsNullOrEmpty(labelValue))
+                        labelsByDoc[docId].Add(labelValue);
+                }
+
+                if (includeTags && row["tagkey"] != DBNull.Value)
+                {
+                    string tagKey = row["tagkey"]?.ToString();
+                    string tagValue = row["tagvalue"]?.ToString();
+                    if (!string.IsNullOrEmpty(tagKey) && !tagsByDoc[docId].ContainsKey(tagKey))
+                        tagsByDoc[docId][tagKey] = tagValue;
+                }
+            }
+
+            // Apply labels and tags to documents
+            foreach (var doc in documents.Values)
+            {
+                foreach (string label in labelsByDoc[doc.Id])
+                    doc.Labels.Add(label);
+                foreach (var tag in tagsByDoc[doc.Id])
+                    doc.Tags[tag.Key] = tag.Value;
+            }
+
+            return documents;
+        }
+
         public async IAsyncEnumerable<Document> ReadAllInCollection(
             string collectionId,
             EnumerationOrderEnum order = EnumerationOrderEnum.CreatedDescending,

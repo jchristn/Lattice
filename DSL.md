@@ -235,7 +235,10 @@ Finds mid-range products with good ratings.
     { "field": "Person.First", "condition": "Equals", "value": "Joel" }
   ],
   "ordering": "CreatedDescending",
-  "maxResults": 10
+  "maxResults": 10,
+  "includeContent": false,
+  "includeLabels": true,
+  "includeTags": true
 }
 ```
 
@@ -257,10 +260,99 @@ var query = new SearchQuery
         new SearchFilter("Person.First", SearchConditionEnum.Equals, "Joel")
     },
     Ordering = EnumerationOrderEnum.CreatedDescending,
-    MaxResults = 10
+    MaxResults = 10,
+    IncludeContent = false,  // Include raw JSON content (default: false)
+    IncludeLabels = true,    // Include document labels (default: true)
+    IncludeTags = true       // Include document tags (default: true)
 };
 var result = await client.Search(query);
+
+// Performance optimization: exclude labels/tags when not needed
+var fastQuery = new SearchQuery
+{
+    CollectionId = "col_abc123",
+    MaxResults = 100,
+    IncludeLabels = false,   // Skip loading labels for faster queries
+    IncludeTags = false      // Skip loading tags for faster queries
+};
+var fastResult = await client.Search(fastQuery);
 ```
+
+### Enumeration
+
+```csharp
+// Enumerate documents in a collection
+var enumQuery = new EnumerationQuery
+{
+    CollectionId = "col_abc123",
+    MaxResults = 100,
+    Ordering = EnumerationOrderEnum.CreatedDescending,
+    IncludeLabels = true,    // Include document labels (default: true)
+    IncludeTags = true       // Include document tags (default: true)
+};
+var enumResult = await client.Enumerate(enumQuery);
+
+// Performance optimization: enumerate without labels/tags
+var fastEnumQuery = new EnumerationQuery
+{
+    CollectionId = "col_abc123",
+    MaxResults = 1000,
+    IncludeLabels = false,
+    IncludeTags = false
+};
+var fastEnumResult = await client.Enumerate(fastEnumQuery);
+```
+
+### GetDocument
+
+```csharp
+// Get a single document with all data
+var doc = await client.GetDocument(
+    id: "doc_abc123",
+    includeContent: true,    // Include raw JSON content (default: false)
+    includeLabels: true,     // Include document labels (default: true)
+    includeTags: true        // Include document tags (default: true)
+);
+
+// Performance optimization: get document metadata only
+var fastDoc = await client.GetDocument(
+    id: "doc_abc123",
+    includeContent: false,
+    includeLabels: false,
+    includeTags: false
+);
+
+// Get all documents in a collection
+var docs = await client.GetDocuments(
+    collectionId: "col_abc123",
+    includeLabels: true,     // Include document labels (default: true)
+    includeTags: true        // Include document tags (default: true)
+);
+```
+
+---
+
+## Performance Parameters
+
+The following parameters control what data is included in query results. Excluding unnecessary data can significantly improve query performance.
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `includeContent` | `false` | Include raw JSON document content in results |
+| `includeLabels` | `true` | Include document labels in results |
+| `includeTags` | `true` | Include document tags in results |
+
+### Performance Impact
+
+Setting `includeLabels` and `includeTags` to `false` eliminates additional database queries per document, providing significant speedups:
+
+| Operation | With Labels/Tags | Without | Speedup |
+|-----------|-----------------|---------|---------|
+| GetDocument (1000 docs) | ~210 ops/sec | ~1,040 ops/sec | **5x** |
+| GetDocuments bulk (5000) | ~157ms | ~57ms | **2.8x** |
+| Enumerate (5000 docs) | ~13.5ms | ~5.0ms | **2.7x** |
+
+**Best Practice:** Set `includeLabels` and `includeTags` to `false` when you only need document metadata without labels or tags.
 
 ---
 

@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lattice.Server", "Lattice.S
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test.Automated", "Test.Automated\Test.Automated.csproj", "{F52C2F93-3546-4107-96EB-6C4EF6E86E74}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test.Throughput", "Test.Throughput\Test.Throughput.csproj", "{43980460-D676-4258-A925-3F6B2AFB1A43}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -55,6 +57,18 @@ Global
 		{F52C2F93-3546-4107-96EB-6C4EF6E86E74}.Release|x64.Build.0 = Release|Any CPU
 		{F52C2F93-3546-4107-96EB-6C4EF6E86E74}.Release|x86.ActiveCfg = Release|Any CPU
 		{F52C2F93-3546-4107-96EB-6C4EF6E86E74}.Release|x86.Build.0 = Release|Any CPU
+		{43980460-D676-4258-A925-3F6B2AFB1A43}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{43980460-D676-4258-A925-3F6B2AFB1A43}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{43980460-D676-4258-A925-3F6B2AFB1A43}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{43980460-D676-4258-A925-3F6B2AFB1A43}.Debug|x64.Build.0 = Debug|Any CPU
+		{43980460-D676-4258-A925-3F6B2AFB1A43}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{43980460-D676-4258-A925-3F6B2AFB1A43}.Debug|x86.Build.0 = Debug|Any CPU
+		{43980460-D676-4258-A925-3F6B2AFB1A43}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{43980460-D676-4258-A925-3F6B2AFB1A43}.Release|Any CPU.Build.0 = Release|Any CPU
+		{43980460-D676-4258-A925-3F6B2AFB1A43}.Release|x64.ActiveCfg = Release|Any CPU
+		{43980460-D676-4258-A925-3F6B2AFB1A43}.Release|x64.Build.0 = Release|Any CPU
+		{43980460-D676-4258-A925-3F6B2AFB1A43}.Release|x86.ActiveCfg = Release|Any CPU
+		{43980460-D676-4258-A925-3F6B2AFB1A43}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

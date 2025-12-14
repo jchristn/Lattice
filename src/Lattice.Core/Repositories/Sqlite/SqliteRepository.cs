@@ -388,15 +388,13 @@ namespace Lattice.Core.Repositories.Sqlite
             {
                 return _ConnectionPool.UseConnection(connection =>
                 {
-                    DataTable result = new DataTable();
                     using (SqliteCommand cmd = new SqliteCommand(query, connection))
                     {
                         using (SqliteDataReader reader = cmd.ExecuteReader())
                         {
-                            result.Load(reader);
+                            return LoadDataTableWithoutConstraints(reader);
                         }
                     }
-                    return result;
                 });
             }
             finally
@@ -412,15 +410,13 @@ namespace Lattice.Core.Repositories.Sqlite
             {
                 return _ConnectionPool.UseConnection(connection =>
                 {
-                    DataTable result = new DataTable();
                     using (SqliteCommand cmd = new SqliteCommand(query, connection))
                     {
                         using (SqliteDataReader reader = cmd.ExecuteReader())
                         {
-                            result.Load(reader);
+                            return LoadDataTableWithoutConstraints(reader);
                         }
                     }
-                    return result;
                 });
             }
             finally
@@ -436,7 +432,6 @@ namespace Lattice.Core.Repositories.Sqlite
             {
                 return _ConnectionPool.UseConnection(connection =>
                 {
-                    DataTable result = new DataTable();
                     using (SqliteCommand cmd = new SqliteCommand(query, connection))
                     {
                         if (parameters != null)
@@ -445,16 +440,47 @@ namespace Lattice.Core.Repositories.Sqlite
                         }
                         using (SqliteDataReader reader = cmd.ExecuteReader())
                         {
-                            result.Load(reader);
+                            return LoadDataTableWithoutConstraints(reader);
                         }
                     }
-                    return result;
                 });
             }
             finally
             {
                 _ReadWriteLock.ExitReadLock();
             }
+        }
+
+        /// <summary>
+        /// Load data from a SqliteDataReader into a DataTable without inferring constraints.
+        /// This allows duplicate values in columns that would otherwise be treated as primary keys.
+        /// </summary>
+        private static DataTable LoadDataTableWithoutConstraints(SqliteDataReader reader)
+        {
+            DataTable result = new DataTable();
+
+            // Create columns from the reader schema
+            for (int i = 0; i < reader.FieldCount; i++)
+            {
+                string columnName = reader.GetName(i);
+                Type columnType = reader.GetFieldType(i);
+                DataColumn column = new DataColumn(columnName, columnType);
+                column.AllowDBNull = true;
+                result.Columns.Add(column);
+            }
+
+            // Read all rows
+            while (reader.Read())
+            {
+                DataRow row = result.NewRow();
+                for (int i = 0; i < reader.FieldCount; i++)
+                {
+                    row[i] = reader.IsDBNull(i) ? DBNull.Value : reader.GetValue(i);
+                }
+                result.Rows.Add(row);
+            }
+
+            return result;
         }
 
         #endregion
