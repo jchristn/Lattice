@@ -166,6 +166,19 @@ namespace Lattice.Core.Repositories.Postgresql.Queries
                 );
 
                 CREATE INDEX IF NOT EXISTS idx_indexedfields_collectionid ON indexedfields(collectionid);
+
+                -- Object locks table (distributed locking for document ingestion)
+                CREATE TABLE IF NOT EXISTS objectlocks (
+                    id VARCHAR(64) NOT NULL PRIMARY KEY,
+                    collectionid VARCHAR(64) NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+                    documentname VARCHAR(512) NOT NULL,
+                    hostname VARCHAR(256) NOT NULL,
+                    createdutc TIMESTAMP NOT NULL,
+                    UNIQUE(collectionid, documentname)
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_objectlocks_createdutc ON objectlocks(createdutc);
+                CREATE INDEX IF NOT EXISTS idx_objectlocks_hostname ON objectlocks(hostname);
             ";
         }
 

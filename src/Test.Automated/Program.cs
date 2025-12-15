@@ -18,6 +18,7 @@ namespace Test.Automated
         private static readonly List<TestResult> _Results = new List<TestResult>();
         private static readonly Stopwatch _OverallStopwatch = new Stopwatch();
         private static DatabaseSettings _databaseSettings = null;
+        private static bool _enableObjectLocking = false;
 
         /// <summary>
         /// Represents the outcome of a test method.
@@ -428,6 +429,15 @@ namespace Test.Automated
                 return false;
             }
 
+            // Check for --enable-locking flag anywhere in args
+            List<string> argList = new List<string>(args);
+            if (argList.Contains("--enable-locking"))
+            {
+                _enableObjectLocking = true;
+                argList.Remove("--enable-locking");
+                args = argList.ToArray();
+            }
+
             string dbType = args[0].ToLowerInvariant();
 
             switch (dbType)
@@ -522,16 +532,20 @@ namespace Test.Automated
         private static void PrintUsage()
         {
             Console.WriteLine("Usage:");
-            Console.WriteLine("  Test.Automated sqlite <filename>");
-            Console.WriteLine("  Test.Automated postgresql <hostname> <port> <username> <password> <database>");
-            Console.WriteLine("  Test.Automated mysql <hostname> <port> <username> <password> <database>");
-            Console.WriteLine("  Test.Automated sqlserver <hostname> <port> <username> <password> <database>");
+            Console.WriteLine("  Test.Automated sqlite <filename> [--enable-locking]");
+            Console.WriteLine("  Test.Automated postgresql <hostname> <port> <username> <password> <database> [--enable-locking]");
+            Console.WriteLine("  Test.Automated mysql <hostname> <port> <username> <password> <database> [--enable-locking]");
+            Console.WriteLine("  Test.Automated sqlserver <hostname> <port> <username> <password> <database> [--enable-locking]");
+            Console.WriteLine();
+            Console.WriteLine("Options:");
+            Console.WriteLine("  --enable-locking    Enable object locking during document ingestion (disabled by default)");
             Console.WriteLine();
             Console.WriteLine("Examples:");
             Console.WriteLine("  Test.Automated sqlite ./test.db");
             Console.WriteLine("  Test.Automated postgresql localhost 5432 postgres password lattice");
             Console.WriteLine("  Test.Automated mysql localhost 3306 root password lattice");
             Console.WriteLine("  Test.Automated sqlserver localhost 1433 sa password lattice");
+            Console.WriteLine("  Test.Automated sqlite ./test.db --enable-locking");
         }
 
         private static void PrintDatabaseInfo()
@@ -546,6 +560,10 @@ namespace Test.Automated
                 Console.WriteLine($"Host: {_databaseSettings.Hostname}:{_databaseSettings.Port}");
                 Console.WriteLine($"Database: {_databaseSettings.DatabaseName}");
                 Console.WriteLine($"User: {_databaseSettings.Username}");
+            }
+            if (_enableObjectLocking)
+            {
+                Console.WriteLine("Object Locking: Enabled");
             }
             Console.WriteLine();
         }
@@ -633,7 +651,8 @@ namespace Test.Automated
             {
                 InMemory = inMemory,
                 DefaultDocumentsDirectory = testDir,
-                Database = dbSettings
+                Database = dbSettings,
+                EnableObjectLocking = _enableObjectLocking
             });
         }
 

@@ -171,6 +171,19 @@ namespace Lattice.Core.Repositories.Sqlite.Queries
                 );
                 CREATE INDEX IF NOT EXISTS idx_indexedfields_collectionid ON indexedfields(collectionid);
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_indexedfields_collectionid_fieldpath ON indexedfields(collectionid, fieldpath);
+
+                -- Object locks table (distributed locking for document ingestion)
+                CREATE TABLE IF NOT EXISTS objectlocks (
+                    id TEXT PRIMARY KEY,
+                    collectionid TEXT NOT NULL,
+                    documentname TEXT NOT NULL,
+                    hostname TEXT NOT NULL,
+                    createdutc TEXT NOT NULL,
+                    FOREIGN KEY (collectionid) REFERENCES collections(id) ON DELETE CASCADE
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_objectlocks_collectionid_documentname ON objectlocks(collectionid, documentname);
+                CREATE INDEX IF NOT EXISTS idx_objectlocks_createdutc ON objectlocks(createdutc);
+                CREATE INDEX IF NOT EXISTS idx_objectlocks_hostname ON objectlocks(hostname);
             ";
         }
 

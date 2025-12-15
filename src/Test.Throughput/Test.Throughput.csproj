@@ -12,4 +12,13 @@
     <NoWarn>$(NoWarn);CS8632</NoWarn>
   </PropertyGroup>
 
+  <ItemGroup>
+    <None Update="docker-*.bat">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="docker-*.sh">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

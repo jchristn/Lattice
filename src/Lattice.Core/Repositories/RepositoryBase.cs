@@ -60,6 +60,11 @@ namespace Lattice.Core.Repositories
         /// </summary>
         public abstract IIndexedFieldMethods IndexedFields { get; }
 
+        /// <summary>
+        /// Object lock methods.
+        /// </summary>
+        public abstract IObjectLockMethods ObjectLocks { get; }
+
         #endregion
 
         #region Public-Methods

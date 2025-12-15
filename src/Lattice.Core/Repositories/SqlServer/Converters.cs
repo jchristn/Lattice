@@ -227,5 +227,19 @@ namespace Lattice.Core.Repositories.SqlServer
                 LastUpdateUtc = Convert.ToDateTime(row["lastupdateutc"])
             };
         }
+
+        internal static ObjectLock ObjectLockFromDataRow(DataRow row)
+        {
+            if (row == null) return null;
+
+            return new ObjectLock
+            {
+                Id = row["id"]?.ToString(),
+                CollectionId = row["collectionid"]?.ToString(),
+                DocumentName = row["documentname"]?.ToString(),
+                Hostname = row["hostname"]?.ToString(),
+                CreatedUtc = Convert.ToDateTime(row["createdutc"])
+            };
+        }
     }
 }

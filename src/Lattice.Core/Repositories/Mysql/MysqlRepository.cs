@@ -46,6 +46,9 @@ namespace Lattice.Core.Repositories.Mysql
         /// <inheritdoc />
         public override IIndexedFieldMethods IndexedFields { get; }
 
+        /// <inheritdoc />
+        public override IObjectLockMethods ObjectLocks { get; }
+
         #endregion
 
         #region Private-Members
@@ -88,6 +91,7 @@ namespace Lattice.Core.Repositories.Mysql
             Indexes = new IndexMethods(this);
             FieldConstraints = new FieldConstraintMethods(this);
             IndexedFields = new IndexedFieldMethods(this);
+            ObjectLocks = new ObjectLockMethods(this);
         }
 
         /// <summary>

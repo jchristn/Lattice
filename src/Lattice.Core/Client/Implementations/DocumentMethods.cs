@@ -78,195 +78,253 @@ namespace Lattice.Core.Client.Implementations
             if (string.IsNullOrWhiteSpace(json))
                 throw new ArgumentNullException(nameof(json));
 
-            // Get collection
-            Collection? collection = await _Repo.Collections.ReadById(collectionId, token);
-            if (collection == null)
-                throw new ArgumentException($"Collection {collectionId} not found", nameof(collectionId));
+            // Determine document name for locking (use provided name or generate one)
+            string documentNameForLock = name ?? Guid.NewGuid().ToString();
+            string lockId = null;
 
-            // Validate document against schema constraints if enabled
-            if (collection.SchemaEnforcementMode != SchemaEnforcementMode.None)
+            // Acquire lock if enabled
+            if (_Settings.EnableObjectLocking)
             {
-                List<FieldConstraint> fieldConstraints = await _Repo.FieldConstraints.ReadByCollectionId(collectionId, token);
-                ValidationResult validationResult = _SchemaValidator.Validate(json, collection.SchemaEnforcementMode, fieldConstraints);
-
-                if (!validationResult.IsValid)
+                // Check for existing lock
+                ObjectLock existingLock = await _Repo.ObjectLocks.ReadByCollectionAndDocument(collectionId, documentNameForLock, token);
+                if (existingLock != null)
                 {
-                    throw new SchemaValidationException(collectionId, validationResult.Errors);
+                    DateTime expirationTime = existingLock.CreatedUtc.AddSeconds(_Settings.ObjectLockExpirationSeconds);
+                    if (DateTime.UtcNow > expirationTime)
+                    {
+                        // Lock is expired, delete it
+                        await _Repo.ObjectLocks.ReleaseLock(existingLock.Id, token);
+                    }
+                    else
+                    {
+                        // Lock is active, throw exception
+                        throw new DocumentLockedException(
+                            collectionId,
+                            documentNameForLock,
+                            existingLock.Hostname,
+                            existingLock.CreatedUtc);
+                    }
                 }
+
+                // Try to acquire lock
+                LockAcquisitionResult lockResult = await _Repo.ObjectLocks.TryAcquireLock(
+                    collectionId,
+                    documentNameForLock,
+                    _Settings.Hostname,
+                    token);
+
+                if (!lockResult.Success)
+                {
+                    throw new DocumentLockedException(
+                        collectionId,
+                        documentNameForLock,
+                        lockResult.Lock.Hostname,
+                        lockResult.Lock.CreatedUtc);
+                }
+
+                lockId = lockResult.Lock.Id;
             }
 
-            // Generate or find existing schema
-            List<SchemaElement> schemaElements = _SchemaGenerator.ExtractElements(json);
-            string schemaHash = _SchemaGenerator.ComputeSchemaHash(schemaElements);
-
-            Models.Schema? existingSchema = await _Repo.Schemas.ReadByHash(schemaHash, token);
-            Models.Schema schema;
-
-            if (existingSchema != null)
+            try
             {
-                schema = existingSchema;
-            }
-            else
-            {
-                // Create new schema
-                schema = new Models.Schema
-                {
-                    Id = IdGenerator.NewSchemaId(),
-                    Hash = schemaHash
-                };
-                schema = await _Repo.Schemas.Create(schema, token);
+                // Get collection
+                Collection? collection = await _Repo.Collections.ReadById(collectionId, token);
+                if (collection == null)
+                    throw new ArgumentException($"Collection {collectionId} not found", nameof(collectionId));
 
-                // Create schema elements
-                foreach (SchemaElement element in schemaElements)
+                // Validate document against schema constraints if enabled
+                if (collection.SchemaEnforcementMode != SchemaEnforcementMode.None)
                 {
-                    element.Id = IdGenerator.NewSchemaElementId();
-                    element.SchemaId = schema.Id;
+                    List<FieldConstraint> fieldConstraints = await _Repo.FieldConstraints.ReadByCollectionId(collectionId, token);
+                    ValidationResult validationResult = _SchemaValidator.Validate(json, collection.SchemaEnforcementMode, fieldConstraints);
+
+                    if (!validationResult.IsValid)
+                    {
+                        throw new SchemaValidationException(collectionId, validationResult.Errors);
+                    }
                 }
-                await _Repo.SchemaElements.CreateMany(schemaElements, token);
 
-                // Create index tables for each key (if indexing is enabled)
-                if (collection.IndexingMode != IndexingMode.None)
+                // Generate or find existing schema
+                List<SchemaElement> schemaElements = _SchemaGenerator.ExtractElements(json);
+                string schemaHash = _SchemaGenerator.ComputeSchemaHash(schemaElements);
+
+                Models.Schema? existingSchema = await _Repo.Schemas.ReadByHash(schemaHash, token);
+                Models.Schema schema;
+
+                if (existingSchema != null)
                 {
+                    schema = existingSchema;
+                }
+                else
+                {
+                    // Create new schema
+                    schema = new Models.Schema
+                    {
+                        Id = IdGenerator.NewSchemaId(),
+                        Hash = schemaHash
+                    };
+                    schema = await _Repo.Schemas.Create(schema, token);
+
+                    // Create schema elements
                     foreach (SchemaElement element in schemaElements)
                     {
-                        IndexTableMapping? mapping = await _Repo.Indexes.GetMappingByKey(element.Key, token);
-                        if (mapping == null)
-                        {
-                            string tableName = HashHelper.GenerateIndexTableName(element.Key);
-                            mapping = new IndexTableMapping
-                            {
-                                Id = IdGenerator.NewIndexTableMappingId(),
-                                Key = element.Key,
-                                TableName = tableName
-                            };
-                            await _Repo.Indexes.CreateMapping(mapping, token);
-                            await _Repo.Indexes.CreateIndexTable(tableName, token);
-                        }
+                        element.Id = IdGenerator.NewSchemaElementId();
+                        element.SchemaId = schema.Id;
                     }
-                }
-            }
+                    await _Repo.SchemaElements.CreateMany(schemaElements, token);
 
-            // Compute content length and SHA256 hash
-            byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
-            long contentLength = jsonBytes.Length;
-            string sha256Hash;
-            using (SHA256 sha256 = SHA256.Create())
-            {
-                byte[] hashBytes = sha256.ComputeHash(jsonBytes);
-                sha256Hash = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
-            }
-
-            // Create document
-            Document document = new Document
-            {
-                Id = IdGenerator.NewDocumentId(),
-                CollectionId = collectionId,
-                SchemaId = schema.Id,
-                Name = name,
-                ContentLength = contentLength,
-                Sha256Hash = sha256Hash,
-                Labels = labels ?? new List<string>(),
-                Tags = tags ?? new Dictionary<string, string>()
-            };
-
-            // Preserve labels and tags before Create (which returns from DB without them)
-            List<string> preservedLabels = document.Labels;
-            Dictionary<string, string> preservedTags = document.Tags;
-
-            document = await _Repo.Documents.Create(document, token);
-
-            // Restore labels and tags on the returned document
-            document.Labels = preservedLabels;
-            document.Tags = preservedTags;
-
-            // Create labels (include collectionId for document-level labels)
-            if (document.Labels.Count > 0)
-            {
-                List<Label> labelEntities = document.Labels.Select(l => new Label
-                {
-                    Id = IdGenerator.NewLabelId(),
-                    CollectionId = collectionId,
-                    DocumentId = document.Id,
-                    LabelValue = l
-                }).ToList();
-                await _Repo.Labels.CreateMany(labelEntities, token);
-            }
-
-            // Create tags (include collectionId for document-level tags)
-            if (document.Tags.Count > 0)
-            {
-                List<Tag> tagEntities = document.Tags.Select(t => new Tag
-                {
-                    Id = IdGenerator.NewTagId(),
-                    CollectionId = collectionId,
-                    DocumentId = document.Id,
-                    Key = t.Key,
-                    Value = t.Value
-                }).ToList();
-                await _Repo.Tags.CreateMany(tagEntities, token);
-            }
-
-            // Only index if indexing mode is not None
-            if (collection.IndexingMode != IndexingMode.None)
-            {
-                // Get indexed fields for selective indexing
-                HashSet<string> indexedFieldPaths = null;
-                if (collection.IndexingMode == IndexingMode.Selective)
-                {
-                    List<IndexedField> indexedFieldsList = await _Repo.IndexedFields.ReadByCollectionId(collectionId, token);
-                    indexedFieldPaths = new HashSet<string>(indexedFieldsList.Select(f => f.FieldPath), StringComparer.OrdinalIgnoreCase);
-                }
-
-                // Flatten and index document values
-                List<FlattenedValue> flattenedValues = _JsonFlattener.Flatten(json);
-                IEnumerable<IGrouping<string, FlattenedValue>> valuesByKey = flattenedValues.GroupBy(v => v.Key);
-
-                // Filter values based on indexing mode
-                if (collection.IndexingMode == IndexingMode.Selective && indexedFieldPaths != null)
-                {
-                    valuesByKey = valuesByKey.Where(g => indexedFieldPaths.Contains(g.Key));
-                }
-
-                // Collect all values by table name for batch insert (single transaction)
-                Dictionary<string, List<DocumentValue>> valuesByTable = new Dictionary<string, List<DocumentValue>>();
-
-                foreach (IGrouping<string, FlattenedValue> group in valuesByKey)
-                {
-                    IndexTableMapping? mapping = await _Repo.Indexes.GetMappingByKey(group.Key, token);
-                    if (mapping != null)
+                    // Create index tables for each key (if indexing is enabled)
+                    if (collection.IndexingMode != IndexingMode.None)
                     {
-                        SchemaElement? schemaElement = await _Repo.SchemaElements.ReadBySchemaIdAndKey(schema.Id, group.Key, token);
-
-                        List<DocumentValue> values = group.Select(v => new DocumentValue
+                        foreach (SchemaElement element in schemaElements)
                         {
-                            Id = IdGenerator.NewValueId(),
-                            DocumentId = document.Id,
-                            SchemaId = schema.Id,
-                            SchemaElementId = schemaElement?.Id,
-                            Position = v.Position,
-                            Value = v.Value
-                        }).ToList();
-
-                        if (!valuesByTable.ContainsKey(mapping.TableName))
-                        {
-                            valuesByTable[mapping.TableName] = new List<DocumentValue>();
+                            IndexTableMapping? mapping = await _Repo.Indexes.GetMappingByKey(element.Key, token);
+                            if (mapping == null)
+                            {
+                                string tableName = HashHelper.GenerateIndexTableName(element.Key);
+                                mapping = new IndexTableMapping
+                                {
+                                    Id = IdGenerator.NewIndexTableMappingId(),
+                                    Key = element.Key,
+                                    TableName = tableName
+                                };
+                                await _Repo.Indexes.CreateMapping(mapping, token);
+                                await _Repo.Indexes.CreateIndexTable(tableName, token);
+                            }
                         }
-                        valuesByTable[mapping.TableName].AddRange(values);
                     }
                 }
 
-                // Insert all index values in a single transaction
-                if (valuesByTable.Count > 0)
+                // Compute content length and SHA256 hash
+                byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
+                long contentLength = jsonBytes.Length;
+                string sha256Hash;
+                using (SHA256 sha256 = SHA256.Create())
                 {
-                    await _Repo.Indexes.InsertValuesMultiTable(valuesByTable, token);
+                    byte[] hashBytes = sha256.ComputeHash(jsonBytes);
+                    sha256Hash = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
+                }
+
+                // Create document
+                Document document = new Document
+                {
+                    Id = IdGenerator.NewDocumentId(),
+                    CollectionId = collectionId,
+                    SchemaId = schema.Id,
+                    Name = name,
+                    ContentLength = contentLength,
+                    Sha256Hash = sha256Hash,
+                    Labels = labels ?? new List<string>(),
+                    Tags = tags ?? new Dictionary<string, string>()
+                };
+
+                // Preserve labels and tags before Create (which returns from DB without them)
+                List<string> preservedLabels = document.Labels;
+                Dictionary<string, string> preservedTags = document.Tags;
+
+                document = await _Repo.Documents.Create(document, token);
+
+                // Restore labels and tags on the returned document
+                document.Labels = preservedLabels;
+                document.Tags = preservedTags;
+
+                // Create labels (include collectionId for document-level labels)
+                if (document.Labels.Count > 0)
+                {
+                    List<Label> labelEntities = document.Labels.Select(l => new Label
+                    {
+                        Id = IdGenerator.NewLabelId(),
+                        CollectionId = collectionId,
+                        DocumentId = document.Id,
+                        LabelValue = l
+                    }).ToList();
+                    await _Repo.Labels.CreateMany(labelEntities, token);
+                }
+
+                // Create tags (include collectionId for document-level tags)
+                if (document.Tags.Count > 0)
+                {
+                    List<Tag> tagEntities = document.Tags.Select(t => new Tag
+                    {
+                        Id = IdGenerator.NewTagId(),
+                        CollectionId = collectionId,
+                        DocumentId = document.Id,
+                        Key = t.Key,
+                        Value = t.Value
+                    }).ToList();
+                    await _Repo.Tags.CreateMany(tagEntities, token);
+                }
+
+                // Only index if indexing mode is not None
+                if (collection.IndexingMode != IndexingMode.None)
+                {
+                    // Get indexed fields for selective indexing
+                    HashSet<string> indexedFieldPaths = null;
+                    if (collection.IndexingMode == IndexingMode.Selective)
+                    {
+                        List<IndexedField> indexedFieldsList = await _Repo.IndexedFields.ReadByCollectionId(collectionId, token);
+                        indexedFieldPaths = new HashSet<string>(indexedFieldsList.Select(f => f.FieldPath), StringComparer.OrdinalIgnoreCase);
+                    }
+
+                    // Flatten and index document values
+                    List<FlattenedValue> flattenedValues = _JsonFlattener.Flatten(json);
+                    IEnumerable<IGrouping<string, FlattenedValue>> valuesByKey = flattenedValues.GroupBy(v => v.Key);
+
+                    // Filter values based on indexing mode
+                    if (collection.IndexingMode == IndexingMode.Selective && indexedFieldPaths != null)
+                    {
+                        valuesByKey = valuesByKey.Where(g => indexedFieldPaths.Contains(g.Key));
+                    }
+
+                    // Collect all values by table name for batch insert (single transaction)
+                    Dictionary<string, List<DocumentValue>> valuesByTable = new Dictionary<string, List<DocumentValue>>();
+
+                    foreach (IGrouping<string, FlattenedValue> group in valuesByKey)
+                    {
+                        IndexTableMapping? mapping = await _Repo.Indexes.GetMappingByKey(group.Key, token);
+                        if (mapping != null)
+                        {
+                            SchemaElement? schemaElement = await _Repo.SchemaElements.ReadBySchemaIdAndKey(schema.Id, group.Key, token);
+
+                            List<DocumentValue> values = group.Select(v => new DocumentValue
+                            {
+                                Id = IdGenerator.NewValueId(),
+                                DocumentId = document.Id,
+                                SchemaId = schema.Id,
+                                SchemaElementId = schemaElement?.Id,
+                                Position = v.Position,
+                                Value = v.Value
+                            }).ToList();
+
+                            if (!valuesByTable.ContainsKey(mapping.TableName))
+                            {
+                                valuesByTable[mapping.TableName] = new List<DocumentValue>();
+                            }
+                            valuesByTable[mapping.TableName].AddRange(values);
+                        }
+                    }
+
+                    // Insert all index values in a single transaction
+                    if (valuesByTable.Count > 0)
+                    {
+                        await _Repo.Indexes.InsertValuesMultiTable(valuesByTable, token);
+                    }
+                }
+
+                // Store raw JSON to disk
+                string documentPath = Path.Combine(collection.DocumentsDirectory, $"{document.Id}.json");
+                await File.WriteAllTextAsync(documentPath, json, token);
+
+                return document;
+            }
+            finally
+            {
+                // Release lock if acquired
+                if (_Settings.EnableObjectLocking && lockId != null)
+                {
+                    await _Repo.ObjectLocks.ReleaseLock(lockId, token);
                 }
             }
-
-            // Store raw JSON to disk
-            string documentPath = Path.Combine(collection.DocumentsDirectory, $"{document.Id}.json");
-            await File.WriteAllTextAsync(documentPath, json, token);
-
-            return document;
         }
 
         /// <inheritdoc />

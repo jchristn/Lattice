@@ -188,6 +188,21 @@ namespace Lattice.Core.Repositories.Mysql.Queries
 
                 CREATE INDEX IF NOT EXISTS `idx_indexedfields_collectionid` ON `indexedfields`(`collectionid`);
                 CREATE UNIQUE INDEX IF NOT EXISTS `idx_indexedfields_collectionid_fieldpath` ON `indexedfields`(`collectionid`, `fieldpath`(255));
+
+                -- Object locks table (distributed locking for document ingestion)
+                CREATE TABLE IF NOT EXISTS `objectlocks` (
+                    `id` VARCHAR(64) NOT NULL,
+                    `collectionid` VARCHAR(64) NOT NULL,
+                    `documentname` VARCHAR(512) NOT NULL,
+                    `hostname` VARCHAR(256) NOT NULL,
+                    `createdutc` DATETIME(6) NOT NULL,
+                    PRIMARY KEY (`id`),
+                    CONSTRAINT `fk_objectlocks_collections` FOREIGN KEY (`collectionid`) REFERENCES `collections`(`id`) ON DELETE CASCADE,
+                    CONSTRAINT `uk_objectlocks_collectionid_documentname` UNIQUE (`collectionid`, `documentname`(255))
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE INDEX IF NOT EXISTS `idx_objectlocks_createdutc` ON `objectlocks`(`createdutc`);
+                CREATE INDEX IF NOT EXISTS `idx_objectlocks_hostname` ON `objectlocks`(`hostname`);
             ";
         }
 

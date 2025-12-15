@@ -197,6 +197,24 @@ namespace Lattice.Core.Repositories.SqlServer.Queries
 
                 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_indexedfields_collectionid')
                 CREATE INDEX [idx_indexedfields_collectionid] ON [indexedfields]([collectionid]);
+
+                -- Object locks table (distributed locking for document ingestion)
+                IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'objectlocks')
+                CREATE TABLE [objectlocks] (
+                    [id] NVARCHAR(64) NOT NULL PRIMARY KEY,
+                    [collectionid] NVARCHAR(64) NOT NULL,
+                    [documentname] NVARCHAR(512) NOT NULL,
+                    [hostname] NVARCHAR(256) NOT NULL,
+                    [createdutc] DATETIME2 NOT NULL,
+                    CONSTRAINT [fk_objectlocks_collections] FOREIGN KEY ([collectionid]) REFERENCES [collections]([id]) ON DELETE CASCADE,
+                    CONSTRAINT [uk_objectlocks_collectionid_documentname] UNIQUE ([collectionid], [documentname])
+                );
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_objectlocks_createdutc')
+                CREATE INDEX [idx_objectlocks_createdutc] ON [objectlocks]([createdutc]);
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_objectlocks_hostname')
+                CREATE INDEX [idx_objectlocks_hostname] ON [objectlocks]([hostname]);
             ";
         }
 

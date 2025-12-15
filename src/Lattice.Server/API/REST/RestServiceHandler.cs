@@ -264,6 +264,20 @@ namespace Lattice.Server.API.REST
                     Data = new { Errors = sve.Errors }
                 };
             }
+            catch (DocumentLockedException dle)
+            {
+                _Logging?.Warn(_Header + "Document locked in " + requestType + ": " + dle.Message);
+                responseContext = new ResponseContext(false, 409, "Document is locked")
+                {
+                    Data = new
+                    {
+                        CollectionId = dle.CollectionId,
+                        DocumentName = dle.DocumentName,
+                        LockedByHostname = dle.LockedByHostname,
+                        LockCreatedUtc = dle.LockCreatedUtc
+                    }
+                };
+            }
             catch (ArgumentException e)
             {
                 _Logging?.Warn(_Header + "Argument error in " + requestType + ": " + e.Message);

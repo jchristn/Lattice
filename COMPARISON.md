@@ -23,11 +23,12 @@ Lattice is a JSON document store with automatic schema detection, SQL-like query
 
 | Characteristic | Description |
 |----------------|-------------|
-| **Storage Model** | JSON documents stored as files, metadata and indexes in SQLite |
+| **Storage Model** | JSON documents stored as files, metadata and indexes in relational database |
+| **Database Backends** | SQLite, SQL Server, PostgreSQL, MySQL |
 | **Query Language** | SQL-like DSL (`WHERE field = 'value' AND age > 30`) |
 | **Schema** | Automatic detection with optional enforcement |
 | **Indexing** | Dynamic per-field index tables with selective indexing |
-| **Deployment** | Single-process, embedded or REST API server |
+| **Deployment** | Embedded, single-node, or horizontally scaled with shared database |
 | **Platform** | .NET (C#) with HTTP REST interface |
 
 ---
@@ -50,7 +51,7 @@ Traditional databases operate in one of two paradigms:
 
 ```
 +-----------------------------------------------------------------------+
-|                         Schema Rigidity                               |
+|                            Schema Rigidity                            |
 |  Flexible                                                    Rigid    |
 |  <----------------------------------------------------------------->  |
 |                                                                       |
@@ -97,7 +98,7 @@ Traditional databases operate in one of two paradigms:
 |          v                                                           |
 |   +------------------+                                               |
 |   | File System      |                                               |
-|   | {doc_id}.json    |<-- Raw JSON preserved on disk                 |
+|   | {doc_id}.json    |<---- Raw JSON preserved on disk               |
 |   +------------------+                                               |
 |                                                                      |
 +----------------------------------------------------------------------+
@@ -108,7 +109,7 @@ Traditional databases operate in one of two paradigms:
 | Decision | Rationale | Trade-off |
 |----------|-----------|-----------|
 | One index table per field | Sparse data efficiency | Many tables with large schemas |
-| SQLite backend | Zero configuration, ACID | Single-writer limitation |
+| Pluggable database backend | Flexibility (SQLite for embedded, PostgreSQL/SQL Server/MySQL for scale) | Configuration complexity for server databases |
 | Raw JSON on disk | Original fidelity preserved | Disk I/O for content retrieval |
 | Automatic schema detection | No upfront definition | Schema storage overhead |
 | Hash-based schema deduplication | Storage efficiency | Hash computation cost |
@@ -122,12 +123,12 @@ Traditional databases operate in one of two paradigms:
 | Aspect | MongoDB | Lattice |
 |--------|---------|---------|
 | Query Language | MQL, Aggregation Pipeline | SQL-like DSL |
-| Scalability | Horizontal sharding | Single-node |
+| Scalability | Horizontal sharding | Horizontal via shared database (PostgreSQL/SQL Server/MySQL) |
 | Indexing | Manual creation | Automatic |
 | Full-text Search | Supported | Not supported |
 | Aggregations | Supported | Not supported |
 | Transactions | Multi-document ACID | Single-document |
-| Deployment | Server/cluster | Embedded or REST |
+| Deployment | Server/cluster | Embedded, REST, or multi-instance |
 
 ### Elasticsearch
 
@@ -136,7 +137,7 @@ Traditional databases operate in one of two paradigms:
 | Primary Purpose | Full-text search, analytics | Document storage with querying |
 | Full-text Search | Supported | Not supported |
 | Aggregations | Supported | Not supported |
-| Scalability | Distributed | Single-node |
+| Scalability | Distributed | Horizontal via shared database backend |
 | Consistency | Eventually consistent | Immediately consistent |
 
 ### CouchDB
@@ -154,7 +155,7 @@ Traditional databases operate in one of two paradigms:
 |--------|----------|---------|
 | Hosting | AWS managed | Self-hosted |
 | Query Model | Primary key + secondary indexes | Any field via SQL-like DSL |
-| Scalability | Auto-scaling | Single-node |
+| Scalability | Auto-scaling | Horizontal via shared database backend |
 | Indexing | Manual GSI/LSI creation | Automatic |
 
 ---
@@ -192,13 +193,14 @@ WHERE email = 'user@example.com'
 
 ### SQLite
 
-Lattice uses SQLite as its storage backend.
+Lattice supports SQLite as one of its storage backends (along with SQL Server, PostgreSQL, and MySQL).
 
-| Aspect | SQLite Direct | Lattice |
+| Aspect | SQLite Direct | Lattice (SQLite backend) |
 |--------|---------------|---------|
 | JSON Indexing | Manual expression indexes | Automatic per-field tables |
 | Schema | Required upfront | Automatic detection |
 | Abstraction | Direct table access | Document store abstraction |
+| Scaling | Single-node | Single-node (use PostgreSQL/SQL Server/MySQL for horizontal scaling) |
 
 **SQLite JSON querying:**
 ```sql
@@ -216,6 +218,8 @@ WHERE email = 'user@example.com'
 
 ### What Lattice Provides
 
+- **Multiple database backends**: SQLite, SQL Server, PostgreSQL, MySQL
+- **Horizontal scaling**: Multiple Lattice instances sharing a common database
 - Automatic schema detection from JSON on ingestion
 - Schema deduplication via SHA256 hash matching
 - Per-field index tables created automatically
@@ -229,8 +233,7 @@ WHERE email = 'user@example.com'
 
 ### What Lattice Does Not Provide
 
-- Horizontal scaling (single-node only)
-- Replication
+- Automatic replication (rely on database backend replication)
 - Full-text search (exact match and LIKE only)
 - Aggregations (no SUM, COUNT, AVG, GROUP BY)
 - JOINs
@@ -250,9 +253,11 @@ WHERE email = 'user@example.com'
 | Full-text search | No | Partial | Yes | Yes | Partial |
 | Aggregations | No | Yes | Yes | Yes | Yes |
 | Embedded/Desktop | Yes | No | No | No | Yes |
-| Horizontal scaling | No | Yes | Yes | Partial | No |
+| Horizontal scaling | Yes* | Yes | Yes | Partial | No |
 | Multi-doc transactions | No | Yes | No | Yes | Yes |
 | Relational data | No | No | No | Yes | Yes |
+
+*Horizontal scaling supported with PostgreSQL, SQL Server, or MySQL backends
 
 ---
 
@@ -260,30 +265,33 @@ WHERE email = 'user@example.com'
 
 ### Lattice is applicable when:
 
-1. Building embedded or desktop applications requiring local document storage
-2. Schema is evolving and migration overhead is undesirable
-3. Ingesting JSON from multiple sources with varying structures
-4. SQL-like query syntax is preferred
-5. Automatic field indexing is desired
-6. Simple single-process deployment is required
+1. Building embedded or desktop applications requiring local document storage (SQLite backend)
+2. Building scalable web services with multiple instances (PostgreSQL/SQL Server/MySQL backend)
+3. Schema is evolving and migration overhead is undesirable
+4. Ingesting JSON from multiple sources with varying structures
+5. SQL-like query syntax is preferred
+6. Automatic field indexing is desired
 7. Optional schema enforcement is needed
+8. Horizontal scaling via shared database is acceptable
 
 ### Lattice is not applicable when:
 
-1. Horizontal scaling is required
-2. Full-text search with relevance scoring is needed
-3. Aggregations (SUM, COUNT, GROUP BY) are required
-4. Data is relational with JOIN requirements
-5. Distributed system features (replication, sharding) are needed
-6. Real-time change notifications are required
-7. Binary data storage is needed
+1. Full-text search with relevance scoring is needed
+2. Aggregations (SUM, COUNT, GROUP BY) are required
+3. Data is relational with JOIN requirements
+4. Built-in sharding is required (Lattice relies on database-level scaling)
+5. Real-time change notifications are required
+6. Binary data storage is needed
 
 ---
 
 ## Summary
 
-Lattice is a JSON document store with automatic schema detection, SQL-like querying, and configurable indexing. It operates as a single-node embedded database or REST service.
+Lattice is a JSON document store with automatic schema detection, SQL-like querying, and configurable indexing. It supports multiple database backends:
 
-**Provides:** Automatic schema detection and field indexing, SQL-like query syntax, optional schema enforcement, simple deployment.
+- **SQLite**: Embedded single-node deployment, zero configuration
+- **PostgreSQL / SQL Server / MySQL**: Shared database enabling horizontal scaling across multiple Lattice instances
 
-**Does not provide:** Horizontal scaling, replication, full-text search, aggregations, JOINs, multi-document transactions, binary storage.
+**Provides:** Automatic schema detection and field indexing, SQL-like query syntax, optional schema enforcement, flexible deployment from embedded to horizontally scaled.
+
+**Does not provide:** Built-in replication (use database replication), full-text search, aggregations, JOINs, multi-document transactions, binary storage.

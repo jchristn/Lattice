@@ -230,5 +230,19 @@ namespace Lattice.Core.Repositories.Sqlite
                 LastUpdateUtc = DateTime.Parse(row["lastupdateutc"].ToString())
             };
         }
+
+        internal static ObjectLock ObjectLockFromDataRow(DataRow row)
+        {
+            if (row == null) return null;
+
+            return new ObjectLock
+            {
+                Id = row["id"]?.ToString(),
+                CollectionId = row["collectionid"]?.ToString(),
+                DocumentName = row["documentname"]?.ToString(),
+                Hostname = row["hostname"]?.ToString(),
+                CreatedUtc = DateTime.Parse(row["createdutc"].ToString())
+            };
+        }
     }
 }

@@ -73,28 +73,31 @@ namespace Lattice.Core.Validation
             // Build constraint lookup
             Dictionary<string, FieldConstraint> constraintsByPath = fieldConstraints.ToDictionary(c => c.FieldPath, StringComparer.OrdinalIgnoreCase);
 
-            // Check required fields
-            foreach (FieldConstraint constraint in fieldConstraints)
+            // Check required fields (skip in Partial mode - only validate fields that exist)
+            if (mode != SchemaEnforcementMode.Partial)
             {
-                if (constraint.Required)
+                foreach (FieldConstraint constraint in fieldConstraints)
                 {
-                    bool fieldExists = documentFields.Any(f =>
-                        f.Equals(constraint.FieldPath, StringComparison.OrdinalIgnoreCase) ||
-                        f.StartsWith(constraint.FieldPath + ".", StringComparison.OrdinalIgnoreCase) ||
-                        f.StartsWith(constraint.FieldPath + "[", StringComparison.OrdinalIgnoreCase));
-
-                    if (!fieldExists)
+                    if (constraint.Required)
                     {
-                        // Also check if the field value is null
-                        JsonElement? value = GetValueAtPath(root, constraint.FieldPath);
-                        if (value == null || (value.Value.ValueKind == JsonValueKind.Null && !constraint.Nullable))
+                        bool fieldExists = documentFields.Any(f =>
+                            f.Equals(constraint.FieldPath, StringComparison.OrdinalIgnoreCase) ||
+                            f.StartsWith(constraint.FieldPath + ".", StringComparison.OrdinalIgnoreCase) ||
+                            f.StartsWith(constraint.FieldPath + "[", StringComparison.OrdinalIgnoreCase));
+
+                        if (!fieldExists)
                         {
-                            errors.Add(new ValidationError
+                            // Also check if the field value is null
+                            JsonElement? value = GetValueAtPath(root, constraint.FieldPath);
+                            if (value == null || (value.Value.ValueKind == JsonValueKind.Null && !constraint.Nullable))
                             {
-                                FieldPath = constraint.FieldPath,
-                                ErrorCode = ValidationErrorCodes.MissingRequiredField,
-                                Message = $"Required field '{constraint.FieldPath}' is missing"
-                            });
+                                errors.Add(new ValidationError
+                                {
+                                    FieldPath = constraint.FieldPath,
+                                    ErrorCode = ValidationErrorCodes.MissingRequiredField,
+                                    Message = $"Required field '{constraint.FieldPath}' is missing"
+                                });
+                            }
                         }
                     }
                 }
@@ -279,11 +282,19 @@ namespace Lattice.Core.Validation
             }
 
             // Type validation
-            if (!string.IsNullOrEmpty(constraint.DataType))
+            // When validating array elements (e.g., Tags[0]), use ArrayElementType if available
+            bool isArrayElement = Regex.IsMatch(fieldPath, @"\[\d+\]$");
+            string typeToValidate = isArrayElement && !string.IsNullOrEmpty(constraint.ArrayElementType)
+                ? constraint.ArrayElementType
+                : constraint.DataType;
+
+            if (!string.IsNullOrEmpty(typeToValidate) && !(isArrayElement && typeToValidate == "array"))
             {
-                ValidationError typeError = ValidateType(fieldPath, value, constraint.DataType);
+                ValidationError typeError = ValidateType(fieldPath, value, typeToValidate);
                 if (typeError != null)
                 {
+                    if (isArrayElement)
+                        typeError.ErrorCode = ValidationErrorCodes.InvalidArrayElement;
                     errors.Add(typeError);
                     return errors; // Skip other validations if type is wrong
                 }
@@ -317,29 +328,32 @@ namespace Lattice.Core.Validation
                     }
                 }
 
-                // Min/Max length
-                if (constraint.MinLength.HasValue && (strValue?.Length ?? 0) < constraint.MinLength.Value)
+                // Min/Max length (skip for array elements - those constraints apply to array size, not string length)
+                if (!isArrayElement)
                 {
-                    errors.Add(new ValidationError
+                    if (constraint.MinLength.HasValue && (strValue?.Length ?? 0) < constraint.MinLength.Value)
                     {
-                        FieldPath = fieldPath,
-                        ErrorCode = ValidationErrorCodes.StringTooShort,
-                        Message = $"Field '{fieldPath}' length {strValue?.Length ?? 0} is below minimum {constraint.MinLength}",
-                        ActualValue = strValue?.Length ?? 0,
-                        ExpectedValue = constraint.MinLength
-                    });
-                }
+                        errors.Add(new ValidationError
+                        {
+                            FieldPath = fieldPath,
+                            ErrorCode = ValidationErrorCodes.StringTooShort,
+                            Message = $"Field '{fieldPath}' length {strValue?.Length ?? 0} is below minimum {constraint.MinLength}",
+                            ActualValue = strValue?.Length ?? 0,
+                            ExpectedValue = constraint.MinLength
+                        });
+                    }
 
-                if (constraint.MaxLength.HasValue && (strValue?.Length ?? 0) > constraint.MaxLength.Value)
-                {
-                    errors.Add(new ValidationError
+                    if (constraint.MaxLength.HasValue && (strValue?.Length ?? 0) > constraint.MaxLength.Value)
                     {
-                        FieldPath = fieldPath,
-                        ErrorCode = ValidationErrorCodes.StringTooLong,
-                        Message = $"Field '{fieldPath}' length {strValue?.Length ?? 0} exceeds maximum {constraint.MaxLength}",
-                        ActualValue = strValue?.Length ?? 0,
-                        ExpectedValue = constraint.MaxLength
-                    });
+                        errors.Add(new ValidationError
+                        {
+                            FieldPath = fieldPath,
+                            ErrorCode = ValidationErrorCodes.StringTooLong,
+                            Message = $"Field '{fieldPath}' length {strValue?.Length ?? 0} exceeds maximum {constraint.MaxLength}",
+                            ActualValue = strValue?.Length ?? 0,
+                            ExpectedValue = constraint.MaxLength
+                        });
+                    }
                 }
 
                 // Allowed values

@@ -60,6 +60,11 @@ namespace Lattice.Core.Helpers
         public const string IndexedFieldPrefix = "ixf_";
 
         /// <summary>
+        /// Prefix for object lock IDs.
+        /// </summary>
+        public const string ObjectLockPrefix = "lock_";
+
+        /// <summary>
         /// Default ID length (excluding prefix).
         /// </summary>
         private const int DefaultIdLength = 24;
@@ -133,6 +138,12 @@ namespace Lattice.Core.Helpers
         /// </summary>
         /// <returns>K-sortable indexed field ID.</returns>
         public static string NewIndexedFieldId() => _Generator.GenerateKSortable(IndexedFieldPrefix, DefaultIdLength + IndexedFieldPrefix.Length);
+
+        /// <summary>
+        /// Generate a new object lock ID.
+        /// </summary>
+        /// <returns>K-sortable object lock ID.</returns>
+        public static string NewObjectLockId() => _Generator.GenerateKSortable(ObjectLockPrefix, DefaultIdLength + ObjectLockPrefix.Length);
 
         #endregion
     }

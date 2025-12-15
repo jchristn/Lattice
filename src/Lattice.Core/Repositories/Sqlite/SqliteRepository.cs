@@ -47,6 +47,9 @@ namespace Lattice.Core.Repositories.Sqlite
         /// <inheritdoc />
         public override IIndexedFieldMethods IndexedFields { get; }
 
+        /// <inheritdoc />
+        public override IObjectLockMethods ObjectLocks { get; }
+
         /// <summary>
         /// The number of connections in the pool.
         /// </summary>
@@ -116,6 +119,7 @@ namespace Lattice.Core.Repositories.Sqlite
             Indexes = new IndexMethods(this);
             FieldConstraints = new FieldConstraintMethods(this);
             IndexedFields = new IndexedFieldMethods(this);
+            ObjectLocks = new ObjectLockMethods(this);
         }
 
         #endregion
