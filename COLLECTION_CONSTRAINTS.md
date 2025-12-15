@@ -1348,7 +1348,7 @@ pm.test("Rebuild completed successfully", function () {
 ### 8.1 Creating a Collection with Schema Constraint
 
 ```csharp
-var collection = await client.CreateCollection(
+var collection = await client.Collection.Create(
     name: "users",
     schemaEnforcementMode: SchemaEnforcementMode.Flexible,
     fieldConstraints: new List<FieldConstraint>
@@ -1381,7 +1381,7 @@ var collection = await client.CreateCollection(
 ### 8.2 Creating a Collection with Selective Indexing
 
 ```csharp
-var collection = await client.CreateCollection(
+var collection = await client.Collection.Create(
     name: "orders",
     indexingMode: IndexingMode.Selective,
     indexedFields: new List<string>
@@ -1398,7 +1398,7 @@ var collection = await client.CreateCollection(
 
 ```csharp
 // Change indexed fields
-await client.UpdateCollectionIndexing(
+await client.Collection.UpdateIndexing(
     collectionId: "col_abc123",
     indexingMode: IndexingMode.Selective,
     indexedFields: new List<string> { "email", "username", "lastLogin" });
@@ -1409,7 +1409,7 @@ var progress = new Progress<IndexRebuildProgress>(p =>
     Console.WriteLine($"Rebuild: {p.CurrentPhase} - {p.PercentComplete:F1}%");
 });
 
-var result = await client.RebuildIndexes(
+var result = await client.Collection.RebuildIndexes(
     collectionId: "col_abc123",
     dropUnusedIndexes: true,
     progress: progress);

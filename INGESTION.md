@@ -4,7 +4,7 @@ This document describes the complete process that occurs when a JSON document is
 
 ## Overview
 
-When a document is ingested via `LatticeClient.IngestDocument()`, Lattice performs the following high-level operations:
+When a document is ingested via `LatticeClient.Document.Ingest()`, Lattice performs the following high-level operations:
 
 1. Validate the collection exists
 2. Generate or find an existing schema
@@ -305,7 +305,7 @@ For a single document ingestion, the following assets may be created:
 
 **Input:**
 ```csharp
-await client.IngestDocument(
+await client.Document.Ingest(
     collectionId: "col_abc123",
     json: """{"Person": {"First": "Joel"}, "Active": true}""",
     name: "Joel's Record",

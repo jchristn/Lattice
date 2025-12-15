@@ -1,0 +1,28 @@
+{
+  "Logging": {
+    "ConsoleLogging": true,
+    "MinimumSeverity": "Info",
+    "LogFilename": null
+  },
+  "Rest": {
+    "Hostname": "localhost",
+    "Port": 8000,
+    "Ssl": false,
+    "SslCertificateFile": null,
+    "SslCertificatePassword": null
+  },
+  "Lattice": {
+    "Database": {
+      "Type": "Postgres",
+      "Filename": "lattice.db",
+      "Hostname": "localhost",
+      "Port": 5432,
+      "DatabaseName": "lattice",
+      "Username": "postgres",
+      "Password": "password"
+    },
+    "InMemory": false,
+    "DefaultDocumentsDirectory": "./documents",
+    "EnableLogging": false
+  }
+}

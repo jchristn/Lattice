@@ -349,7 +349,7 @@ namespace Lattice.Server.API.REST
         {
             await WrappedRequestHandler(ctx, RequestTypeEnum.Collection, async (reqCtx) =>
             {
-                List<Collection> collections = await _Client.GetCollections(CancellationToken.None);
+                List<Collection> collections = await _Client.Collection.ReadAll(CancellationToken.None);
                 return new ResponseContext
                 {
                     Success = true,
@@ -380,7 +380,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, errorMessage);
                 }
 
-                Collection collection = await _Client.CreateCollection(
+                Collection collection = await _Client.Collection.Create(
                     request.Name,
                     request.Description,
                     request.DocumentsDirectory,
@@ -411,7 +411,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                Collection? collection = await _Client.GetCollection(collectionId, CancellationToken.None);
+                Collection? collection = await _Client.Collection.ReadById(collectionId, CancellationToken.None);
                 if (collection == null)
                 {
                     return new ResponseContext(false, 404, "Collection not found");
@@ -436,7 +436,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                bool exists = await _Client.CollectionExists(collectionId, CancellationToken.None);
+                bool exists = await _Client.Collection.Exists(collectionId, CancellationToken.None);
                 if (!exists)
                 {
                     return new ResponseContext(false, 404, "Collection not found");
@@ -460,13 +460,13 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                bool exists = await _Client.CollectionExists(collectionId, CancellationToken.None);
+                bool exists = await _Client.Collection.Exists(collectionId, CancellationToken.None);
                 if (!exists)
                 {
                     return new ResponseContext(false, 404, "Collection not found");
                 }
 
-                await _Client.DeleteCollection(collectionId, CancellationToken.None);
+                await _Client.Collection.Delete(collectionId, CancellationToken.None);
 
                 return new ResponseContext
                 {
@@ -487,13 +487,13 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                Collection? collection = await _Client.GetCollection(collectionId, CancellationToken.None);
+                Collection? collection = await _Client.Collection.ReadById(collectionId, CancellationToken.None);
                 if (collection == null)
                 {
                     return new ResponseContext(false, 404, "Collection not found");
                 }
 
-                List<FieldConstraint> constraints = await _Client.GetCollectionConstraints(collectionId, CancellationToken.None);
+                List<FieldConstraint> constraints = await _Client.Collection.GetConstraints(collectionId, CancellationToken.None);
                 return new ResponseContext
                 {
                     Success = true,
@@ -518,7 +518,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                bool exists = await _Client.CollectionExists(collectionId, CancellationToken.None);
+                bool exists = await _Client.Collection.Exists(collectionId, CancellationToken.None);
                 if (!exists)
                 {
                     return new ResponseContext(false, 404, "Collection not found");
@@ -536,13 +536,13 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Invalid JSON in request body");
                 }
 
-                Collection updated = await _Client.UpdateCollectionConstraints(
+                Collection updated = await _Client.Collection.UpdateConstraints(
                     collectionId,
                     request.SchemaEnforcementMode,
                     request.FieldConstraints,
                     CancellationToken.None);
 
-                List<FieldConstraint> constraints = await _Client.GetCollectionConstraints(collectionId, CancellationToken.None);
+                List<FieldConstraint> constraints = await _Client.Collection.GetConstraints(collectionId, CancellationToken.None);
 
                 return new ResponseContext
                 {
@@ -568,13 +568,13 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                Collection? collection = await _Client.GetCollection(collectionId, CancellationToken.None);
+                Collection? collection = await _Client.Collection.ReadById(collectionId, CancellationToken.None);
                 if (collection == null)
                 {
                     return new ResponseContext(false, 404, "Collection not found");
                 }
 
-                List<IndexedField> indexedFields = await _Client.GetCollectionIndexedFields(collectionId, CancellationToken.None);
+                List<IndexedField> indexedFields = await _Client.Collection.GetIndexedFields(collectionId, CancellationToken.None);
                 return new ResponseContext
                 {
                     Success = true,
@@ -599,7 +599,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                bool exists = await _Client.CollectionExists(collectionId, CancellationToken.None);
+                bool exists = await _Client.Collection.Exists(collectionId, CancellationToken.None);
                 if (!exists)
                 {
                     return new ResponseContext(false, 404, "Collection not found");
@@ -617,7 +617,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Invalid JSON in request body");
                 }
 
-                Collection updated = await _Client.UpdateCollectionIndexing(
+                Collection updated = await _Client.Collection.UpdateIndexing(
                     collectionId,
                     request.IndexingMode,
                     request.IndexedFields,
@@ -627,10 +627,10 @@ namespace Lattice.Server.API.REST
                 IndexRebuildResult? rebuildResult = null;
                 if (request.RebuildIndexes)
                 {
-                    rebuildResult = await _Client.RebuildIndexes(collectionId, true, null, CancellationToken.None);
+                    rebuildResult = await _Client.Collection.RebuildIndexes(collectionId, true, null, CancellationToken.None);
                 }
 
-                List<IndexedField> indexedFields = await _Client.GetCollectionIndexedFields(collectionId, CancellationToken.None);
+                List<IndexedField> indexedFields = await _Client.Collection.GetIndexedFields(collectionId, CancellationToken.None);
 
                 return new ResponseContext
                 {
@@ -657,7 +657,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                bool exists = await _Client.CollectionExists(collectionId, CancellationToken.None);
+                bool exists = await _Client.Collection.Exists(collectionId, CancellationToken.None);
                 if (!exists)
                 {
                     return new ResponseContext(false, 404, "Collection not found");
@@ -674,7 +674,7 @@ namespace Lattice.Server.API.REST
                     }
                 }
 
-                IndexRebuildResult result = await _Client.RebuildIndexes(collectionId, dropUnusedIndexes, null, CancellationToken.None);
+                IndexRebuildResult result = await _Client.Collection.RebuildIndexes(collectionId, dropUnusedIndexes, null, CancellationToken.None);
 
                 return new ResponseContext
                 {
@@ -699,13 +699,13 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                bool collectionExists = await _Client.CollectionExists(collectionId, CancellationToken.None);
+                bool collectionExists = await _Client.Collection.Exists(collectionId, CancellationToken.None);
                 if (!collectionExists)
                 {
                     return new ResponseContext(false, 404, "Collection not found");
                 }
 
-                List<Document> documents = await _Client.GetDocuments(collectionId, token: CancellationToken.None);
+                List<Document> documents = await _Client.Document.ReadAllInCollection(collectionId, token: CancellationToken.None);
 
                 return new ResponseContext
                 {
@@ -726,7 +726,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                bool collectionExists = await _Client.CollectionExists(collectionId, CancellationToken.None);
+                bool collectionExists = await _Client.Collection.Exists(collectionId, CancellationToken.None);
                 if (!collectionExists)
                 {
                     return new ResponseContext(false, 404, "Collection not found");
@@ -760,7 +760,7 @@ namespace Lattice.Server.API.REST
                     jsonContent = JsonSerializer.Serialize(request.Content);
                 }
 
-                Document document = await _Client.IngestDocument(
+                Document document = await _Client.Document.Ingest(
                     collectionId,
                     jsonContent,
                     request.Name,
@@ -802,7 +802,7 @@ namespace Lattice.Server.API.REST
                     Boolean.TryParse(includeContentParam, out includeContent);
                 }
 
-                Document? document = await _Client.GetDocument(documentId, includeContent: includeContent, token: CancellationToken.None);
+                Document? document = await _Client.Document.ReadById(documentId, includeContent: includeContent, token: CancellationToken.None);
                 if (document == null || document.CollectionId != collectionId)
                 {
                     return new ResponseContext(false, 404, "Document not found");
@@ -834,7 +834,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Document ID is required");
                 }
 
-                Document? document = await _Client.GetDocument(documentId, token: CancellationToken.None);
+                Document? document = await _Client.Document.ReadById(documentId, token: CancellationToken.None);
                 if (document == null || document.CollectionId != collectionId)
                 {
                     return new ResponseContext(false, 404, "Document not found");
@@ -865,13 +865,13 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Document ID is required");
                 }
 
-                Document? document = await _Client.GetDocument(documentId, token: CancellationToken.None);
+                Document? document = await _Client.Document.ReadById(documentId, token: CancellationToken.None);
                 if (document == null || document.CollectionId != collectionId)
                 {
                     return new ResponseContext(false, 404, "Document not found");
                 }
 
-                await _Client.DeleteDocument(documentId, CancellationToken.None);
+                await _Client.Document.Delete(documentId, CancellationToken.None);
 
                 return new ResponseContext
                 {
@@ -896,7 +896,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                bool collectionExists = await _Client.CollectionExists(collectionId, CancellationToken.None);
+                bool collectionExists = await _Client.Collection.Exists(collectionId, CancellationToken.None);
                 if (!collectionExists)
                 {
                     return new ResponseContext(false, 404, "Collection not found");
@@ -917,7 +917,7 @@ namespace Lattice.Server.API.REST
                 // Use SQL expression if provided
                 if (!String.IsNullOrWhiteSpace(request.SqlExpression))
                 {
-                    SearchResult result = await _Client.SearchBySql(collectionId, request.SqlExpression, CancellationToken.None);
+                    SearchResult result = await _Client.Search.SearchBySql(collectionId, request.SqlExpression, CancellationToken.None);
                     return new ResponseContext
                     {
                         Success = true,
@@ -939,7 +939,7 @@ namespace Lattice.Server.API.REST
                     IncludeContent = request.IncludeContent ?? false
                 };
 
-                SearchResult searchResult = await _Client.Search(query, CancellationToken.None);
+                SearchResult searchResult = await _Client.Search.Search(query, CancellationToken.None);
                 return new ResponseContext
                 {
                     Success = true,
@@ -957,7 +957,7 @@ namespace Lattice.Server.API.REST
         {
             await WrappedRequestHandler(ctx, RequestTypeEnum.Collection, async (reqCtx) =>
             {
-                List<Lattice.Core.Models.Schema> schemas = await _Client.GetSchemas(CancellationToken.None);
+                List<Lattice.Core.Models.Schema> schemas = await _Client.Schema.ReadAll(CancellationToken.None);
                 return new ResponseContext
                 {
                     Success = true,
@@ -977,7 +977,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Schema ID is required");
                 }
 
-                Lattice.Core.Models.Schema? schema = await _Client.GetSchema(schemaId, CancellationToken.None);
+                Lattice.Core.Models.Schema? schema = await _Client.Schema.ReadById(schemaId, CancellationToken.None);
                 if (schema == null)
                 {
                     return new ResponseContext(false, 404, "Schema not found");
@@ -1002,13 +1002,13 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Schema ID is required");
                 }
 
-                Lattice.Core.Models.Schema? schema = await _Client.GetSchema(schemaId, CancellationToken.None);
+                Lattice.Core.Models.Schema? schema = await _Client.Schema.ReadById(schemaId, CancellationToken.None);
                 if (schema == null)
                 {
                     return new ResponseContext(false, 404, "Schema not found");
                 }
 
-                List<SchemaElement> elements = await _Client.GetSchemaElements(schemaId, CancellationToken.None);
+                List<SchemaElement> elements = await _Client.Schema.GetElements(schemaId, CancellationToken.None);
                 return new ResponseContext
                 {
                     Success = true,
@@ -1026,7 +1026,7 @@ namespace Lattice.Server.API.REST
         {
             await WrappedRequestHandler(ctx, RequestTypeEnum.Collection, async (reqCtx) =>
             {
-                List<IndexTableMapping> mappings = await _Client.GetIndexTableMappings(CancellationToken.None);
+                List<IndexTableMapping> mappings = await _Client.Index.GetMappings(CancellationToken.None);
                 return new ResponseContext
                 {
                     Success = true,

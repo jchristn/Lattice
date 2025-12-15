@@ -246,7 +246,7 @@ Finds mid-range products with good ratings.
 
 ```csharp
 // Using SQL expression
-var result = await client.SearchBySql(
+var result = await client.Search.SearchBySql(
     collectionId: "col_abc123",
     sql: "SELECT * FROM documents WHERE Person.First = 'Joel'"
 );
@@ -265,7 +265,7 @@ var query = new SearchQuery
     IncludeLabels = true,    // Include document labels (default: true)
     IncludeTags = true       // Include document tags (default: true)
 };
-var result = await client.Search(query);
+var result = await client.Search.Search(query);
 
 // Performance optimization: exclude labels/tags when not needed
 var fastQuery = new SearchQuery
@@ -275,7 +275,7 @@ var fastQuery = new SearchQuery
     IncludeLabels = false,   // Skip loading labels for faster queries
     IncludeTags = false      // Skip loading tags for faster queries
 };
-var fastResult = await client.Search(fastQuery);
+var fastResult = await client.Search.Search(fastQuery);
 ```
 
 ### Enumeration
@@ -290,7 +290,7 @@ var enumQuery = new EnumerationQuery
     IncludeLabels = true,    // Include document labels (default: true)
     IncludeTags = true       // Include document tags (default: true)
 };
-var enumResult = await client.Enumerate(enumQuery);
+var enumResult = await client.Search.Enumerate(enumQuery);
 
 // Performance optimization: enumerate without labels/tags
 var fastEnumQuery = new EnumerationQuery
@@ -300,14 +300,14 @@ var fastEnumQuery = new EnumerationQuery
     IncludeLabels = false,
     IncludeTags = false
 };
-var fastEnumResult = await client.Enumerate(fastEnumQuery);
+var fastEnumResult = await client.Search.Enumerate(fastEnumQuery);
 ```
 
-### GetDocument
+### Document Retrieval
 
 ```csharp
 // Get a single document with all data
-var doc = await client.GetDocument(
+var doc = await client.Document.ReadById(
     id: "doc_abc123",
     includeContent: true,    // Include raw JSON content (default: false)
     includeLabels: true,     // Include document labels (default: true)
@@ -315,7 +315,7 @@ var doc = await client.GetDocument(
 );
 
 // Performance optimization: get document metadata only
-var fastDoc = await client.GetDocument(
+var fastDoc = await client.Document.ReadById(
     id: "doc_abc123",
     includeContent: false,
     includeLabels: false,
@@ -323,7 +323,7 @@ var fastDoc = await client.GetDocument(
 );
 
 // Get all documents in a collection
-var docs = await client.GetDocuments(
+var docs = await client.Document.ReadAllInCollection(
     collectionId: "col_abc123",
     includeLabels: true,     // Include document labels (default: true)
     includeTags: true        // Include document tags (default: true)

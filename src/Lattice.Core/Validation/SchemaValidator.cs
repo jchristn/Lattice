@@ -64,17 +64,17 @@ namespace Lattice.Core.Validation
 
         private ValidationResult ValidateDocument(JsonElement root, SchemaEnforcementMode mode, List<FieldConstraint> fieldConstraints)
         {
-            var errors = new List<ValidationError>();
-            var documentFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            List<ValidationError> errors = new List<ValidationError>();
+            HashSet<string> documentFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             // Extract all field paths from the document
             ExtractFieldPaths(root, "", documentFields);
 
             // Build constraint lookup
-            var constraintsByPath = fieldConstraints.ToDictionary(c => c.FieldPath, StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, FieldConstraint> constraintsByPath = fieldConstraints.ToDictionary(c => c.FieldPath, StringComparer.OrdinalIgnoreCase);
 
             // Check required fields
-            foreach (var constraint in fieldConstraints)
+            foreach (FieldConstraint constraint in fieldConstraints)
             {
                 if (constraint.Required)
                 {
@@ -86,7 +86,7 @@ namespace Lattice.Core.Validation
                     if (!fieldExists)
                     {
                         // Also check if the field value is null
-                        var value = GetValueAtPath(root, constraint.FieldPath);
+                        JsonElement? value = GetValueAtPath(root, constraint.FieldPath);
                         if (value == null || (value.Value.ValueKind == JsonValueKind.Null && !constraint.Nullable))
                         {
                             errors.Add(new ValidationError
@@ -101,17 +101,17 @@ namespace Lattice.Core.Validation
             }
 
             // Validate each field that has a constraint
-            foreach (var fieldPath in documentFields)
+            foreach (string fieldPath in documentFields)
             {
                 // Find matching constraint (exact match or parent constraint for array elements)
-                var constraint = FindMatchingConstraint(fieldPath, constraintsByPath);
+                FieldConstraint constraint = FindMatchingConstraint(fieldPath, constraintsByPath);
 
                 if (constraint != null)
                 {
-                    var value = GetValueAtPath(root, fieldPath);
+                    JsonElement? value = GetValueAtPath(root, fieldPath);
                     if (value.HasValue)
                     {
-                        var fieldErrors = ValidateField(fieldPath, value.Value, constraint);
+                        List<ValidationError> fieldErrors = ValidateField(fieldPath, value.Value, constraint);
                         errors.AddRange(fieldErrors);
                     }
                 }
@@ -119,7 +119,7 @@ namespace Lattice.Core.Validation
                 {
                     // In strict mode, reject fields not in schema
                     // Skip array indices in path for this check
-                    var basePath = GetBasePath(fieldPath);
+                    string basePath = GetBasePath(fieldPath);
                     if (!constraintsByPath.ContainsKey(basePath))
                     {
                         errors.Add(new ValidationError
@@ -138,11 +138,11 @@ namespace Lattice.Core.Validation
         private FieldConstraint FindMatchingConstraint(string fieldPath, Dictionary<string, FieldConstraint> constraintsByPath)
         {
             // Try exact match first
-            if (constraintsByPath.TryGetValue(fieldPath, out var constraint))
+            if (constraintsByPath.TryGetValue(fieldPath, out FieldConstraint constraint))
                 return constraint;
 
             // For array element paths like "items[0].name", try matching "items.name"
-            var basePath = GetBasePath(fieldPath);
+            string basePath = GetBasePath(fieldPath);
             if (basePath != fieldPath && constraintsByPath.TryGetValue(basePath, out constraint))
                 return constraint;
 
@@ -160,7 +160,7 @@ namespace Lattice.Core.Validation
             switch (element.ValueKind)
             {
                 case JsonValueKind.Object:
-                    foreach (var property in element.EnumerateObject())
+                    foreach (JsonProperty property in element.EnumerateObject())
                     {
                         string newPath = string.IsNullOrEmpty(currentPath) ? property.Name : $"{currentPath}.{property.Name}";
 
@@ -177,7 +177,7 @@ namespace Lattice.Core.Validation
 
                 case JsonValueKind.Array:
                     int index = 0;
-                    foreach (var item in element.EnumerateArray())
+                    foreach (JsonElement item in element.EnumerateArray())
                     {
                         string newPath = $"{currentPath}[{index}]";
                         if (item.ValueKind == JsonValueKind.Object || item.ValueKind == JsonValueKind.Array)
@@ -207,10 +207,10 @@ namespace Lattice.Core.Validation
             if (string.IsNullOrEmpty(path))
                 return root;
 
-            var current = root;
-            var parts = ParsePath(path);
+            JsonElement current = root;
+            List<PathPart> parts = ParsePath(path);
 
-            foreach (var part in parts)
+            foreach (PathPart part in parts)
             {
                 if (part.IsArrayIndex)
                 {
@@ -227,7 +227,7 @@ namespace Lattice.Core.Validation
                     if (current.ValueKind != JsonValueKind.Object)
                         return null;
 
-                    if (!current.TryGetProperty(part.Name, out var prop))
+                    if (!current.TryGetProperty(part.Name, out JsonElement prop))
                         return null;
 
                     current = prop;
@@ -239,9 +239,9 @@ namespace Lattice.Core.Validation
 
         private List<PathPart> ParsePath(string path)
         {
-            var parts = new List<PathPart>();
-            var regex = new Regex(@"([^\.\[\]]+)|\[(\d+)\]");
-            var matches = regex.Matches(path);
+            List<PathPart> parts = new List<PathPart>();
+            Regex regex = new Regex(@"([^\.\[\]]+)|\[(\d+)\]");
+            MatchCollection matches = regex.Matches(path);
 
             foreach (Match match in matches)
             {
@@ -260,7 +260,7 @@ namespace Lattice.Core.Validation
 
         private List<ValidationError> ValidateField(string fieldPath, JsonElement value, FieldConstraint constraint)
         {
-            var errors = new List<ValidationError>();
+            List<ValidationError> errors = new List<ValidationError>();
 
             // Check null
             if (value.ValueKind == JsonValueKind.Null)
@@ -281,7 +281,7 @@ namespace Lattice.Core.Validation
             // Type validation
             if (!string.IsNullOrEmpty(constraint.DataType))
             {
-                var typeError = ValidateType(fieldPath, value, constraint.DataType);
+                ValidationError typeError = ValidateType(fieldPath, value, constraint.DataType);
                 if (typeError != null)
                 {
                     errors.Add(typeError);
@@ -422,9 +422,9 @@ namespace Lattice.Core.Validation
                 if (!string.IsNullOrEmpty(constraint.ArrayElementType))
                 {
                     int idx = 0;
-                    foreach (var item in value.EnumerateArray())
+                    foreach (JsonElement item in value.EnumerateArray())
                     {
-                        var elementError = ValidateType($"{fieldPath}[{idx}]", item, constraint.ArrayElementType);
+                        ValidationError elementError = ValidateType($"{fieldPath}[{idx}]", item, constraint.ArrayElementType);
                         if (elementError != null)
                         {
                             elementError.ErrorCode = ValidationErrorCodes.InvalidArrayElement;
