@@ -50,6 +50,16 @@ namespace Lattice.Core.Repositories
         /// </summary>
         public abstract IIndexMethods Indexes { get; }
 
+        /// <summary>
+        /// Field constraint methods.
+        /// </summary>
+        public abstract IFieldConstraintMethods FieldConstraints { get; }
+
+        /// <summary>
+        /// Indexed field methods.
+        /// </summary>
+        public abstract IIndexedFieldMethods IndexedFields { get; }
+
         #endregion
 
         #region Public-Methods

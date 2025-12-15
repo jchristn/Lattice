@@ -95,5 +95,36 @@ namespace Lattice.Core.Repositories.Interfaces
         /// <param name="tableName">Table name.</param>
         /// <param name="token">Cancellation token.</param>
         Task DropIndexTable(string tableName, CancellationToken token = default);
+
+        /// <summary>
+        /// Get mapping by table name.
+        /// </summary>
+        /// <param name="tableName">Table name.</param>
+        /// <param name="token">Cancellation token.</param>
+        /// <returns>Mapping or null if not found.</returns>
+        Task<IndexTableMapping> GetMappingByTableName(string tableName, CancellationToken token = default);
+
+        /// <summary>
+        /// Get all index table names that contain values for documents in a collection.
+        /// </summary>
+        /// <param name="collectionId">Collection ID.</param>
+        /// <param name="token">Cancellation token.</param>
+        /// <returns>List of table names.</returns>
+        Task<List<string>> GetIndexTablesForCollection(string collectionId, CancellationToken token = default);
+
+        /// <summary>
+        /// Delete all values for documents in a collection from all index tables.
+        /// </summary>
+        /// <param name="collectionId">Collection ID.</param>
+        /// <param name="token">Cancellation token.</param>
+        Task DeleteValuesByCollectionId(string collectionId, CancellationToken token = default);
+
+        /// <summary>
+        /// Delete values from a specific index table for a collection.
+        /// </summary>
+        /// <param name="tableName">Index table name.</param>
+        /// <param name="collectionId">Collection ID.</param>
+        /// <param name="token">Cancellation token.</param>
+        Task DeleteValuesFromTable(string tableName, string collectionId, CancellationToken token = default);
     }
 }

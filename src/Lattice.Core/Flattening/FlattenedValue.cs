@@ -1,7 +1,5 @@
 namespace Lattice.Core.Flattening
 {
-    using System.Text.Json.Serialization;
-
     /// <summary>
     /// Represents a single flattened key-value pair from a JSON document.
     /// </summary>
@@ -12,25 +10,21 @@ namespace Lattice.Core.Flattening
         /// <summary>
         /// The dot-notation key path (e.g., "Person.Addresses").
         /// </summary>
-        [JsonPropertyName("key")]
         public string Key { get; set; } = null;
 
         /// <summary>
         /// Array position if this value is from an array element, null otherwise.
         /// </summary>
-        [JsonPropertyName("position")]
         public int? Position { get; set; } = null;
 
         /// <summary>
         /// The string representation of the value.
         /// </summary>
-        [JsonPropertyName("value")]
         public string Value { get; set; } = null;
 
         /// <summary>
         /// The inferred data type (string, integer, number, boolean, null).
         /// </summary>
-        [JsonPropertyName("dataType")]
         public string DataType { get; set; } = null;
 
         #endregion

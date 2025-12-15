@@ -1,7 +1,9 @@
 namespace Lattice.Core.Repositories.Sqlite
 {
     using System;
+    using System.Collections.Generic;
     using System.Data;
+    using System.Text.Json;
     using Lattice.Core.Models;
 
     /// <summary>
@@ -15,7 +17,7 @@ namespace Lattice.Core.Repositories.Sqlite
         {
             if (row == null) return null;
 
-            return new Collection
+            var collection = new Collection
             {
                 Id = row["id"]?.ToString(),
                 Name = row["name"]?.ToString(),
@@ -24,13 +26,26 @@ namespace Lattice.Core.Repositories.Sqlite
                 CreatedUtc = DateTime.Parse(row["createdutc"].ToString()),
                 LastUpdateUtc = DateTime.Parse(row["lastupdateutc"].ToString())
             };
+
+            // Handle new columns with backwards compatibility for existing databases
+            if (row.Table.Columns.Contains("schemaenforcementmode") && row["schemaenforcementmode"] != DBNull.Value)
+            {
+                collection.SchemaEnforcementMode = (SchemaEnforcementMode)Convert.ToInt32(row["schemaenforcementmode"]);
+            }
+
+            if (row.Table.Columns.Contains("indexingmode") && row["indexingmode"] != DBNull.Value)
+            {
+                collection.IndexingMode = (IndexingMode)Convert.ToInt32(row["indexingmode"]);
+            }
+
+            return collection;
         }
 
         internal static Document DocumentFromDataRow(DataRow row)
         {
             if (row == null) return null;
 
-            return new Document
+            var doc = new Document
             {
                 Id = row["id"]?.ToString(),
                 CollectionId = row["collectionid"]?.ToString(),
@@ -39,6 +54,20 @@ namespace Lattice.Core.Repositories.Sqlite
                 CreatedUtc = DateTime.Parse(row["createdutc"].ToString()),
                 LastUpdateUtc = DateTime.Parse(row["lastupdateutc"].ToString())
             };
+
+            // Handle contentlength - may not exist in older databases
+            if (row.Table.Columns.Contains("contentlength") && row["contentlength"] != DBNull.Value)
+            {
+                doc.ContentLength = Convert.ToInt64(row["contentlength"]);
+            }
+
+            // Handle sha256hash - may not exist in older databases
+            if (row.Table.Columns.Contains("sha256hash") && row["sha256hash"] != DBNull.Value)
+            {
+                doc.Sha256Hash = row["sha256hash"]?.ToString();
+            }
+
+            return doc;
         }
 
         internal static Schema SchemaFromDataRow(DataRow row)
@@ -137,6 +166,69 @@ namespace Lattice.Core.Repositories.Sqlite
         internal static string ToTimestamp(DateTime dt)
         {
             return dt.ToString(TimestampFormat);
+        }
+
+        internal static FieldConstraint FieldConstraintFromDataRow(DataRow row)
+        {
+            if (row == null) return null;
+
+            var constraint = new FieldConstraint
+            {
+                Id = row["id"]?.ToString(),
+                CollectionId = row["collectionid"]?.ToString(),
+                FieldPath = row["fieldpath"]?.ToString(),
+                DataType = row["datatype"] != DBNull.Value ? row["datatype"]?.ToString() : null,
+                Required = row["required"] != DBNull.Value && Convert.ToInt32(row["required"]) == 1,
+                Nullable = row["nullable"] == DBNull.Value || Convert.ToInt32(row["nullable"]) == 1,
+                RegexPattern = row["regexpattern"] != DBNull.Value ? row["regexpattern"]?.ToString() : null,
+                ArrayElementType = row["arrayelementtype"] != DBNull.Value ? row["arrayelementtype"]?.ToString() : null,
+                CreatedUtc = DateTime.Parse(row["createdutc"].ToString()),
+                LastUpdateUtc = DateTime.Parse(row["lastupdateutc"].ToString())
+            };
+
+            if (row["minvalue"] != DBNull.Value)
+                constraint.MinValue = Convert.ToDecimal(row["minvalue"]);
+
+            if (row["maxvalue"] != DBNull.Value)
+                constraint.MaxValue = Convert.ToDecimal(row["maxvalue"]);
+
+            if (row["minlength"] != DBNull.Value)
+                constraint.MinLength = Convert.ToInt32(row["minlength"]);
+
+            if (row["maxlength"] != DBNull.Value)
+                constraint.MaxLength = Convert.ToInt32(row["maxlength"]);
+
+            if (row["allowedvalues"] != DBNull.Value)
+            {
+                string allowedValuesJson = row["allowedvalues"]?.ToString();
+                if (!string.IsNullOrWhiteSpace(allowedValuesJson))
+                {
+                    try
+                    {
+                        constraint.AllowedValues = JsonSerializer.Deserialize<List<string>>(allowedValuesJson);
+                    }
+                    catch
+                    {
+                        constraint.AllowedValues = new List<string>();
+                    }
+                }
+            }
+
+            return constraint;
+        }
+
+        internal static IndexedField IndexedFieldFromDataRow(DataRow row)
+        {
+            if (row == null) return null;
+
+            return new IndexedField
+            {
+                Id = row["id"]?.ToString(),
+                CollectionId = row["collectionid"]?.ToString(),
+                FieldPath = row["fieldpath"]?.ToString(),
+                CreatedUtc = DateTime.Parse(row["createdutc"].ToString()),
+                LastUpdateUtc = DateTime.Parse(row["lastupdateutc"].ToString())
+            };
         }
     }
 }

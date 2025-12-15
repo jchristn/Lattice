@@ -2,7 +2,7 @@ namespace Lattice.Server.Classes
 {
     using System;
     using System.Collections.Generic;
-    using System.Text.Json.Serialization;
+    using Lattice.Core.Models;
 
     /// <summary>
     /// Request model for creating a collection.
@@ -14,32 +14,47 @@ namespace Lattice.Server.Classes
         /// <summary>
         /// Collection name.
         /// </summary>
-        [JsonPropertyName("name")]
         public string Name { get; set; } = null!;
 
         /// <summary>
         /// Collection description.
         /// </summary>
-        [JsonPropertyName("description")]
         public string? Description { get; set; }
 
         /// <summary>
         /// Directory for storing documents.
         /// </summary>
-        [JsonPropertyName("documentsDirectory")]
         public string? DocumentsDirectory { get; set; }
 
         /// <summary>
         /// Collection labels.
         /// </summary>
-        [JsonPropertyName("labels")]
         public List<string>? Labels { get; set; }
 
         /// <summary>
         /// Collection tags.
         /// </summary>
-        [JsonPropertyName("tags")]
         public Dictionary<string, string>? Tags { get; set; }
+
+        /// <summary>
+        /// Schema enforcement mode for documents in this collection.
+        /// </summary>
+        public SchemaEnforcementMode SchemaEnforcementMode { get; set; } = SchemaEnforcementMode.None;
+
+        /// <summary>
+        /// Field constraints for schema validation.
+        /// </summary>
+        public List<FieldConstraint>? FieldConstraints { get; set; }
+
+        /// <summary>
+        /// Indexing mode for documents in this collection.
+        /// </summary>
+        public IndexingMode IndexingMode { get; set; } = IndexingMode.All;
+
+        /// <summary>
+        /// Fields to index (when indexingMode is Selective).
+        /// </summary>
+        public List<string>? IndexedFields { get; set; }
 
         #endregion
 

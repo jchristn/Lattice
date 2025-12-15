@@ -112,6 +112,29 @@ export class LatticeApi {
   async getIndexTables() {
     return this.request('GET', '/v1.0/tables')
   }
+
+  // Schema Constraints
+  async getCollectionConstraints(collectionId) {
+    return this.request('GET', `/v1.0/collections/${collectionId}/constraints`)
+  }
+
+  async updateCollectionConstraints(collectionId, data) {
+    return this.request('POST', `/v1.0/collections/${collectionId}/constraints`, data)
+  }
+
+  // Indexing Configuration
+  async getCollectionIndexedFields(collectionId) {
+    return this.request('GET', `/v1.0/collections/${collectionId}/indexing`)
+  }
+
+  async updateCollectionIndexing(collectionId, data) {
+    return this.request('POST', `/v1.0/collections/${collectionId}/indexing`, data)
+  }
+
+  // Index Rebuild
+  async rebuildIndexes(collectionId, options = {}) {
+    return this.request('POST', `/v1.0/collections/${collectionId}/indexes/rebuild`, options)
+  }
 }
 
 /**

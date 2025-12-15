@@ -2,7 +2,6 @@ namespace Lattice.Core.Models
 {
     using System;
     using System.Collections.Generic;
-    using System.Text.Json.Serialization;
 
     /// <summary>
     /// Represents a collection of documents in the Lattice store.
@@ -14,31 +13,26 @@ namespace Lattice.Core.Models
         /// <summary>
         /// Unique identifier for the collection (col_{prettyid}).
         /// </summary>
-        [JsonPropertyName("id")]
         public string Id { get; set; } = null;
 
         /// <summary>
         /// Name of the collection.
         /// </summary>
-        [JsonPropertyName("name")]
         public string Name { get; set; } = null;
 
         /// <summary>
         /// Description of the collection.
         /// </summary>
-        [JsonPropertyName("description")]
         public string Description { get; set; } = null;
 
         /// <summary>
         /// Directory path where documents for this collection are stored.
         /// </summary>
-        [JsonPropertyName("documentsDirectory")]
         public string DocumentsDirectory { get; set; } = null;
 
         /// <summary>
         /// Labels associated with the collection.
         /// </summary>
-        [JsonPropertyName("labels")]
         public List<string> Labels
         {
             get => _Labels;
@@ -48,7 +42,6 @@ namespace Lattice.Core.Models
         /// <summary>
         /// Key-value tags associated with the collection.
         /// </summary>
-        [JsonPropertyName("tags")]
         public Dictionary<string, string> Tags
         {
             get => _Tags;
@@ -58,14 +51,22 @@ namespace Lattice.Core.Models
         /// <summary>
         /// Timestamp when the collection was created (UTC).
         /// </summary>
-        [JsonPropertyName("createdUtc")]
         public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
 
         /// <summary>
         /// Timestamp when the collection was last updated (UTC).
         /// </summary>
-        [JsonPropertyName("lastUpdateUtc")]
         public DateTime LastUpdateUtc { get; set; } = DateTime.UtcNow;
+
+        /// <summary>
+        /// Schema enforcement mode for documents in this collection.
+        /// </summary>
+        public SchemaEnforcementMode SchemaEnforcementMode { get; set; } = SchemaEnforcementMode.None;
+
+        /// <summary>
+        /// Indexing mode for documents in this collection.
+        /// </summary>
+        public IndexingMode IndexingMode { get; set; } = IndexingMode.All;
 
         #endregion
 

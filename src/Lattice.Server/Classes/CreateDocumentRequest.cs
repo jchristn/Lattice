@@ -2,7 +2,6 @@ namespace Lattice.Server.Classes
 {
     using System;
     using System.Collections.Generic;
-    using System.Text.Json.Serialization;
 
     /// <summary>
     /// Request model for creating a document.
@@ -14,25 +13,21 @@ namespace Lattice.Server.Classes
         /// <summary>
         /// Document content (JSON object).
         /// </summary>
-        [JsonPropertyName("content")]
         public object Content { get; set; } = null!;
 
         /// <summary>
         /// Document name.
         /// </summary>
-        [JsonPropertyName("name")]
         public string? Name { get; set; }
 
         /// <summary>
         /// Document labels.
         /// </summary>
-        [JsonPropertyName("labels")]
         public List<string>? Labels { get; set; }
 
         /// <summary>
         /// Document tags.
         /// </summary>
-        [JsonPropertyName("tags")]
         public Dictionary<string, string>? Tags { get; set; }
 
         #endregion

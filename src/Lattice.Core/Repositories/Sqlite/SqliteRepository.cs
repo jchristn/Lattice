@@ -41,6 +41,12 @@ namespace Lattice.Core.Repositories.Sqlite
         /// <inheritdoc />
         public override IIndexMethods Indexes { get; }
 
+        /// <inheritdoc />
+        public override IFieldConstraintMethods FieldConstraints { get; }
+
+        /// <inheritdoc />
+        public override IIndexedFieldMethods IndexedFields { get; }
+
         /// <summary>
         /// The number of connections in the pool.
         /// </summary>
@@ -108,6 +114,8 @@ namespace Lattice.Core.Repositories.Sqlite
             Labels = new LabelMethods(this);
             Tags = new TagMethods(this);
             Indexes = new IndexMethods(this);
+            FieldConstraints = new FieldConstraintMethods(this);
+            IndexedFields = new IndexedFieldMethods(this);
         }
 
         #endregion
@@ -133,6 +141,20 @@ namespace Lattice.Core.Repositories.Sqlite
 
             // Create tables and indices
             ExecuteNonQuery(SetupQueries.CreateTablesAndIndices());
+
+            // Run migrations for existing databases (add new columns, etc.)
+            // Errors are caught individually because columns may already exist
+            foreach (string migration in SetupQueries.GetMigrationStatements())
+            {
+                try
+                {
+                    ExecuteNonQuery(migration);
+                }
+                catch (SqliteException)
+                {
+                    // Column likely already exists - ignore error
+                }
+            }
         }
 
         /// <inheritdoc />

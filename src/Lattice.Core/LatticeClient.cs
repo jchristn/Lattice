@@ -2,10 +2,14 @@ namespace Lattice.Core
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.IO;
     using System.Linq;
+    using System.Security.Cryptography;
+    using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
+    using Lattice.Core.Exceptions;
     using Lattice.Core.Flattening;
     using Lattice.Core.Helpers;
     using Lattice.Core.Models;
@@ -13,6 +17,7 @@ namespace Lattice.Core
     using Lattice.Core.Repositories.Sqlite;
     using Lattice.Core.Schema;
     using Lattice.Core.Search;
+    using Lattice.Core.Validation;
 
     /// <summary>
     /// Main client for interacting with the Lattice document store.
@@ -34,6 +39,7 @@ namespace Lattice.Core
         private readonly ISchemaGenerator _SchemaGenerator;
         private readonly IJsonFlattener _JsonFlattener;
         private readonly SqlParser _SqlParser;
+        private readonly ISchemaValidator _SchemaValidator;
         private bool _Disposed = false;
 
         #endregion
@@ -48,12 +54,13 @@ namespace Lattice.Core
         {
             Settings = settings ?? new LatticeSettings();
 
-            _Repo = new SqliteRepository(Settings.DatabaseFilename, Settings.InMemory);
+            _Repo = new SqliteRepository(Settings.Database.Filename, Settings.InMemory);
             _Repo.InitializeRepository();
 
             _SchemaGenerator = new SchemaGenerator();
             _JsonFlattener = new JsonFlattener();
             _SqlParser = new SqlParser();
+            _SchemaValidator = new SchemaValidator();
         }
 
         /// <summary>
@@ -69,6 +76,7 @@ namespace Lattice.Core
             _SchemaGenerator = new SchemaGenerator();
             _JsonFlattener = new JsonFlattener();
             _SqlParser = new SqlParser();
+            _SchemaValidator = new SchemaValidator();
         }
 
         #endregion
@@ -83,6 +91,10 @@ namespace Lattice.Core
         /// <param name="documentsDirectory">Directory for storing documents.</param>
         /// <param name="labels">Collection labels.</param>
         /// <param name="tags">Collection tags.</param>
+        /// <param name="schemaEnforcementMode">Schema enforcement mode for documents.</param>
+        /// <param name="fieldConstraints">Field constraints for schema validation.</param>
+        /// <param name="indexingMode">Indexing mode for documents.</param>
+        /// <param name="indexedFields">Fields to index (when indexingMode is Selective).</param>
         /// <param name="token">Cancellation token.</param>
         /// <returns>Created collection.</returns>
         public async Task<Collection> CreateCollection(
@@ -91,6 +103,10 @@ namespace Lattice.Core
             string documentsDirectory = null,
             List<string> labels = null,
             Dictionary<string, string> tags = null,
+            SchemaEnforcementMode schemaEnforcementMode = SchemaEnforcementMode.None,
+            List<FieldConstraint> fieldConstraints = null,
+            IndexingMode indexingMode = IndexingMode.All,
+            List<string> indexedFields = null,
             CancellationToken token = default)
         {
             if (string.IsNullOrWhiteSpace(name))
@@ -103,7 +119,9 @@ namespace Lattice.Core
                 Description = description,
                 DocumentsDirectory = documentsDirectory ?? Path.Combine(Settings.DefaultDocumentsDirectory, name),
                 Labels = labels ?? new List<string>(),
-                Tags = tags ?? new Dictionary<string, string>()
+                Tags = tags ?? new Dictionary<string, string>(),
+                SchemaEnforcementMode = schemaEnforcementMode,
+                IndexingMode = indexingMode
             };
 
             // Ensure documents directory exists
@@ -137,6 +155,33 @@ namespace Lattice.Core
                     Value = t.Value
                 }).ToList();
                 await _Repo.Tags.CreateMany(collectionTags, token);
+            }
+
+            // Create field constraints
+            if (fieldConstraints != null && fieldConstraints.Count > 0)
+            {
+                foreach (var constraint in fieldConstraints)
+                {
+                    constraint.Id = IdGenerator.NewFieldConstraintId();
+                    constraint.CollectionId = created.Id;
+                    constraint.CreatedUtc = DateTime.UtcNow;
+                    constraint.LastUpdateUtc = DateTime.UtcNow;
+                }
+                await _Repo.FieldConstraints.CreateMany(fieldConstraints, token);
+            }
+
+            // Create indexed fields
+            if (indexingMode == IndexingMode.Selective && indexedFields != null && indexedFields.Count > 0)
+            {
+                List<IndexedField> indexedFieldEntities = indexedFields.Select(f => new IndexedField
+                {
+                    Id = IdGenerator.NewIndexedFieldId(),
+                    CollectionId = created.Id,
+                    FieldPath = f,
+                    CreatedUtc = DateTime.UtcNow,
+                    LastUpdateUtc = DateTime.UtcNow
+                }).ToList();
+                await _Repo.IndexedFields.CreateMany(indexedFieldEntities, token);
             }
 
             created.Labels = collection.Labels;
@@ -235,6 +280,314 @@ namespace Lattice.Core
             return _Repo.Collections.Exists(id, token);
         }
 
+        /// <summary>
+        /// Get the field constraints for a collection.
+        /// </summary>
+        /// <param name="collectionId">Collection ID.</param>
+        /// <param name="token">Cancellation token.</param>
+        /// <returns>List of field constraints.</returns>
+        public Task<List<FieldConstraint>> GetCollectionConstraints(string collectionId, CancellationToken token = default)
+        {
+            if (string.IsNullOrWhiteSpace(collectionId))
+                throw new ArgumentNullException(nameof(collectionId));
+
+            return _Repo.FieldConstraints.ReadByCollectionId(collectionId, token);
+        }
+
+        /// <summary>
+        /// Get the indexed fields for a collection.
+        /// </summary>
+        /// <param name="collectionId">Collection ID.</param>
+        /// <param name="token">Cancellation token.</param>
+        /// <returns>List of indexed fields.</returns>
+        public Task<List<IndexedField>> GetCollectionIndexedFields(string collectionId, CancellationToken token = default)
+        {
+            if (string.IsNullOrWhiteSpace(collectionId))
+                throw new ArgumentNullException(nameof(collectionId));
+
+            return _Repo.IndexedFields.ReadByCollectionId(collectionId, token);
+        }
+
+        /// <summary>
+        /// Update the schema constraints for a collection.
+        /// Existing documents are NOT re-validated. New documents will be validated against the new schema.
+        /// </summary>
+        /// <param name="collectionId">Collection ID.</param>
+        /// <param name="schemaEnforcementMode">New schema enforcement mode.</param>
+        /// <param name="fieldConstraints">New field constraints (replaces existing).</param>
+        /// <param name="token">Cancellation token.</param>
+        /// <returns>Updated collection.</returns>
+        public async Task<Collection> UpdateCollectionConstraints(
+            string collectionId,
+            SchemaEnforcementMode schemaEnforcementMode,
+            List<FieldConstraint> fieldConstraints = null,
+            CancellationToken token = default)
+        {
+            if (string.IsNullOrWhiteSpace(collectionId))
+                throw new ArgumentNullException(nameof(collectionId));
+
+            Collection? collection = await _Repo.Collections.ReadById(collectionId, token);
+            if (collection == null)
+                throw new ArgumentException($"Collection {collectionId} not found", nameof(collectionId));
+
+            // Update collection's enforcement mode
+            collection.SchemaEnforcementMode = schemaEnforcementMode;
+            collection = await _Repo.Collections.Update(collection, token);
+
+            // Delete existing constraints
+            await _Repo.FieldConstraints.DeleteByCollectionId(collectionId, token);
+
+            // Create new constraints if provided
+            if (fieldConstraints != null && fieldConstraints.Count > 0)
+            {
+                foreach (var constraint in fieldConstraints)
+                {
+                    constraint.Id = IdGenerator.NewFieldConstraintId();
+                    constraint.CollectionId = collectionId;
+                    constraint.CreatedUtc = DateTime.UtcNow;
+                    constraint.LastUpdateUtc = DateTime.UtcNow;
+                }
+                await _Repo.FieldConstraints.CreateMany(fieldConstraints, token);
+            }
+
+            return collection;
+        }
+
+        /// <summary>
+        /// Update the indexing configuration for a collection.
+        /// NOTE: Does not automatically rebuild indexes. Call RebuildIndexes() after this.
+        /// </summary>
+        /// <param name="collectionId">Collection ID.</param>
+        /// <param name="indexingMode">New indexing mode.</param>
+        /// <param name="indexedFields">Fields to index (when mode is Selective).</param>
+        /// <param name="token">Cancellation token.</param>
+        /// <returns>Updated collection.</returns>
+        public async Task<Collection> UpdateCollectionIndexing(
+            string collectionId,
+            IndexingMode indexingMode,
+            List<string> indexedFields = null,
+            CancellationToken token = default)
+        {
+            if (string.IsNullOrWhiteSpace(collectionId))
+                throw new ArgumentNullException(nameof(collectionId));
+
+            Collection? collection = await _Repo.Collections.ReadById(collectionId, token);
+            if (collection == null)
+                throw new ArgumentException($"Collection {collectionId} not found", nameof(collectionId));
+
+            // Update collection's indexing mode
+            collection.IndexingMode = indexingMode;
+            collection = await _Repo.Collections.Update(collection, token);
+
+            // Delete existing indexed fields
+            await _Repo.IndexedFields.DeleteByCollectionId(collectionId, token);
+
+            // Create new indexed fields if provided and mode is Selective
+            if (indexingMode == IndexingMode.Selective && indexedFields != null && indexedFields.Count > 0)
+            {
+                List<IndexedField> indexedFieldEntities = indexedFields.Select(f => new IndexedField
+                {
+                    Id = IdGenerator.NewIndexedFieldId(),
+                    CollectionId = collectionId,
+                    FieldPath = f,
+                    CreatedUtc = DateTime.UtcNow,
+                    LastUpdateUtc = DateTime.UtcNow
+                }).ToList();
+                await _Repo.IndexedFields.CreateMany(indexedFieldEntities, token);
+            }
+
+            return collection;
+        }
+
+        /// <summary>
+        /// Rebuild all indexes for a collection based on current IndexingMode.
+        /// This is a potentially long-running operation for large collections.
+        /// </summary>
+        /// <param name="collectionId">Collection ID.</param>
+        /// <param name="dropUnusedIndexes">Whether to drop index tables not in the indexed fields list.</param>
+        /// <param name="progress">Progress reporter.</param>
+        /// <param name="token">Cancellation token.</param>
+        /// <returns>Rebuild result.</returns>
+        public async Task<IndexRebuildResult> RebuildIndexes(
+            string collectionId,
+            bool dropUnusedIndexes = true,
+            IProgress<IndexRebuildProgress> progress = null,
+            CancellationToken token = default)
+        {
+            if (string.IsNullOrWhiteSpace(collectionId))
+                throw new ArgumentNullException(nameof(collectionId));
+
+            var result = new IndexRebuildResult { CollectionId = collectionId };
+            var stopwatch = Stopwatch.StartNew();
+
+            // Load collection
+            Collection? collection = await _Repo.Collections.ReadById(collectionId, token);
+            if (collection == null)
+                throw new ArgumentException($"Collection {collectionId} not found", nameof(collectionId));
+
+            // Get all documents in collection
+            List<Document> documents = new List<Document>();
+            await foreach (Document doc in _Repo.Documents.ReadAllInCollection(collectionId, token: token))
+            {
+                documents.Add(doc);
+            }
+
+            progress?.Report(new IndexRebuildProgress
+            {
+                TotalDocuments = documents.Count,
+                CurrentPhase = "Scanning"
+            });
+
+            // If dropping unused indexes, identify and clear values from tables not in indexed fields
+            if (dropUnusedIndexes && collection.IndexingMode == IndexingMode.Selective)
+            {
+                progress?.Report(new IndexRebuildProgress
+                {
+                    TotalDocuments = documents.Count,
+                    CurrentPhase = "Dropping"
+                });
+
+                List<IndexedField> indexedFieldsList = await _Repo.IndexedFields.ReadByCollectionId(collectionId, token);
+                HashSet<string> indexedPaths = new HashSet<string>(indexedFieldsList.Select(f => f.FieldPath), StringComparer.OrdinalIgnoreCase);
+
+                // Get all index tables used by this collection
+                List<string> collectionIndexTables = await _Repo.Indexes.GetIndexTablesForCollection(collectionId, token);
+
+                foreach (string tableName in collectionIndexTables)
+                {
+                    IndexTableMapping? mapping = await _Repo.Indexes.GetMappingByTableName(tableName, token);
+                    if (mapping != null && !indexedPaths.Contains(mapping.Key))
+                    {
+                        await _Repo.Indexes.DeleteValuesFromTable(tableName, collectionId, token);
+                        result.IndexesDropped++;
+                    }
+                }
+            }
+
+            // Clear existing values for this collection from relevant index tables
+            progress?.Report(new IndexRebuildProgress
+            {
+                TotalDocuments = documents.Count,
+                CurrentPhase = "Clearing"
+            });
+
+            await _Repo.Indexes.DeleteValuesByCollectionId(collectionId, token);
+
+            // Skip re-indexing if mode is None
+            if (collection.IndexingMode == IndexingMode.None)
+            {
+                result.Duration = stopwatch.Elapsed;
+                return result;
+            }
+
+            // Get indexed fields for selective indexing
+            HashSet<string> indexedFieldPaths = null;
+            if (collection.IndexingMode == IndexingMode.Selective)
+            {
+                List<IndexedField> indexedFieldsList = await _Repo.IndexedFields.ReadByCollectionId(collectionId, token);
+                indexedFieldPaths = new HashSet<string>(indexedFieldsList.Select(f => f.FieldPath), StringComparer.OrdinalIgnoreCase);
+            }
+
+            // Re-index each document
+            progress?.Report(new IndexRebuildProgress
+            {
+                TotalDocuments = documents.Count,
+                CurrentPhase = "Indexing"
+            });
+
+            for (int i = 0; i < documents.Count; i++)
+            {
+                token.ThrowIfCancellationRequested();
+
+                Document doc = documents[i];
+                try
+                {
+                    // Load raw JSON
+                    string jsonPath = Path.Combine(collection.DocumentsDirectory, $"{doc.Id}.json");
+                    if (!File.Exists(jsonPath))
+                    {
+                        result.Errors.Add($"Document {doc.Id}: JSON file not found at {jsonPath}");
+                        continue;
+                    }
+
+                    string json = await File.ReadAllTextAsync(jsonPath, token);
+
+                    // Flatten values
+                    List<FlattenedValue> flattenedValues = _JsonFlattener.Flatten(json);
+                    IEnumerable<IGrouping<string, FlattenedValue>> valuesByKey = flattenedValues.GroupBy(v => v.Key);
+
+                    // Filter values based on indexing mode
+                    if (collection.IndexingMode == IndexingMode.Selective && indexedFieldPaths != null)
+                    {
+                        valuesByKey = valuesByKey.Where(g => indexedFieldPaths.Contains(g.Key));
+                    }
+
+                    // Collect values by table
+                    Dictionary<string, List<DocumentValue>> valuesByTable = new Dictionary<string, List<DocumentValue>>();
+
+                    foreach (IGrouping<string, FlattenedValue> group in valuesByKey)
+                    {
+                        IndexTableMapping? mapping = await _Repo.Indexes.GetMappingByKey(group.Key, token);
+                        if (mapping == null)
+                        {
+                            // Create index table if it doesn't exist
+                            string tableName = HashHelper.GenerateIndexTableName(group.Key);
+                            mapping = new IndexTableMapping
+                            {
+                                Id = IdGenerator.NewIndexTableMappingId(),
+                                Key = group.Key,
+                                TableName = tableName
+                            };
+                            await _Repo.Indexes.CreateMapping(mapping, token);
+                            await _Repo.Indexes.CreateIndexTable(tableName, token);
+                            result.IndexesCreated++;
+                        }
+
+                        SchemaElement? schemaElement = await _Repo.SchemaElements.ReadBySchemaIdAndKey(doc.SchemaId, group.Key, token);
+
+                        List<DocumentValue> values = group.Select(v => new DocumentValue
+                        {
+                            Id = IdGenerator.NewValueId(),
+                            DocumentId = doc.Id,
+                            SchemaId = doc.SchemaId,
+                            SchemaElementId = schemaElement?.Id,
+                            Position = v.Position,
+                            Value = v.Value
+                        }).ToList();
+
+                        if (!valuesByTable.ContainsKey(mapping.TableName))
+                        {
+                            valuesByTable[mapping.TableName] = new List<DocumentValue>();
+                        }
+                        valuesByTable[mapping.TableName].AddRange(values);
+                        result.ValuesInserted += values.Count;
+                    }
+
+                    // Insert values
+                    if (valuesByTable.Count > 0)
+                    {
+                        await _Repo.Indexes.InsertValuesMultiTable(valuesByTable, token);
+                    }
+
+                    result.DocumentsProcessed++;
+
+                    progress?.Report(new IndexRebuildProgress
+                    {
+                        TotalDocuments = documents.Count,
+                        ProcessedDocuments = i + 1,
+                        CurrentPhase = "Indexing"
+                    });
+                }
+                catch (Exception ex)
+                {
+                    result.Errors.Add($"Document {doc.Id}: {ex.Message}");
+                }
+            }
+
+            result.Duration = stopwatch.Elapsed;
+            return result;
+        }
+
         #endregion
 
         #region Public-Methods-Documents
@@ -267,6 +620,18 @@ namespace Lattice.Core
             if (collection == null)
                 throw new ArgumentException($"Collection {collectionId} not found", nameof(collectionId));
 
+            // Validate document against schema constraints if enabled
+            if (collection.SchemaEnforcementMode != SchemaEnforcementMode.None)
+            {
+                List<FieldConstraint> fieldConstraints = await _Repo.FieldConstraints.ReadByCollectionId(collectionId, token);
+                ValidationResult validationResult = _SchemaValidator.Validate(json, collection.SchemaEnforcementMode, fieldConstraints);
+
+                if (!validationResult.IsValid)
+                {
+                    throw new SchemaValidationException(collectionId, validationResult.Errors);
+                }
+            }
+
             // Generate or find existing schema
             List<SchemaElement> schemaElements = _SchemaGenerator.ExtractElements(json);
             string schemaHash = _SchemaGenerator.ComputeSchemaHash(schemaElements);
@@ -296,23 +661,36 @@ namespace Lattice.Core
                 }
                 await _Repo.SchemaElements.CreateMany(schemaElements, token);
 
-                // Create index tables for each key
-                foreach (SchemaElement element in schemaElements)
+                // Create index tables for each key (if indexing is enabled)
+                if (collection.IndexingMode != IndexingMode.None)
                 {
-                    IndexTableMapping? mapping = await _Repo.Indexes.GetMappingByKey(element.Key, token);
-                    if (mapping == null)
+                    foreach (SchemaElement element in schemaElements)
                     {
-                        string tableName = HashHelper.GenerateIndexTableName(element.Key);
-                        mapping = new IndexTableMapping
+                        IndexTableMapping? mapping = await _Repo.Indexes.GetMappingByKey(element.Key, token);
+                        if (mapping == null)
                         {
-                            Id = IdGenerator.NewIndexTableMappingId(),
-                            Key = element.Key,
-                            TableName = tableName
-                        };
-                        await _Repo.Indexes.CreateMapping(mapping, token);
-                        await _Repo.Indexes.CreateIndexTable(tableName, token);
+                            string tableName = HashHelper.GenerateIndexTableName(element.Key);
+                            mapping = new IndexTableMapping
+                            {
+                                Id = IdGenerator.NewIndexTableMappingId(),
+                                Key = element.Key,
+                                TableName = tableName
+                            };
+                            await _Repo.Indexes.CreateMapping(mapping, token);
+                            await _Repo.Indexes.CreateIndexTable(tableName, token);
+                        }
                     }
                 }
+            }
+
+            // Compute content length and SHA256 hash
+            byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
+            long contentLength = jsonBytes.Length;
+            string sha256Hash;
+            using (SHA256 sha256 = SHA256.Create())
+            {
+                byte[] hashBytes = sha256.ComputeHash(jsonBytes);
+                sha256Hash = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
             }
 
             // Create document
@@ -322,6 +700,8 @@ namespace Lattice.Core
                 CollectionId = collectionId,
                 SchemaId = schema.Id,
                 Name = name,
+                ContentLength = contentLength,
+                Sha256Hash = sha256Hash,
                 Labels = labels ?? new List<string>(),
                 Tags = tags ?? new Dictionary<string, string>()
             };
@@ -363,42 +743,60 @@ namespace Lattice.Core
                 await _Repo.Tags.CreateMany(tagEntities, token);
             }
 
-            // Flatten and index document values
-            List<FlattenedValue> flattenedValues = _JsonFlattener.Flatten(json);
-            IEnumerable<IGrouping<string, FlattenedValue>> valuesByKey = flattenedValues.GroupBy(v => v.Key);
-
-            // Collect all values by table name for batch insert (single transaction)
-            Dictionary<string, List<DocumentValue>> valuesByTable = new Dictionary<string, List<DocumentValue>>();
-
-            foreach (IGrouping<string, FlattenedValue> group in valuesByKey)
+            // Only index if indexing mode is not None
+            if (collection.IndexingMode != IndexingMode.None)
             {
-                IndexTableMapping? mapping = await _Repo.Indexes.GetMappingByKey(group.Key, token);
-                if (mapping != null)
+                // Get indexed fields for selective indexing
+                HashSet<string> indexedFieldPaths = null;
+                if (collection.IndexingMode == IndexingMode.Selective)
                 {
-                    SchemaElement? schemaElement = await _Repo.SchemaElements.ReadBySchemaIdAndKey(schema.Id, group.Key, token);
-
-                    List<DocumentValue> values = group.Select(v => new DocumentValue
-                    {
-                        Id = IdGenerator.NewValueId(),
-                        DocumentId = document.Id,
-                        SchemaId = schema.Id,
-                        SchemaElementId = schemaElement?.Id,
-                        Position = v.Position,
-                        Value = v.Value
-                    }).ToList();
-
-                    if (!valuesByTable.ContainsKey(mapping.TableName))
-                    {
-                        valuesByTable[mapping.TableName] = new List<DocumentValue>();
-                    }
-                    valuesByTable[mapping.TableName].AddRange(values);
+                    List<IndexedField> indexedFieldsList = await _Repo.IndexedFields.ReadByCollectionId(collectionId, token);
+                    indexedFieldPaths = new HashSet<string>(indexedFieldsList.Select(f => f.FieldPath), StringComparer.OrdinalIgnoreCase);
                 }
-            }
 
-            // Insert all index values in a single transaction
-            if (valuesByTable.Count > 0)
-            {
-                await _Repo.Indexes.InsertValuesMultiTable(valuesByTable, token);
+                // Flatten and index document values
+                List<FlattenedValue> flattenedValues = _JsonFlattener.Flatten(json);
+                IEnumerable<IGrouping<string, FlattenedValue>> valuesByKey = flattenedValues.GroupBy(v => v.Key);
+
+                // Filter values based on indexing mode
+                if (collection.IndexingMode == IndexingMode.Selective && indexedFieldPaths != null)
+                {
+                    valuesByKey = valuesByKey.Where(g => indexedFieldPaths.Contains(g.Key));
+                }
+
+                // Collect all values by table name for batch insert (single transaction)
+                Dictionary<string, List<DocumentValue>> valuesByTable = new Dictionary<string, List<DocumentValue>>();
+
+                foreach (IGrouping<string, FlattenedValue> group in valuesByKey)
+                {
+                    IndexTableMapping? mapping = await _Repo.Indexes.GetMappingByKey(group.Key, token);
+                    if (mapping != null)
+                    {
+                        SchemaElement? schemaElement = await _Repo.SchemaElements.ReadBySchemaIdAndKey(schema.Id, group.Key, token);
+
+                        List<DocumentValue> values = group.Select(v => new DocumentValue
+                        {
+                            Id = IdGenerator.NewValueId(),
+                            DocumentId = document.Id,
+                            SchemaId = schema.Id,
+                            SchemaElementId = schemaElement?.Id,
+                            Position = v.Position,
+                            Value = v.Value
+                        }).ToList();
+
+                        if (!valuesByTable.ContainsKey(mapping.TableName))
+                        {
+                            valuesByTable[mapping.TableName] = new List<DocumentValue>();
+                        }
+                        valuesByTable[mapping.TableName].AddRange(values);
+                    }
+                }
+
+                // Insert all index values in a single transaction
+                if (valuesByTable.Count > 0)
+                {
+                    await _Repo.Indexes.InsertValuesMultiTable(valuesByTable, token);
+                }
             }
 
             // Store raw JSON to disk

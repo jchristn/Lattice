@@ -2,7 +2,6 @@ namespace Lattice.Core.Search
 {
     using System;
     using System.Collections.Generic;
-    using System.Text.Json.Serialization;
 
     /// <summary>
     /// Represents a search query for documents.
@@ -14,13 +13,11 @@ namespace Lattice.Core.Search
         /// <summary>
         /// Collection ID to search within.
         /// </summary>
-        [JsonPropertyName("collectionId")]
         public string CollectionId { get; set; } = null;
 
         /// <summary>
         /// Search filters to apply.
         /// </summary>
-        [JsonPropertyName("filters")]
         public List<SearchFilter> Filters
         {
             get => _Filters;
@@ -30,7 +27,6 @@ namespace Lattice.Core.Search
         /// <summary>
         /// Labels to filter by (documents must have all specified labels).
         /// </summary>
-        [JsonPropertyName("labels")]
         public List<string> Labels
         {
             get => _Labels;
@@ -40,7 +36,6 @@ namespace Lattice.Core.Search
         /// <summary>
         /// Tags to filter by (documents must have all specified tags).
         /// </summary>
-        [JsonPropertyName("tags")]
         public Dictionary<string, string> Tags
         {
             get => _Tags;
@@ -50,7 +45,6 @@ namespace Lattice.Core.Search
         /// <summary>
         /// Maximum number of results to return.
         /// </summary>
-        [JsonPropertyName("maxResults")]
         public int MaxResults
         {
             get => _MaxResults;
@@ -65,7 +59,6 @@ namespace Lattice.Core.Search
         /// <summary>
         /// Number of records to skip.
         /// </summary>
-        [JsonPropertyName("skip")]
         public int Skip
         {
             get => _Skip;
@@ -79,37 +72,31 @@ namespace Lattice.Core.Search
         /// <summary>
         /// Continuation token for pagination.
         /// </summary>
-        [JsonPropertyName("continuationToken")]
         public string ContinuationToken { get; set; } = null;
 
         /// <summary>
         /// Ordering for results.
         /// </summary>
-        [JsonPropertyName("ordering")]
         public EnumerationOrderEnum Ordering { get; set; } = EnumerationOrderEnum.CreatedDescending;
 
         /// <summary>
         /// SQL-like expression for querying (e.g., "Person.First = 'Joel' AND Person.Last = 'Christner'").
         /// </summary>
-        [JsonPropertyName("sqlExpression")]
         public string SqlExpression { get; set; } = null;
 
         /// <summary>
         /// Include document content in results.
         /// </summary>
-        [JsonPropertyName("includeContent")]
         public bool IncludeContent { get; set; } = false;
 
         /// <summary>
         /// Include document labels in results.
         /// </summary>
-        [JsonPropertyName("includeLabels")]
         public bool IncludeLabels { get; set; } = true;
 
         /// <summary>
         /// Include document tags in results.
         /// </summary>
-        [JsonPropertyName("includeTags")]
         public bool IncludeTags { get; set; } = true;
 
         #endregion

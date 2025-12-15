@@ -14,8 +14,10 @@ namespace Lattice.Server.API.REST
     using WatsonWebserver;
     using WatsonWebserver.Core;
     using Lattice.Core;
+    using Lattice.Core.Exceptions;
     using Lattice.Core.Models;
     using Lattice.Core.Search;
+    using Lattice.Core.Validation;
     using Lattice.Server.Classes;
 
     /// <summary>
@@ -117,6 +119,13 @@ namespace Lattice.Server.API.REST
             _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.HEAD, "/v1.0/collections/{collectionId}", HeadCollectionRoute, ExceptionRoute);
             _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.DELETE, "/v1.0/collections/{collectionId}", DeleteCollectionRoute, ExceptionRoute);
 
+            // Collection constraints and indexing routes
+            _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.GET, "/v1.0/collections/{collectionId}/constraints", GetConstraintsRoute, ExceptionRoute);
+            _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.PUT, "/v1.0/collections/{collectionId}/constraints", PutConstraintsRoute, ExceptionRoute);
+            _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.GET, "/v1.0/collections/{collectionId}/indexing", GetIndexingRoute, ExceptionRoute);
+            _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.PUT, "/v1.0/collections/{collectionId}/indexing", PutIndexingRoute, ExceptionRoute);
+            _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.POST, "/v1.0/collections/{collectionId}/indexes/rebuild", PostRebuildIndexesRoute, ExceptionRoute);
+
             // Document routes
             _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.GET, "/v1.0/collections/{collectionId}/documents", GetDocumentsRoute, ExceptionRoute);
             _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.PUT, "/v1.0/collections/{collectionId}/documents", PutDocumentRoute, ExceptionRoute);
@@ -208,6 +217,17 @@ namespace Lattice.Server.API.REST
                 return;
             }
 
+            if (e is SchemaValidationException sve)
+            {
+                _Logging?.Warn(_Header + "Schema validation error: " + sve.Message);
+                ResponseContext validationResponse = new ResponseContext(false, 400, "Schema validation failed")
+                {
+                    Data = new { Errors = sve.Errors }
+                };
+                await SendResponse(ctx, validationResponse);
+                return;
+            }
+
             if (e is ArgumentException)
             {
                 _Logging?.Warn(_Header + "Argument error: " + e.Message);
@@ -235,6 +255,14 @@ namespace Lattice.Server.API.REST
             {
                 _Logging?.Warn(_Header + "JSON parsing error in " + requestType + ": " + e.Message);
                 responseContext = new ResponseContext(false, 400, "Invalid JSON: " + e.Message);
+            }
+            catch (SchemaValidationException sve)
+            {
+                _Logging?.Warn(_Header + "Schema validation error in " + requestType + ": " + sve.Message);
+                responseContext = new ResponseContext(false, 400, "Schema validation failed")
+                {
+                    Data = new { Errors = sve.Errors }
+                };
             }
             catch (ArgumentException e)
             {
@@ -358,6 +386,10 @@ namespace Lattice.Server.API.REST
                     request.DocumentsDirectory,
                     request.Labels,
                     request.Tags,
+                    request.SchemaEnforcementMode,
+                    request.FieldConstraints,
+                    request.IndexingMode,
+                    request.IndexedFields,
                     CancellationToken.None);
 
                 return new ResponseContext
@@ -441,6 +473,214 @@ namespace Lattice.Server.API.REST
                     Success = true,
                     StatusCode = 200,
                     Data = new { Message = "Collection deleted successfully", CollectionId = collectionId }
+                };
+            });
+        }
+
+        private async Task GetConstraintsRoute(HttpContextBase ctx)
+        {
+            await WrappedRequestHandler(ctx, RequestTypeEnum.Collection, async (reqCtx) =>
+            {
+                string? collectionId = ctx.Request.Url.Parameters["collectionId"];
+                if (String.IsNullOrEmpty(collectionId))
+                {
+                    return new ResponseContext(false, 400, "Collection ID is required");
+                }
+
+                Collection? collection = await _Client.GetCollection(collectionId, CancellationToken.None);
+                if (collection == null)
+                {
+                    return new ResponseContext(false, 404, "Collection not found");
+                }
+
+                List<FieldConstraint> constraints = await _Client.GetCollectionConstraints(collectionId, CancellationToken.None);
+                return new ResponseContext
+                {
+                    Success = true,
+                    StatusCode = 200,
+                    Data = new
+                    {
+                        CollectionId = collectionId,
+                        SchemaEnforcementMode = collection.SchemaEnforcementMode,
+                        FieldConstraints = constraints
+                    }
+                };
+            });
+        }
+
+        private async Task PutConstraintsRoute(HttpContextBase ctx)
+        {
+            await WrappedRequestHandler(ctx, RequestTypeEnum.Collection, async (reqCtx) =>
+            {
+                string? collectionId = ctx.Request.Url.Parameters["collectionId"];
+                if (String.IsNullOrEmpty(collectionId))
+                {
+                    return new ResponseContext(false, 400, "Collection ID is required");
+                }
+
+                bool exists = await _Client.CollectionExists(collectionId, CancellationToken.None);
+                if (!exists)
+                {
+                    return new ResponseContext(false, 404, "Collection not found");
+                }
+
+                string body = await GetRequestBody(ctx);
+                if (String.IsNullOrEmpty(body))
+                {
+                    return new ResponseContext(false, 400, "Request body is required");
+                }
+
+                UpdateConstraintsRequest? request = JsonSerializer.Deserialize<UpdateConstraintsRequest>(body, _JsonOptions);
+                if (request == null)
+                {
+                    return new ResponseContext(false, 400, "Invalid JSON in request body");
+                }
+
+                Collection updated = await _Client.UpdateCollectionConstraints(
+                    collectionId,
+                    request.SchemaEnforcementMode,
+                    request.FieldConstraints,
+                    CancellationToken.None);
+
+                List<FieldConstraint> constraints = await _Client.GetCollectionConstraints(collectionId, CancellationToken.None);
+
+                return new ResponseContext
+                {
+                    Success = true,
+                    StatusCode = 200,
+                    Data = new
+                    {
+                        CollectionId = collectionId,
+                        SchemaEnforcementMode = updated.SchemaEnforcementMode,
+                        FieldConstraints = constraints
+                    }
+                };
+            });
+        }
+
+        private async Task GetIndexingRoute(HttpContextBase ctx)
+        {
+            await WrappedRequestHandler(ctx, RequestTypeEnum.Collection, async (reqCtx) =>
+            {
+                string? collectionId = ctx.Request.Url.Parameters["collectionId"];
+                if (String.IsNullOrEmpty(collectionId))
+                {
+                    return new ResponseContext(false, 400, "Collection ID is required");
+                }
+
+                Collection? collection = await _Client.GetCollection(collectionId, CancellationToken.None);
+                if (collection == null)
+                {
+                    return new ResponseContext(false, 404, "Collection not found");
+                }
+
+                List<IndexedField> indexedFields = await _Client.GetCollectionIndexedFields(collectionId, CancellationToken.None);
+                return new ResponseContext
+                {
+                    Success = true,
+                    StatusCode = 200,
+                    Data = new
+                    {
+                        CollectionId = collectionId,
+                        IndexingMode = collection.IndexingMode,
+                        IndexedFields = indexedFields.Select(f => f.FieldPath).ToList()
+                    }
+                };
+            });
+        }
+
+        private async Task PutIndexingRoute(HttpContextBase ctx)
+        {
+            await WrappedRequestHandler(ctx, RequestTypeEnum.Collection, async (reqCtx) =>
+            {
+                string? collectionId = ctx.Request.Url.Parameters["collectionId"];
+                if (String.IsNullOrEmpty(collectionId))
+                {
+                    return new ResponseContext(false, 400, "Collection ID is required");
+                }
+
+                bool exists = await _Client.CollectionExists(collectionId, CancellationToken.None);
+                if (!exists)
+                {
+                    return new ResponseContext(false, 404, "Collection not found");
+                }
+
+                string body = await GetRequestBody(ctx);
+                if (String.IsNullOrEmpty(body))
+                {
+                    return new ResponseContext(false, 400, "Request body is required");
+                }
+
+                UpdateIndexingRequest? request = JsonSerializer.Deserialize<UpdateIndexingRequest>(body, _JsonOptions);
+                if (request == null)
+                {
+                    return new ResponseContext(false, 400, "Invalid JSON in request body");
+                }
+
+                Collection updated = await _Client.UpdateCollectionIndexing(
+                    collectionId,
+                    request.IndexingMode,
+                    request.IndexedFields,
+                    CancellationToken.None);
+
+                // Optionally rebuild indexes
+                IndexRebuildResult? rebuildResult = null;
+                if (request.RebuildIndexes)
+                {
+                    rebuildResult = await _Client.RebuildIndexes(collectionId, true, null, CancellationToken.None);
+                }
+
+                List<IndexedField> indexedFields = await _Client.GetCollectionIndexedFields(collectionId, CancellationToken.None);
+
+                return new ResponseContext
+                {
+                    Success = true,
+                    StatusCode = 200,
+                    Data = new
+                    {
+                        CollectionId = collectionId,
+                        IndexingMode = updated.IndexingMode,
+                        IndexedFields = indexedFields.Select(f => f.FieldPath).ToList(),
+                        RebuildResult = rebuildResult
+                    }
+                };
+            });
+        }
+
+        private async Task PostRebuildIndexesRoute(HttpContextBase ctx)
+        {
+            await WrappedRequestHandler(ctx, RequestTypeEnum.Collection, async (reqCtx) =>
+            {
+                string? collectionId = ctx.Request.Url.Parameters["collectionId"];
+                if (String.IsNullOrEmpty(collectionId))
+                {
+                    return new ResponseContext(false, 400, "Collection ID is required");
+                }
+
+                bool exists = await _Client.CollectionExists(collectionId, CancellationToken.None);
+                if (!exists)
+                {
+                    return new ResponseContext(false, 404, "Collection not found");
+                }
+
+                bool dropUnusedIndexes = true;
+                string body = await GetRequestBody(ctx);
+                if (!String.IsNullOrEmpty(body))
+                {
+                    RebuildIndexesRequest? request = JsonSerializer.Deserialize<RebuildIndexesRequest>(body, _JsonOptions);
+                    if (request != null)
+                    {
+                        dropUnusedIndexes = request.DropUnusedIndexes;
+                    }
+                }
+
+                IndexRebuildResult result = await _Client.RebuildIndexes(collectionId, dropUnusedIndexes, null, CancellationToken.None);
+
+                return new ResponseContext
+                {
+                    Success = result.Success,
+                    StatusCode = result.Success ? 200 : 500,
+                    Data = result
                 };
             });
         }

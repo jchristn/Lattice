@@ -13,9 +13,9 @@ services:
       - lattice-documents:/app/documents
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - Lattice__databaseFilename=/app/data/lattice.db
-      - Lattice__defaultDocumentsDirectory=/app/documents
-      - Lattice__inMemory=false
+      - Lattice__Database__Filename=/app/data/lattice.db
+      - Lattice__DefaultDocumentsDirectory=/app/documents
+      - Lattice__InMemory=false
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5099/v1.0/collections"]

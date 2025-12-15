@@ -21,6 +21,10 @@
   overflow-y: auto;
 }
 
+.modal-content.modal-wide {
+  max-width: 700px;
+}
+
 .modal-header {
   display: flex;
   align-items: center;

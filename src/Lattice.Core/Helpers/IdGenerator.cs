@@ -50,6 +50,16 @@ namespace Lattice.Core.Helpers
         public const string IndexTableMappingPrefix = "itm_";
 
         /// <summary>
+        /// Prefix for field constraint IDs.
+        /// </summary>
+        public const string FieldConstraintPrefix = "fco_";
+
+        /// <summary>
+        /// Prefix for indexed field IDs.
+        /// </summary>
+        public const string IndexedFieldPrefix = "ixf_";
+
+        /// <summary>
         /// Default ID length (excluding prefix).
         /// </summary>
         private const int DefaultIdLength = 24;
@@ -111,6 +121,18 @@ namespace Lattice.Core.Helpers
         /// </summary>
         /// <returns>K-sortable index table mapping ID.</returns>
         public static string NewIndexTableMappingId() => _Generator.GenerateKSortable(IndexTableMappingPrefix, DefaultIdLength + IndexTableMappingPrefix.Length);
+
+        /// <summary>
+        /// Generate a new field constraint ID.
+        /// </summary>
+        /// <returns>K-sortable field constraint ID.</returns>
+        public static string NewFieldConstraintId() => _Generator.GenerateKSortable(FieldConstraintPrefix, DefaultIdLength + FieldConstraintPrefix.Length);
+
+        /// <summary>
+        /// Generate a new indexed field ID.
+        /// </summary>
+        /// <returns>K-sortable indexed field ID.</returns>
+        public static string NewIndexedFieldId() => _Generator.GenerateKSortable(IndexedFieldPrefix, DefaultIdLength + IndexedFieldPrefix.Length);
 
         #endregion
     }

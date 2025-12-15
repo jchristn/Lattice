@@ -7,6 +7,7 @@ namespace Test.Automated
     using System.Linq;
     using System.Threading.Tasks;
     using Lattice.Core;
+    using Lattice.Core.Exceptions;
     using Lattice.Core.Models;
     using Lattice.Core.Search;
 
@@ -165,6 +166,81 @@ namespace Test.Automated
                     await RunTest("Perf: enumerate 100 documents", TestPerfEnumerate100);
                 });
 
+                // ===== SCHEMA CONSTRAINTS TESTS =====
+                await RunTestSection("SCHEMA CONSTRAINTS", async () =>
+                {
+                    // Basic constraint tests
+                    await RunTest("Constraints: create collection with strict mode", TestConstraintsStrictMode);
+                    await RunTest("Constraints: valid document passes validation", TestConstraintsValidDocument);
+                    await RunTest("Constraints: missing required field fails", TestConstraintsMissingRequired);
+                    await RunTest("Constraints: type mismatch fails", TestConstraintsTypeMismatch);
+                    await RunTest("Constraints: update constraints on collection", TestConstraintsUpdate);
+
+                    // Type validation tests
+                    await RunTest("Constraints: string type validation", TestConstraintsStringType);
+                    await RunTest("Constraints: integer type validation", TestConstraintsIntegerType);
+                    await RunTest("Constraints: number type accepts decimals", TestConstraintsNumberType);
+                    await RunTest("Constraints: boolean type validation", TestConstraintsBooleanType);
+                    await RunTest("Constraints: array type validation", TestConstraintsArrayType);
+
+                    // Nullable tests
+                    await RunTest("Constraints: nullable field accepts null", TestConstraintsNullableAcceptsNull);
+                    await RunTest("Constraints: non-nullable field rejects null", TestConstraintsNonNullableRejectsNull);
+
+                    // Regex pattern tests
+                    await RunTest("Constraints: regex pattern matching succeeds", TestConstraintsRegexPatternSuccess);
+                    await RunTest("Constraints: regex pattern mismatch fails", TestConstraintsRegexPatternFails);
+                    await RunTest("Constraints: email pattern validation", TestConstraintsEmailPattern);
+
+                    // Range validation tests
+                    await RunTest("Constraints: MinValue validation succeeds", TestConstraintsMinValueSuccess);
+                    await RunTest("Constraints: MinValue validation fails", TestConstraintsMinValueFails);
+                    await RunTest("Constraints: MaxValue validation succeeds", TestConstraintsMaxValueSuccess);
+                    await RunTest("Constraints: MaxValue validation fails", TestConstraintsMaxValueFails);
+
+                    // Length validation tests
+                    await RunTest("Constraints: MinLength string succeeds", TestConstraintsMinLengthStringSuccess);
+                    await RunTest("Constraints: MinLength string fails", TestConstraintsMinLengthStringFails);
+                    await RunTest("Constraints: MaxLength string succeeds", TestConstraintsMaxLengthStringSuccess);
+                    await RunTest("Constraints: MaxLength string fails", TestConstraintsMaxLengthStringFails);
+                    await RunTest("Constraints: array MinLength succeeds", TestConstraintsArrayMinLengthSuccess);
+                    await RunTest("Constraints: array MaxLength fails", TestConstraintsArrayMaxLengthFails);
+
+                    // Allowed values tests
+                    await RunTest("Constraints: allowed values succeeds", TestConstraintsAllowedValuesSuccess);
+                    await RunTest("Constraints: allowed values fails", TestConstraintsAllowedValuesFails);
+
+                    // Enforcement mode tests
+                    await RunTest("Constraints: strict mode rejects extra fields", TestConstraintsStrictModeRejectsExtra);
+                    await RunTest("Constraints: flexible mode allows extra fields", TestConstraintsFlexibleModeAllowsExtra);
+                    await RunTest("Constraints: partial mode validates only specified", TestConstraintsPartialMode);
+                    await RunTest("Constraints: none mode skips validation", TestConstraintsNoneMode);
+
+                    // Nested field tests
+                    await RunTest("Constraints: nested field validation", TestConstraintsNestedField);
+                    await RunTest("Constraints: deeply nested field validation", TestConstraintsDeeplyNestedField);
+
+                    // Array element type tests
+                    await RunTest("Constraints: array element type validation succeeds", TestConstraintsArrayElementTypeSuccess);
+                    await RunTest("Constraints: array element type validation fails", TestConstraintsArrayElementTypeFails);
+                });
+
+                // ===== INDEXING MODE TESTS =====
+                await RunTestSection("INDEXING MODE", async () =>
+                {
+                    await RunTest("Indexing: selective mode only indexes specified fields", TestIndexingSelectiveMode);
+                    await RunTest("Indexing: none mode skips indexing", TestIndexingNoneMode);
+                    await RunTest("Indexing: update indexing mode", TestIndexingUpdateMode);
+                    await RunTest("Indexing: rebuild indexes", TestIndexingRebuildIndexes);
+
+                    // Additional indexing tests
+                    await RunTest("Indexing: search non-indexed field returns empty", TestIndexingSearchNonIndexedField);
+                    await RunTest("Indexing: all mode indexes everything", TestIndexingAllModeIndexesAll);
+                    await RunTest("Indexing: nested field selective indexing", TestIndexingNestedFieldSelective);
+                    await RunTest("Indexing: rebuild with progress reporting", TestIndexingRebuildWithProgress);
+                    await RunTest("Indexing: rebuild drops unused indexes", TestIndexingRebuildDropsUnused);
+                });
+
                 // ===== INTEGRATION TESTS =====
                 await RunTestSection("INTEGRATION", async () =>
                 {
@@ -315,7 +391,7 @@ namespace Test.Automated
             {
                 InMemory = inMemory,
                 DefaultDocumentsDirectory = testDir,
-                DatabaseFilename = Path.Combine(testDir, "lattice.db")
+                Database = new Lattice.Core.DatabaseSettings { Filename = Path.Combine(testDir, "lattice.db") }
             });
         }
 
@@ -2097,7 +2173,7 @@ namespace Test.Automated
                 {
                     InMemory = true,
                     DefaultDocumentsDirectory = testDir,
-                    DatabaseFilename = dbPath
+                    Database = new Lattice.Core.DatabaseSettings { Filename = dbPath }
                 }))
                 {
                     var collection = await client.CreateCollection("Test");
@@ -2113,7 +2189,7 @@ namespace Test.Automated
                 {
                     InMemory = false,
                     DefaultDocumentsDirectory = testDir,
-                    DatabaseFilename = dbPath
+                    Database = new Lattice.Core.DatabaseSettings { Filename = dbPath }
                 }))
                 {
                     var collections = await client.GetCollections();
@@ -2568,6 +2644,1286 @@ namespace Test.Automated
 
                 var schemas = await client.GetSchemas();
                 if (schemas.Count != 1) return (false, $"Expected 1 schema, got {schemas.Count}");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        #endregion
+
+        #region Schema Constraints Tests
+
+        private static async Task<(bool, string)> TestConstraintsStrictMode()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Name", DataType = "string", Required = true },
+                    new FieldConstraint { FieldPath = "Age", DataType = "integer", Required = true }
+                };
+
+                var collection = await client.CreateCollection(
+                    "StrictTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Strict,
+                    fieldConstraints: constraints);
+
+                if (collection.SchemaEnforcementMode != SchemaEnforcementMode.Strict)
+                    return (false, "SchemaEnforcementMode not set correctly");
+
+                var savedConstraints = await client.GetCollectionConstraints(collection.Id);
+                if (savedConstraints.Count != 2)
+                    return (false, $"Expected 2 constraints, got {savedConstraints.Count}");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestConstraintsValidDocument()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Name", DataType = "string", Required = true },
+                    new FieldConstraint { FieldPath = "Age", DataType = "integer", Required = true }
+                };
+
+                var collection = await client.CreateCollection(
+                    "ValidDocTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                var doc = await client.IngestDocument(collection.Id, @"{""Name"":""Joel"",""Age"":30}");
+                if (doc == null) return (false, "Document should have been created");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestConstraintsMissingRequired()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Name", DataType = "string", Required = true },
+                    new FieldConstraint { FieldPath = "Age", DataType = "integer", Required = true }
+                };
+
+                var collection = await client.CreateCollection(
+                    "MissingFieldTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                try
+                {
+                    await client.IngestDocument(collection.Id, @"{""Name"":""Joel""}");
+                    return (false, "Should have thrown SchemaValidationException");
+                }
+                catch (SchemaValidationException ex)
+                {
+                    if (ex.Errors.Count == 0) return (false, "Expected validation errors");
+                    if (!ex.Errors.Any(e => e.ErrorCode == "MISSING_REQUIRED_FIELD"))
+                        return (false, "Expected MISSING_REQUIRED_FIELD error");
+                    return (true, null);
+                }
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestConstraintsTypeMismatch()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Age", DataType = "integer", Required = true }
+                };
+
+                var collection = await client.CreateCollection(
+                    "TypeMismatchTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                try
+                {
+                    await client.IngestDocument(collection.Id, @"{""Age"":""not a number""}");
+                    return (false, "Should have thrown SchemaValidationException");
+                }
+                catch (SchemaValidationException ex)
+                {
+                    if (!ex.Errors.Any(e => e.ErrorCode == "TYPE_MISMATCH"))
+                        return (false, "Expected TYPE_MISMATCH error");
+                    return (true, null);
+                }
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestConstraintsUpdate()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var collection = await client.CreateCollection("UpdateConstraintsTest");
+
+                var initial = await client.GetCollectionConstraints(collection.Id);
+                if (initial.Count != 0) return (false, "Expected no initial constraints");
+
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Email", DataType = "string", Required = true }
+                };
+                await client.UpdateCollectionConstraints(collection.Id, SchemaEnforcementMode.Flexible, constraints);
+
+                var updated = await client.GetCollectionConstraints(collection.Id);
+                if (updated.Count != 1) return (false, "Expected 1 constraint after update");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        // Type validation tests
+        private static async Task<(bool, string)> TestConstraintsStringType()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Name", DataType = "string", Required = true }
+                };
+
+                var collection = await client.CreateCollection(
+                    "StringTypeTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                // String should pass
+                var doc = await client.IngestDocument(collection.Id, @"{""Name"":""Joel""}");
+                if (doc == null) return (false, "String value should pass");
+
+                // Number should fail
+                try
+                {
+                    await client.IngestDocument(collection.Id, @"{""Name"":123}");
+                    return (false, "Number for string field should fail");
+                }
+                catch (SchemaValidationException) { }
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestConstraintsIntegerType()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Count", DataType = "integer", Required = true }
+                };
+
+                var collection = await client.CreateCollection(
+                    "IntegerTypeTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                // Integer should pass
+                var doc = await client.IngestDocument(collection.Id, @"{""Count"":42}");
+                if (doc == null) return (false, "Integer value should pass");
+
+                // Decimal should fail for integer type
+                try
+                {
+                    await client.IngestDocument(collection.Id, @"{""Count"":3.14}");
+                    return (false, "Decimal for integer field should fail");
+                }
+                catch (SchemaValidationException) { }
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestConstraintsNumberType()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Price", DataType = "number", Required = true }
+                };
+
+                var collection = await client.CreateCollection(
+                    "NumberTypeTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                // Integer should pass for number
+                var doc1 = await client.IngestDocument(collection.Id, @"{""Price"":42}");
+                if (doc1 == null) return (false, "Integer should pass for number type");
+
+                // Decimal should also pass
+                var doc2 = await client.IngestDocument(collection.Id, @"{""Price"":19.99}");
+                if (doc2 == null) return (false, "Decimal should pass for number type");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestConstraintsBooleanType()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Active", DataType = "boolean", Required = true }
+                };
+
+                var collection = await client.CreateCollection(
+                    "BooleanTypeTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                // true should pass
+                var doc1 = await client.IngestDocument(collection.Id, @"{""Active"":true}");
+                if (doc1 == null) return (false, "true should pass for boolean");
+
+                // false should pass
+                var doc2 = await client.IngestDocument(collection.Id, @"{""Active"":false}");
+                if (doc2 == null) return (false, "false should pass for boolean");
+
+                // String "true" should fail
+                try
+                {
+                    await client.IngestDocument(collection.Id, @"{""Active"":""true""}");
+                    return (false, "String 'true' for boolean should fail");
+                }
+                catch (SchemaValidationException) { }
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestConstraintsArrayType()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Tags", DataType = "array", Required = true }
+                };
+
+                var collection = await client.CreateCollection(
+                    "ArrayTypeTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                // Array should pass
+                var doc = await client.IngestDocument(collection.Id, @"{""Tags"":[""a"",""b"",""c""]}");
+                if (doc == null) return (false, "Array value should pass");
+
+                // String should fail
+                try
+                {
+                    await client.IngestDocument(collection.Id, @"{""Tags"":""not an array""}");
+                    return (false, "String for array field should fail");
+                }
+                catch (SchemaValidationException) { }
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        // Nullable tests
+        private static async Task<(bool, string)> TestConstraintsNullableAcceptsNull()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "MiddleName", DataType = "string", Required = true, Nullable = true }
+                };
+
+                var collection = await client.CreateCollection(
+                    "NullableTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                var doc = await client.IngestDocument(collection.Id, @"{""MiddleName"":null}");
+                if (doc == null) return (false, "Null should be accepted for nullable field");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestConstraintsNonNullableRejectsNull()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Name", DataType = "string", Required = true, Nullable = false }
+                };
+
+                var collection = await client.CreateCollection(
+                    "NonNullableTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                try
+                {
+                    await client.IngestDocument(collection.Id, @"{""Name"":null}");
+                    return (false, "Null should be rejected for non-nullable field");
+                }
+                catch (SchemaValidationException ex)
+                {
+                    if (!ex.Errors.Any(e => e.ErrorCode == "NULL_NOT_ALLOWED"))
+                        return (false, "Expected NULL_NOT_ALLOWED error");
+                    return (true, null);
+                }
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        // Regex pattern tests
+        private static async Task<(bool, string)> TestConstraintsRegexPatternSuccess()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Code", DataType = "string", Required = true, RegexPattern = @"^[A-Z]{3}-\d{4}$" }
+                };
+
+                var collection = await client.CreateCollection(
+                    "RegexSuccessTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                var doc = await client.IngestDocument(collection.Id, @"{""Code"":""ABC-1234""}");
+                if (doc == null) return (false, "Valid pattern should pass");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestConstraintsRegexPatternFails()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Code", DataType = "string", Required = true, RegexPattern = @"^[A-Z]{3}-\d{4}$" }
+                };
+
+                var collection = await client.CreateCollection(
+                    "RegexFailTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                try
+                {
+                    await client.IngestDocument(collection.Id, @"{""Code"":""invalid""}");
+                    return (false, "Invalid pattern should fail");
+                }
+                catch (SchemaValidationException ex)
+                {
+                    if (!ex.Errors.Any(e => e.ErrorCode == "PATTERN_MISMATCH"))
+                        return (false, "Expected PATTERN_MISMATCH error");
+                    return (true, null);
+                }
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestConstraintsEmailPattern()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Email", DataType = "string", Required = true, RegexPattern = @"^[\w\.-]+@[\w\.-]+\.\w+$" }
+                };
+
+                var collection = await client.CreateCollection(
+                    "EmailPatternTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                // Valid email
+                var doc = await client.IngestDocument(collection.Id, @"{""Email"":""user@example.com""}");
+                if (doc == null) return (false, "Valid email should pass");
+
+                // Invalid email
+                try
+                {
+                    await client.IngestDocument(collection.Id, @"{""Email"":""not-an-email""}");
+                    return (false, "Invalid email should fail");
+                }
+                catch (SchemaValidationException) { }
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        // Range validation tests
+        private static async Task<(bool, string)> TestConstraintsMinValueSuccess()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Age", DataType = "integer", Required = true, MinValue = 18 }
+                };
+
+                var collection = await client.CreateCollection(
+                    "MinValueSuccessTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                var doc = await client.IngestDocument(collection.Id, @"{""Age"":21}");
+                if (doc == null) return (false, "Value above min should pass");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestConstraintsMinValueFails()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Age", DataType = "integer", Required = true, MinValue = 18 }
+                };
+
+                var collection = await client.CreateCollection(
+                    "MinValueFailTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                try
+                {
+                    await client.IngestDocument(collection.Id, @"{""Age"":16}");
+                    return (false, "Value below min should fail");
+                }
+                catch (SchemaValidationException ex)
+                {
+                    if (!ex.Errors.Any(e => e.ErrorCode == "VALUE_TOO_SMALL"))
+                        return (false, "Expected VALUE_TOO_SMALL error");
+                    return (true, null);
+                }
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestConstraintsMaxValueSuccess()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Percent", DataType = "number", Required = true, MaxValue = 100 }
+                };
+
+                var collection = await client.CreateCollection(
+                    "MaxValueSuccessTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                var doc = await client.IngestDocument(collection.Id, @"{""Percent"":75}");
+                if (doc == null) return (false, "Value below max should pass");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestConstraintsMaxValueFails()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Percent", DataType = "number", Required = true, MaxValue = 100 }
+                };
+
+                var collection = await client.CreateCollection(
+                    "MaxValueFailTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                try
+                {
+                    await client.IngestDocument(collection.Id, @"{""Percent"":150}");
+                    return (false, "Value above max should fail");
+                }
+                catch (SchemaValidationException ex)
+                {
+                    if (!ex.Errors.Any(e => e.ErrorCode == "VALUE_TOO_LARGE"))
+                        return (false, "Expected VALUE_TOO_LARGE error");
+                    return (true, null);
+                }
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        // Length validation tests
+        private static async Task<(bool, string)> TestConstraintsMinLengthStringSuccess()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Password", DataType = "string", Required = true, MinLength = 8 }
+                };
+
+                var collection = await client.CreateCollection(
+                    "MinLengthSuccessTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                var doc = await client.IngestDocument(collection.Id, @"{""Password"":""password123""}");
+                if (doc == null) return (false, "String meeting minLength should pass");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestConstraintsMinLengthStringFails()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Password", DataType = "string", Required = true, MinLength = 8 }
+                };
+
+                var collection = await client.CreateCollection(
+                    "MinLengthFailTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                try
+                {
+                    await client.IngestDocument(collection.Id, @"{""Password"":""short""}");
+                    return (false, "String below minLength should fail");
+                }
+                catch (SchemaValidationException ex)
+                {
+                    if (!ex.Errors.Any(e => e.ErrorCode == "STRING_TOO_SHORT"))
+                        return (false, "Expected STRING_TOO_SHORT error");
+                    return (true, null);
+                }
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestConstraintsMaxLengthStringSuccess()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Username", DataType = "string", Required = true, MaxLength = 20 }
+                };
+
+                var collection = await client.CreateCollection(
+                    "MaxLengthSuccessTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                var doc = await client.IngestDocument(collection.Id, @"{""Username"":""joel""}");
+                if (doc == null) return (false, "String within maxLength should pass");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestConstraintsMaxLengthStringFails()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Username", DataType = "string", Required = true, MaxLength = 10 }
+                };
+
+                var collection = await client.CreateCollection(
+                    "MaxLengthFailTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                try
+                {
+                    await client.IngestDocument(collection.Id, @"{""Username"":""verylongusername""}");
+                    return (false, "String exceeding maxLength should fail");
+                }
+                catch (SchemaValidationException ex)
+                {
+                    if (!ex.Errors.Any(e => e.ErrorCode == "STRING_TOO_LONG"))
+                        return (false, "Expected STRING_TOO_LONG error");
+                    return (true, null);
+                }
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestConstraintsArrayMinLengthSuccess()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Tags", DataType = "array", Required = true, MinLength = 2 }
+                };
+
+                var collection = await client.CreateCollection(
+                    "ArrayMinLengthSuccessTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                var doc = await client.IngestDocument(collection.Id, @"{""Tags"":[""a"",""b"",""c""]}");
+                if (doc == null) return (false, "Array meeting minLength should pass");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestConstraintsArrayMaxLengthFails()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Tags", DataType = "array", Required = true, MaxLength = 3 }
+                };
+
+                var collection = await client.CreateCollection(
+                    "ArrayMaxLengthFailTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                try
+                {
+                    await client.IngestDocument(collection.Id, @"{""Tags"":[""a"",""b"",""c"",""d"",""e""]}");
+                    return (false, "Array exceeding maxLength should fail");
+                }
+                catch (SchemaValidationException ex)
+                {
+                    if (!ex.Errors.Any(e => e.ErrorCode == "ARRAY_TOO_LONG"))
+                        return (false, "Expected ARRAY_TOO_LONG error");
+                    return (true, null);
+                }
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        // Allowed values tests
+        private static async Task<(bool, string)> TestConstraintsAllowedValuesSuccess()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Status", DataType = "string", Required = true, AllowedValues = new List<string> { "active", "inactive", "pending" } }
+                };
+
+                var collection = await client.CreateCollection(
+                    "AllowedValuesSuccessTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                var doc = await client.IngestDocument(collection.Id, @"{""Status"":""active""}");
+                if (doc == null) return (false, "Value in allowed list should pass");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestConstraintsAllowedValuesFails()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Status", DataType = "string", Required = true, AllowedValues = new List<string> { "active", "inactive", "pending" } }
+                };
+
+                var collection = await client.CreateCollection(
+                    "AllowedValuesFailTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                try
+                {
+                    await client.IngestDocument(collection.Id, @"{""Status"":""deleted""}");
+                    return (false, "Value not in allowed list should fail");
+                }
+                catch (SchemaValidationException ex)
+                {
+                    if (!ex.Errors.Any(e => e.ErrorCode == "VALUE_NOT_ALLOWED"))
+                        return (false, "Expected VALUE_NOT_ALLOWED error");
+                    return (true, null);
+                }
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        // Enforcement mode tests
+        private static async Task<(bool, string)> TestConstraintsStrictModeRejectsExtra()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Name", DataType = "string", Required = true }
+                };
+
+                var collection = await client.CreateCollection(
+                    "StrictModeRejectsExtraTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Strict,
+                    fieldConstraints: constraints);
+
+                try
+                {
+                    await client.IngestDocument(collection.Id, @"{""Name"":""Joel"",""ExtraField"":""value""}");
+                    return (false, "Strict mode should reject extra fields");
+                }
+                catch (SchemaValidationException ex)
+                {
+                    if (!ex.Errors.Any(e => e.ErrorCode == "UNEXPECTED_FIELD"))
+                        return (false, "Expected UNEXPECTED_FIELD error");
+                    return (true, null);
+                }
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestConstraintsFlexibleModeAllowsExtra()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Name", DataType = "string", Required = true }
+                };
+
+                var collection = await client.CreateCollection(
+                    "FlexibleModeAllowsExtraTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                var doc = await client.IngestDocument(collection.Id, @"{""Name"":""Joel"",""ExtraField"":""value""}");
+                if (doc == null) return (false, "Flexible mode should allow extra fields");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestConstraintsPartialMode()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Email", DataType = "string", Required = true, RegexPattern = @"^[\w\.-]+@[\w\.-]+\.\w+$" }
+                };
+
+                var collection = await client.CreateCollection(
+                    "PartialModeTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Partial,
+                    fieldConstraints: constraints);
+
+                // Document without the specified field should pass in Partial mode
+                var doc = await client.IngestDocument(collection.Id, @"{""Name"":""Joel"",""Age"":30}");
+                if (doc == null) return (false, "Partial mode should allow missing specified fields");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestConstraintsNoneMode()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Name", DataType = "string", Required = true }
+                };
+
+                var collection = await client.CreateCollection(
+                    "NoneModeTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.None,
+                    fieldConstraints: constraints);
+
+                // Any document should pass with None mode
+                var doc = await client.IngestDocument(collection.Id, @"{""Whatever"":123}");
+                if (doc == null) return (false, "None mode should skip all validation");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        // Nested field tests
+        private static async Task<(bool, string)> TestConstraintsNestedField()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Address.City", DataType = "string", Required = true }
+                };
+
+                var collection = await client.CreateCollection(
+                    "NestedFieldTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                var doc = await client.IngestDocument(collection.Id, @"{""Address"":{""City"":""Seattle"",""State"":""WA""}}");
+                if (doc == null) return (false, "Nested field validation should work");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestConstraintsDeeplyNestedField()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Person.Contact.Address.ZipCode", DataType = "string", Required = true }
+                };
+
+                var collection = await client.CreateCollection(
+                    "DeeplyNestedTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                var doc = await client.IngestDocument(collection.Id, @"{""Person"":{""Contact"":{""Address"":{""ZipCode"":""98101""}}}}");
+                if (doc == null) return (false, "Deeply nested field validation should work");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        // Array element type tests
+        private static async Task<(bool, string)> TestConstraintsArrayElementTypeSuccess()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Scores", DataType = "array", Required = true, ArrayElementType = "integer" }
+                };
+
+                var collection = await client.CreateCollection(
+                    "ArrayElementTypeSuccessTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                var doc = await client.IngestDocument(collection.Id, @"{""Scores"":[90,85,92,88]}");
+                if (doc == null) return (false, "Array with correct element type should pass");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestConstraintsArrayElementTypeFails()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var constraints = new List<FieldConstraint>
+                {
+                    new FieldConstraint { FieldPath = "Scores", DataType = "array", Required = true, ArrayElementType = "integer" }
+                };
+
+                var collection = await client.CreateCollection(
+                    "ArrayElementTypeFailTest",
+                    schemaEnforcementMode: SchemaEnforcementMode.Flexible,
+                    fieldConstraints: constraints);
+
+                try
+                {
+                    await client.IngestDocument(collection.Id, @"{""Scores"":[90,""not a number"",92]}");
+                    return (false, "Array with wrong element type should fail");
+                }
+                catch (SchemaValidationException ex)
+                {
+                    if (!ex.Errors.Any(e => e.ErrorCode == "INVALID_ARRAY_ELEMENT"))
+                        return (false, "Expected INVALID_ARRAY_ELEMENT error");
+                    return (true, null);
+                }
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        #endregion
+
+        #region Indexing Mode Tests
+
+        private static async Task<(bool, string)> TestIndexingSelectiveMode()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var collection = await client.CreateCollection(
+                    "SelectiveIndexTest",
+                    indexingMode: IndexingMode.Selective,
+                    indexedFields: new List<string> { "Name" });
+
+                if (collection.IndexingMode != IndexingMode.Selective)
+                    return (false, "IndexingMode not set correctly");
+
+                var indexedFields = await client.GetCollectionIndexedFields(collection.Id);
+                if (indexedFields.Count != 1 || indexedFields[0].FieldPath != "Name")
+                    return (false, "Indexed fields not set correctly");
+
+                await client.IngestDocument(collection.Id, @"{""Name"":""Joel"",""Age"":30}");
+
+                var nameResult = await client.Search(new SearchQuery
+                {
+                    CollectionId = collection.Id,
+                    Filters = new List<SearchFilter> { new SearchFilter("Name", SearchConditionEnum.Equals, "Joel") }
+                });
+                if (nameResult.Documents.Count != 1)
+                    return (false, "Search by Name should find document");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestIndexingNoneMode()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var collection = await client.CreateCollection(
+                    "NoIndexTest",
+                    indexingMode: IndexingMode.None);
+
+                if (collection.IndexingMode != IndexingMode.None)
+                    return (false, "IndexingMode not set correctly");
+
+                var doc = await client.IngestDocument(collection.Id, @"{""Name"":""Joel"",""Age"":30}");
+                if (doc == null) return (false, "Document should be created");
+
+                var retrieved = await client.GetDocument(doc.Id);
+                if (retrieved == null) return (false, "Document should be retrievable by ID");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestIndexingUpdateMode()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var collection = await client.CreateCollection("UpdateIndexingTest");
+
+                if (collection.IndexingMode != IndexingMode.All)
+                    return (false, "Expected initial All mode");
+
+                await client.UpdateCollectionIndexing(
+                    collection.Id,
+                    IndexingMode.Selective,
+                    new List<string> { "Email" });
+
+                var updated = await client.GetCollection(collection.Id);
+                if (updated.IndexingMode != IndexingMode.Selective)
+                    return (false, "IndexingMode not updated");
+
+                var indexedFields = await client.GetCollectionIndexedFields(collection.Id);
+                if (indexedFields.Count != 1) return (false, "Expected 1 indexed field");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestIndexingRebuildIndexes()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var collection = await client.CreateCollection("RebuildTest");
+
+                await client.IngestDocument(collection.Id, @"{""Name"":""Joel"",""Age"":30}");
+                await client.IngestDocument(collection.Id, @"{""Name"":""John"",""Age"":25}");
+
+                await client.UpdateCollectionIndexing(
+                    collection.Id,
+                    IndexingMode.Selective,
+                    new List<string> { "Name" });
+
+                var result = await client.RebuildIndexes(collection.Id, dropUnusedIndexes: true);
+
+                if (result.DocumentsProcessed != 2)
+                    return (false, $"Expected 2 documents processed, got {result.DocumentsProcessed}");
+
+                if (!result.Success)
+                    return (false, $"Rebuild failed: {string.Join(", ", result.Errors)}");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestIndexingSearchNonIndexedField()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var collection = await client.CreateCollection(
+                    "SearchNonIndexedTest",
+                    indexingMode: IndexingMode.Selective,
+                    indexedFields: new List<string> { "Name" });
+
+                await client.IngestDocument(collection.Id, @"{""Name"":""Joel"",""Age"":30}");
+
+                // Search by non-indexed field should return empty
+                var ageResult = await client.Search(new SearchQuery
+                {
+                    CollectionId = collection.Id,
+                    Filters = new List<SearchFilter> { new SearchFilter("Age", SearchConditionEnum.Equals, "30") }
+                });
+
+                if (ageResult.Documents.Count != 0)
+                    return (false, "Search by non-indexed field should return empty");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestIndexingAllModeIndexesAll()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var collection = await client.CreateCollection(
+                    "AllModeTest",
+                    indexingMode: IndexingMode.All);
+
+                await client.IngestDocument(collection.Id, @"{""Name"":""Joel"",""Age"":30,""City"":""Seattle""}");
+
+                // Search by any field should work
+                var nameResult = await client.Search(new SearchQuery
+                {
+                    CollectionId = collection.Id,
+                    Filters = new List<SearchFilter> { new SearchFilter("Name", SearchConditionEnum.Equals, "Joel") }
+                });
+                if (nameResult.Documents.Count != 1) return (false, "Name search should work");
+
+                var ageResult = await client.Search(new SearchQuery
+                {
+                    CollectionId = collection.Id,
+                    Filters = new List<SearchFilter> { new SearchFilter("Age", SearchConditionEnum.Equals, "30") }
+                });
+                if (ageResult.Documents.Count != 1) return (false, "Age search should work");
+
+                var cityResult = await client.Search(new SearchQuery
+                {
+                    CollectionId = collection.Id,
+                    Filters = new List<SearchFilter> { new SearchFilter("City", SearchConditionEnum.Equals, "Seattle") }
+                });
+                if (cityResult.Documents.Count != 1) return (false, "City search should work");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestIndexingNestedFieldSelective()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var collection = await client.CreateCollection(
+                    "NestedIndexTest",
+                    indexingMode: IndexingMode.Selective,
+                    indexedFields: new List<string> { "Address.City" });
+
+                await client.IngestDocument(collection.Id, @"{""Name"":""Joel"",""Address"":{""City"":""Seattle"",""State"":""WA""}}");
+
+                // Search by indexed nested field should work
+                var cityResult = await client.Search(new SearchQuery
+                {
+                    CollectionId = collection.Id,
+                    Filters = new List<SearchFilter> { new SearchFilter("Address.City", SearchConditionEnum.Equals, "Seattle") }
+                });
+                if (cityResult.Documents.Count != 1)
+                    return (false, "Search by indexed nested field should work");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestIndexingRebuildWithProgress()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var collection = await client.CreateCollection("ProgressTest");
+
+                for (int i = 0; i < 10; i++)
+                {
+                    await client.IngestDocument(collection.Id, $@"{{""Index"":{i},""Value"":""item{i}""}}");
+                }
+
+                var progressReports = new List<IndexRebuildProgress>();
+                var progress = new Progress<IndexRebuildProgress>(p => progressReports.Add(p));
+
+                var result = await client.RebuildIndexes(collection.Id, dropUnusedIndexes: false, progress);
+
+                if (result.DocumentsProcessed != 10)
+                    return (false, $"Expected 10 documents processed, got {result.DocumentsProcessed}");
+
+                if (progressReports.Count == 0)
+                    return (false, "Expected progress reports");
+
+                return (true, null);
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<(bool, string)> TestIndexingRebuildDropsUnused()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using var client = CreateClient(testDir);
+                var collection = await client.CreateCollection("DropUnusedTest");
+
+                // Add documents with multiple fields (all will be indexed initially)
+                await client.IngestDocument(collection.Id, @"{""Name"":""Joel"",""Age"":30,""Email"":""joel@test.com""}");
+
+                // Change to selective mode with only Name
+                await client.UpdateCollectionIndexing(
+                    collection.Id,
+                    IndexingMode.Selective,
+                    new List<string> { "Name" });
+
+                // Rebuild with drop unused
+                var result = await client.RebuildIndexes(collection.Id, dropUnusedIndexes: true);
+
+                if (!result.Success)
+                    return (false, $"Rebuild failed: {string.Join(", ", result.Errors)}");
+
+                // Verify Name search still works
+                var nameResult = await client.Search(new SearchQuery
+                {
+                    CollectionId = collection.Id,
+                    Filters = new List<SearchFilter> { new SearchFilter("Name", SearchConditionEnum.Equals, "Joel") }
+                });
+                if (nameResult.Documents.Count != 1)
+                    return (false, "Name search should still work after rebuild");
 
                 return (true, null);
             }

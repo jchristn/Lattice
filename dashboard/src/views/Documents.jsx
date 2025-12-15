@@ -2,6 +2,15 @@ import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { formatDate } from '../utils/api'
+
+// Format bytes to human-readable string
+function formatBytes(bytes) {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+}
 import Modal from '../components/Modal'
 import ActionMenu from '../components/ActionMenu'
 import CopyableId from '../components/CopyableId'
@@ -32,6 +41,7 @@ export default function Documents() {
   const [filters, setFilters] = useState({
     id: '',
     name: '',
+    contentLength: '',
     schemaId: '',
     createdUtc: '',
   })
@@ -52,6 +62,10 @@ export default function Documents() {
       const query = filters.name.toLowerCase()
       result = result.filter(d => (d.name || '').toLowerCase().includes(query))
     }
+    if (filters.contentLength) {
+      const query = filters.contentLength.toLowerCase()
+      result = result.filter(d => formatBytes(d.contentLength || 0).toLowerCase().includes(query))
+    }
     if (filters.schemaId) {
       const query = filters.schemaId.toLowerCase()
       result = result.filter(d => (d.schemaId || '').toLowerCase().includes(query))
@@ -68,12 +82,19 @@ export default function Documents() {
         if (sort.column === 'createdUtc') {
           aVal = a.createdUtc || ''
           bVal = b.createdUtc || ''
+          const comparison = aVal.localeCompare(bVal)
+          return sort.direction === 'asc' ? comparison : -comparison
+        } else if (sort.column === 'contentLength') {
+          aVal = a.contentLength || 0
+          bVal = b.contentLength || 0
+          const comparison = aVal - bVal
+          return sort.direction === 'asc' ? comparison : -comparison
         } else {
           aVal = a[sort.column] || ''
           bVal = b[sort.column] || ''
+          const comparison = aVal.localeCompare(bVal)
+          return sort.direction === 'asc' ? comparison : -comparison
         }
-        const comparison = aVal.localeCompare(bVal)
-        return sort.direction === 'asc' ? comparison : -comparison
       })
     }
 
@@ -269,6 +290,15 @@ export default function Documents() {
                   </span>
                 </th>
                 <th
+                  className={`sortable ${sort.column === 'contentLength' ? 'sorted' : ''}`}
+                  onClick={() => handleSort('contentLength')}
+                >
+                  <span className="th-content">
+                    Size
+                    <span className="sort-icon">{getSortIcon('contentLength')}</span>
+                  </span>
+                </th>
+                <th
                   className={`sortable ${sort.column === 'schemaId' ? 'sorted' : ''}`}
                   onClick={() => handleSort('schemaId')}
                 >
@@ -312,6 +342,15 @@ export default function Documents() {
                     type="text"
                     className="column-filter"
                     placeholder="Filter..."
+                    value={filters.contentLength}
+                    onChange={(e) => handleFilterChange('contentLength', e.target.value)}
+                  />
+                </td>
+                <td>
+                  <input
+                    type="text"
+                    className="column-filter"
+                    placeholder="Filter..."
                     value={filters.schemaId}
                     onChange={(e) => handleFilterChange('schemaId', e.target.value)}
                   />
@@ -331,13 +370,14 @@ export default function Documents() {
             <tbody>
               {filteredDocuments.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="empty-row">No documents match your filters.</td>
+                  <td colSpan={6} className="empty-row">No documents match your filters.</td>
                 </tr>
               ) : (
                 filteredDocuments.map((doc) => (
                   <tr key={doc.id}>
                     <td><CopyableId value={doc.id} /></td>
                     <td>{doc.name || '-'}</td>
+                    <td>{formatBytes(doc.contentLength || 0)}</td>
                     <td>{doc.schemaId ? <CopyableId value={doc.schemaId} /> : '-'}</td>
                     <td>{formatDate(doc.createdUtc)}</td>
                     <td>
@@ -416,6 +456,7 @@ export default function Documents() {
           setSelectedDocument(null)
         }}
         title="Document Metadata"
+        wide
       >
         {selectedDocument && (
           <>
@@ -427,6 +468,12 @@ export default function Documents() {
             </div>
             <div className="doc-detail">
               <strong>Schema ID:</strong> {selectedDocument.schemaId ? <CopyableId value={selectedDocument.schemaId} /> : '-'}
+            </div>
+            <div className="doc-detail">
+              <strong>Content Length:</strong> {formatBytes(selectedDocument.contentLength || 0)} ({(selectedDocument.contentLength || 0).toLocaleString()} bytes)
+            </div>
+            <div className="doc-detail">
+              <strong>SHA256 Hash:</strong> {selectedDocument.sha256Hash ? <CopyableId value={selectedDocument.sha256Hash} /> : '-'}
             </div>
             <div className="doc-detail">
               <strong>Created:</strong> {formatDate(selectedDocument.createdUtc)}

@@ -16,19 +16,16 @@ namespace Lattice.Core.Search
         /// <summary>
         /// Whether the operation was successful.
         /// </summary>
-        [JsonPropertyName("success")]
         public bool Success { get; set; } = true;
 
         /// <summary>
         /// Timestamp information for the operation.
         /// </summary>
-        [JsonPropertyName("timestamp")]
         public Timestamp Timestamp { get; set; } = new Timestamp();
 
         /// <summary>
         /// Maximum results requested.
         /// </summary>
-        [JsonPropertyName("maxResults")]
         public int MaxResults
         {
             get => _MaxResults;
@@ -42,7 +39,6 @@ namespace Lattice.Core.Search
         /// <summary>
         /// Number of records skipped.
         /// </summary>
-        [JsonPropertyName("skip")]
         public int Skip
         {
             get => _Skip;
@@ -56,7 +52,6 @@ namespace Lattice.Core.Search
         /// <summary>
         /// Number of iterations required.
         /// </summary>
-        [JsonPropertyName("iterationsRequired")]
         public int IterationsRequired
         {
             get => _IterationsRequired;
@@ -70,19 +65,16 @@ namespace Lattice.Core.Search
         /// <summary>
         /// Continuation token for retrieving more results.
         /// </summary>
-        [JsonPropertyName("continuationToken")]
         public string ContinuationToken { get; set; } = null;
 
         /// <summary>
         /// Whether this is the end of results.
         /// </summary>
-        [JsonPropertyName("endOfResults")]
         public bool EndOfResults { get; set; } = true;
 
         /// <summary>
         /// Total number of matching records.
         /// </summary>
-        [JsonPropertyName("totalRecords")]
         public long TotalRecords
         {
             get => _TotalRecords;
@@ -96,7 +88,6 @@ namespace Lattice.Core.Search
         /// <summary>
         /// Number of records remaining.
         /// </summary>
-        [JsonPropertyName("recordsRemaining")]
         public long RecordsRemaining
         {
             get => _RecordsRemaining;
@@ -110,7 +101,6 @@ namespace Lattice.Core.Search
         /// <summary>
         /// The enumerated objects.
         /// </summary>
-        [JsonPropertyName("objects")]
         [JsonPropertyOrder(999)]
         public List<T> Objects
         {

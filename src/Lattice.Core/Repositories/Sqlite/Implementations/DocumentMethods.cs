@@ -29,11 +29,13 @@ namespace Lattice.Core.Repositories.Sqlite.Implementations
             token.ThrowIfCancellationRequested();
 
             string query = $@"
-                INSERT INTO documents (id, collectionid, schemaid, name, createdutc, lastupdateutc)
+                INSERT INTO documents (id, collectionid, schemaid, name, contentlength, sha256hash, createdutc, lastupdateutc)
                 VALUES ('{Sanitizer.Sanitize(document.Id)}',
                         '{Sanitizer.Sanitize(document.CollectionId)}',
                         '{Sanitizer.Sanitize(document.SchemaId)}',
                         {(document.Name != null ? $"'{Sanitizer.Sanitize(document.Name)}'" : "NULL")},
+                        {document.ContentLength},
+                        {(document.Sha256Hash != null ? $"'{Sanitizer.Sanitize(document.Sha256Hash)}'" : "NULL")},
                         '{Converters.ToTimestamp(document.CreatedUtc)}',
                         '{Converters.ToTimestamp(document.LastUpdateUtc)}');
                 SELECT * FROM documents WHERE id = '{Sanitizer.Sanitize(document.Id)}';
@@ -90,7 +92,7 @@ namespace Lattice.Core.Repositories.Sqlite.Implementations
             // Build a single JOIN query that fetches document, labels, and tags
             string query = $@"
                 SELECT
-                    d.id, d.collectionid, d.schemaid, d.name, d.createdutc, d.lastupdateutc,
+                    d.id, d.collectionid, d.schemaid, d.name, d.contentlength, d.sha256hash, d.createdutc, d.lastupdateutc,
                     l.labelvalue,
                     t.key as tagkey, t.value as tagvalue
                 FROM documents d
@@ -150,7 +152,7 @@ namespace Lattice.Core.Repositories.Sqlite.Implementations
             // Build a single JOIN query that fetches documents, labels, and tags
             string query = $@"
                 SELECT
-                    d.id, d.collectionid, d.schemaid, d.name, d.createdutc, d.lastupdateutc,
+                    d.id, d.collectionid, d.schemaid, d.name, d.contentlength, d.sha256hash, d.createdutc, d.lastupdateutc,
                     l.labelvalue,
                     t.key as tagkey, t.value as tagvalue
                 FROM documents d

@@ -124,3 +124,14 @@
 .tag-val {
   color: var(--text-primary);
 }
+
+/* Document detail values */
+.doc-detail .copyable-id {
+  font-family: monospace;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.doc-detail .copyable-id-value {
+  word-break: break-all;
+}

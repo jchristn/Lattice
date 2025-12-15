@@ -1,7 +1,6 @@
 namespace Lattice.Core.Models
 {
     using System;
-    using System.Text.Json.Serialization;
 
     /// <summary>
     /// Represents operation timing information.
@@ -13,19 +12,16 @@ namespace Lattice.Core.Models
         /// <summary>
         /// Start time of the operation (UTC).
         /// </summary>
-        [JsonPropertyName("start")]
         public DateTime Start { get; set; } = DateTime.UtcNow;
 
         /// <summary>
         /// End time of the operation (UTC).
         /// </summary>
-        [JsonPropertyName("end")]
         public DateTime End { get; set; } = DateTime.UtcNow;
 
         /// <summary>
         /// Total elapsed time in milliseconds.
         /// </summary>
-        [JsonPropertyName("totalMs")]
         public double TotalMs
         {
             get => (End - Start).TotalMilliseconds;

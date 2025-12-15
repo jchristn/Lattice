@@ -1,6 +1,5 @@
 namespace Lattice.Server.Classes
 {
-    using System.Text.Json.Serialization;
     using Lattice.Core.Search;
 
     /// <summary>
@@ -13,19 +12,16 @@ namespace Lattice.Server.Classes
         /// <summary>
         /// Field name to filter on.
         /// </summary>
-        [JsonPropertyName("field")]
         public string Field { get; set; } = null!;
 
         /// <summary>
         /// Filter condition.
         /// </summary>
-        [JsonPropertyName("condition")]
         public SearchConditionEnum Condition { get; set; } = SearchConditionEnum.Equals;
 
         /// <summary>
         /// Value to filter by.
         /// </summary>
-        [JsonPropertyName("value")]
         public string? Value { get; set; }
 
         #endregion

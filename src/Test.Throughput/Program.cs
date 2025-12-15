@@ -1121,7 +1121,7 @@ public class Program
     {
         return new LatticeClient(new LatticeSettings
         {
-            DatabaseFilename = Path.Combine(testDir, "lattice.db"),
+            Database = new Lattice.Core.DatabaseSettings { Filename = Path.Combine(testDir, "lattice.db") },
             DefaultDocumentsDirectory = Path.Combine(testDir, "documents"),
             InMemory = inMemory,
             EnableLogging = false

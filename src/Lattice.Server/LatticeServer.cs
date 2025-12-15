@@ -10,13 +10,13 @@ namespace Lattice.Server
     /// <summary>
     /// Main program entry point.
     /// </summary>
-    public class Program
+    public class LatticeServer
     {
         private static Settings _Settings = null!;
         private static LoggingModule _Logging = null!;
         private static LatticeClient _Client = null!;
         private static RestServiceHandler _Rest = null!;
-        private static readonly string _Header = "[Lattice.Server] ";
+        private static readonly string _Header = "[LatticeServer] ";
         private static readonly ManualResetEvent _ExitEvent = new ManualResetEvent(false);
 
         /// <summary>
@@ -25,7 +25,7 @@ namespace Lattice.Server
         /// <param name="args">Command line arguments.</param>
         public static void Main(string[] args)
         {
-            Console.WriteLine("Lattice Server starting...");
+            Welcome();
 
             // Load settings
             string settingsFile = "lattice.json";
@@ -80,6 +80,15 @@ namespace Lattice.Server
             // Cleanup
             _Rest.Stop();
             _Logging.Info(_Header + "server stopped");
+        }
+
+        private static void Welcome()
+        {
+            Console.WriteLine(
+                Constants.Logo + 
+                Environment.NewLine +
+                Constants.Copyright +
+                Environment.NewLine);
         }
     }
 }

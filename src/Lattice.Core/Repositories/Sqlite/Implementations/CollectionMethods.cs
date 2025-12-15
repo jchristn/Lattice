@@ -27,11 +27,13 @@ namespace Lattice.Core.Repositories.Sqlite.Implementations
             token.ThrowIfCancellationRequested();
 
             string query = $@"
-                INSERT INTO collections (id, name, description, documentsdirectory, createdutc, lastupdateutc)
+                INSERT INTO collections (id, name, description, documentsdirectory, schemaenforcementmode, indexingmode, createdutc, lastupdateutc)
                 VALUES ('{Sanitizer.Sanitize(collection.Id)}',
                         '{Sanitizer.Sanitize(collection.Name)}',
                         {(collection.Description != null ? $"'{Sanitizer.Sanitize(collection.Description)}'" : "NULL")},
                         {(collection.DocumentsDirectory != null ? $"'{Sanitizer.Sanitize(collection.DocumentsDirectory)}'" : "NULL")},
+                        {(int)collection.SchemaEnforcementMode},
+                        {(int)collection.IndexingMode},
                         '{Converters.ToTimestamp(collection.CreatedUtc)}',
                         '{Converters.ToTimestamp(collection.LastUpdateUtc)}');
                 SELECT * FROM collections WHERE id = '{Sanitizer.Sanitize(collection.Id)}';
@@ -82,6 +84,8 @@ namespace Lattice.Core.Repositories.Sqlite.Implementations
                     name = '{Sanitizer.Sanitize(collection.Name)}',
                     description = {(collection.Description != null ? $"'{Sanitizer.Sanitize(collection.Description)}'" : "NULL")},
                     documentsdirectory = {(collection.DocumentsDirectory != null ? $"'{Sanitizer.Sanitize(collection.DocumentsDirectory)}'" : "NULL")},
+                    schemaenforcementmode = {(int)collection.SchemaEnforcementMode},
+                    indexingmode = {(int)collection.IndexingMode},
                     lastupdateutc = '{Converters.ToTimestamp(collection.LastUpdateUtc)}'
                 WHERE id = '{Sanitizer.Sanitize(collection.Id)}';
                 SELECT * FROM collections WHERE id = '{Sanitizer.Sanitize(collection.Id)}';

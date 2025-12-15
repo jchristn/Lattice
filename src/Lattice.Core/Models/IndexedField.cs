@@ -3,44 +3,34 @@ namespace Lattice.Core.Models
     using System;
 
     /// <summary>
-    /// Represents a key-value tag associated with a document.
+    /// Represents a field that should be indexed for a collection with selective indexing.
     /// </summary>
-    public class Tag
+    public class IndexedField
     {
         #region Public-Members
 
         /// <summary>
-        /// Unique identifier for the tag (tag_{prettyid}).
+        /// Unique identifier for the indexed field (ixf_{prettyid}).
         /// </summary>
         public string Id { get; set; } = null;
 
         /// <summary>
-        /// Identifier of the collection this tag belongs to (null if document tag).
+        /// Foreign key to the collection this indexed field belongs to.
         /// </summary>
         public string CollectionId { get; set; } = null;
 
         /// <summary>
-        /// Identifier of the document this tag belongs to (null if collection tag).
+        /// Dot-notation path to the field to be indexed (e.g., "email", "user.name").
         /// </summary>
-        public string DocumentId { get; set; } = null;
+        public string FieldPath { get; set; } = null;
 
         /// <summary>
-        /// The tag key.
-        /// </summary>
-        public string Key { get; set; } = null;
-
-        /// <summary>
-        /// The tag value.
-        /// </summary>
-        public string Value { get; set; } = null;
-
-        /// <summary>
-        /// Timestamp when the tag was created (UTC).
+        /// Timestamp when the indexed field was created (UTC).
         /// </summary>
         public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
 
         /// <summary>
-        /// Timestamp when the tag was last updated (UTC).
+        /// Timestamp when the indexed field was last updated (UTC).
         /// </summary>
         public DateTime LastUpdateUtc { get; set; } = DateTime.UtcNow;
 
@@ -51,7 +41,7 @@ namespace Lattice.Core.Models
         /// <summary>
         /// Instantiate the object.
         /// </summary>
-        public Tag()
+        public IndexedField()
         {
         }
 

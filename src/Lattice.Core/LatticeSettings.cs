@@ -1,7 +1,6 @@
 namespace Lattice.Core
 {
     using System;
-    using System.Text.Json.Serialization;
 
     /// <summary>
     /// Settings for the Lattice client.
@@ -11,43 +10,38 @@ namespace Lattice.Core
         #region Public-Members
 
         /// <summary>
-        /// Database filename for SQLite.
+        /// Database settings.
         /// </summary>
-        [JsonPropertyName("databaseFilename")]
-        public string DatabaseFilename
+        public DatabaseSettings Database
         {
-            get => _DatabaseFilename;
+            get => _Database;
             set
             {
-                if (string.IsNullOrWhiteSpace(value))
-                    throw new ArgumentNullException(nameof(DatabaseFilename));
-                _DatabaseFilename = value;
+                if (value == null) _Database = new DatabaseSettings();
+                else _Database = value;
             }
         }
 
         /// <summary>
         /// Whether to use in-memory database.
         /// </summary>
-        [JsonPropertyName("inMemory")]
         public bool InMemory { get; set; } = false;
 
         /// <summary>
         /// Default directory for document storage if not specified per collection.
         /// </summary>
-        [JsonPropertyName("defaultDocumentsDirectory")]
         public string DefaultDocumentsDirectory { get; set; } = "./documents";
 
         /// <summary>
         /// Enable verbose logging.
         /// </summary>
-        [JsonPropertyName("enableLogging")]
         public bool EnableLogging { get; set; } = false;
 
         #endregion
 
         #region Private-Members
 
-        private string _DatabaseFilename = "lattice.db";
+        private DatabaseSettings _Database = new DatabaseSettings();
 
         #endregion
 

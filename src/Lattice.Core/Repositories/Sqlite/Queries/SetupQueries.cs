@@ -18,6 +18,8 @@ namespace Lattice.Core.Repositories.Sqlite.Queries
                     name TEXT NOT NULL,
                     description TEXT,
                     documentsdirectory TEXT,
+                    schemaenforcementmode INTEGER NOT NULL DEFAULT 0,
+                    indexingmode INTEGER NOT NULL DEFAULT 0,
                     createdutc TEXT NOT NULL,
                     lastupdateutc TEXT NOT NULL
                 );
@@ -64,6 +66,8 @@ namespace Lattice.Core.Repositories.Sqlite.Queries
                     collectionid TEXT NOT NULL,
                     schemaid TEXT NOT NULL,
                     name TEXT,
+                    contentlength INTEGER NOT NULL DEFAULT 0,
+                    sha256hash TEXT,
                     createdutc TEXT NOT NULL,
                     lastupdateutc TEXT NOT NULL,
                     FOREIGN KEY (collectionid) REFERENCES collections(id) ON DELETE CASCADE,
@@ -133,7 +137,57 @@ namespace Lattice.Core.Repositories.Sqlite.Queries
                 CREATE INDEX IF NOT EXISTS idx_indextablemappings_key ON indextablemappings(key);
                 CREATE INDEX IF NOT EXISTS idx_indextablemappings_tablename ON indextablemappings(tablename);
                 CREATE INDEX IF NOT EXISTS idx_indextablemappings_createdutc ON indextablemappings(createdutc);
+
+                -- Field constraints table (schema constraints for collections)
+                CREATE TABLE IF NOT EXISTS fieldconstraints (
+                    id TEXT PRIMARY KEY,
+                    collectionid TEXT NOT NULL,
+                    fieldpath TEXT NOT NULL,
+                    datatype TEXT,
+                    required INTEGER NOT NULL DEFAULT 0,
+                    nullable INTEGER NOT NULL DEFAULT 1,
+                    regexpattern TEXT,
+                    minvalue REAL,
+                    maxvalue REAL,
+                    minlength INTEGER,
+                    maxlength INTEGER,
+                    allowedvalues TEXT,
+                    arrayelementtype TEXT,
+                    createdutc TEXT NOT NULL,
+                    lastupdateutc TEXT NOT NULL,
+                    FOREIGN KEY (collectionid) REFERENCES collections(id) ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS idx_fieldconstraints_collectionid ON fieldconstraints(collectionid);
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_fieldconstraints_collectionid_fieldpath ON fieldconstraints(collectionid, fieldpath);
+
+                -- Indexed fields table (selective indexing configuration)
+                CREATE TABLE IF NOT EXISTS indexedfields (
+                    id TEXT PRIMARY KEY,
+                    collectionid TEXT NOT NULL,
+                    fieldpath TEXT NOT NULL,
+                    createdutc TEXT NOT NULL,
+                    lastupdateutc TEXT NOT NULL,
+                    FOREIGN KEY (collectionid) REFERENCES collections(id) ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS idx_indexedfields_collectionid ON indexedfields(collectionid);
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_indexedfields_collectionid_fieldpath ON indexedfields(collectionid, fieldpath);
             ";
+        }
+
+        /// <summary>
+        /// Get migration statements to add new columns to existing tables.
+        /// Each statement is returned separately so errors can be caught individually.
+        /// </summary>
+        /// <returns>Array of SQL statements.</returns>
+        internal static string[] GetMigrationStatements()
+        {
+            return new[]
+            {
+                // Add contentlength column to documents table (use DEFAULT 0 for existing rows)
+                "ALTER TABLE documents ADD COLUMN contentlength INTEGER DEFAULT 0;",
+                // Add sha256hash column to documents table
+                "ALTER TABLE documents ADD COLUMN sha256hash TEXT;"
+            };
         }
 
         /// <summary>

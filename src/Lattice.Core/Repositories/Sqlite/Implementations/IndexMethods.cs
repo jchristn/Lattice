@@ -223,5 +223,109 @@ namespace Lattice.Core.Repositories.Sqlite.Implementations
             string query = SetupQueries.DropIndexTable(sanitizedTableName);
             await _Repo.ExecuteNonQueryAsync(query, token);
         }
+
+        public async Task<IndexTableMapping> GetMappingByTableName(string tableName, CancellationToken token = default)
+        {
+            if (string.IsNullOrWhiteSpace(tableName)) throw new ArgumentNullException(nameof(tableName));
+            token.ThrowIfCancellationRequested();
+
+            string query = $"SELECT * FROM indextablemappings WHERE tablename = '{Sanitizer.Sanitize(tableName)}';";
+            DataTable result = await _Repo.ExecuteQueryAsync(query, false, token);
+
+            if (result.Rows.Count > 0)
+                return Converters.IndexTableMappingFromDataRow(result.Rows[0]);
+
+            return null;
+        }
+
+        public async Task<List<string>> GetIndexTablesForCollection(string collectionId, CancellationToken token = default)
+        {
+            if (string.IsNullOrWhiteSpace(collectionId)) throw new ArgumentNullException(nameof(collectionId));
+            token.ThrowIfCancellationRequested();
+
+            // Get all document IDs for this collection
+            string docQuery = $"SELECT id FROM documents WHERE collectionid = '{Sanitizer.Sanitize(collectionId)}';";
+            DataTable docResult = await _Repo.ExecuteQueryAsync(docQuery, false, token);
+
+            if (docResult.Rows.Count == 0)
+                return new List<string>();
+
+            // Get all index table names
+            List<string> tableNames = new List<string>();
+            string mappingQuery = "SELECT tablename FROM indextablemappings;";
+            DataTable mappingResult = await _Repo.ExecuteQueryAsync(mappingQuery, false, token);
+
+            foreach (DataRow row in mappingResult.Rows)
+            {
+                string tableName = row["tablename"]?.ToString();
+                if (!string.IsNullOrWhiteSpace(tableName))
+                {
+                    // Check if any document from this collection has values in this table
+                    string sampleDocId = docResult.Rows[0]["id"]?.ToString();
+                    string sanitizedTableName = Sanitizer.SanitizeTableName(tableName);
+
+                    // Check if table exists and has values for any document in the collection
+                    string checkQuery = $@"
+                        SELECT COUNT(*) as cnt FROM {sanitizedTableName}
+                        WHERE documentid IN (SELECT id FROM documents WHERE collectionid = '{Sanitizer.Sanitize(collectionId)}')
+                        LIMIT 1;";
+
+                    try
+                    {
+                        DataTable checkResult = await _Repo.ExecuteQueryAsync(checkQuery, false, token);
+                        if (checkResult.Rows.Count > 0 && Convert.ToInt64(checkResult.Rows[0]["cnt"]) > 0)
+                        {
+                            tableNames.Add(tableName);
+                        }
+                    }
+                    catch
+                    {
+                        // Table might not exist, skip
+                    }
+                }
+            }
+
+            return tableNames;
+        }
+
+        public async Task DeleteValuesByCollectionId(string collectionId, CancellationToken token = default)
+        {
+            if (string.IsNullOrWhiteSpace(collectionId)) throw new ArgumentNullException(nameof(collectionId));
+            token.ThrowIfCancellationRequested();
+
+            // Get all index tables that have values for this collection
+            List<string> tableNames = await GetIndexTablesForCollection(collectionId, token);
+
+            if (tableNames.Count == 0) return;
+
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine("BEGIN TRANSACTION;");
+
+            foreach (string tableName in tableNames)
+            {
+                string sanitizedTableName = Sanitizer.SanitizeTableName(tableName);
+                sb.AppendLine($@"
+                    DELETE FROM {sanitizedTableName}
+                    WHERE documentid IN (SELECT id FROM documents WHERE collectionid = '{Sanitizer.Sanitize(collectionId)}');
+                ");
+            }
+
+            sb.AppendLine("COMMIT;");
+            await _Repo.ExecuteNonQueryAsync(sb.ToString(), token);
+        }
+
+        public async Task DeleteValuesFromTable(string tableName, string collectionId, CancellationToken token = default)
+        {
+            if (string.IsNullOrWhiteSpace(tableName)) throw new ArgumentNullException(nameof(tableName));
+            if (string.IsNullOrWhiteSpace(collectionId)) throw new ArgumentNullException(nameof(collectionId));
+            token.ThrowIfCancellationRequested();
+
+            string sanitizedTableName = Sanitizer.SanitizeTableName(tableName);
+            string query = $@"
+                DELETE FROM {sanitizedTableName}
+                WHERE documentid IN (SELECT id FROM documents WHERE collectionid = '{Sanitizer.Sanitize(collectionId)}');
+            ";
+            await _Repo.ExecuteNonQueryAsync(query, token);
+        }
     }
 }

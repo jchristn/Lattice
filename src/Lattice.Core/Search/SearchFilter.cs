@@ -1,7 +1,6 @@
 namespace Lattice.Core.Search
 {
     using System;
-    using System.Text.Json.Serialization;
 
     /// <summary>
     /// Represents a search filter condition.
@@ -13,7 +12,6 @@ namespace Lattice.Core.Search
         /// <summary>
         /// The field/key to filter on (dot-notation path like "Person.First").
         /// </summary>
-        [JsonPropertyName("field")]
         public string Field
         {
             get => _Field;
@@ -28,13 +26,11 @@ namespace Lattice.Core.Search
         /// <summary>
         /// The condition operator.
         /// </summary>
-        [JsonPropertyName("condition")]
         public SearchConditionEnum Condition { get; set; } = SearchConditionEnum.Equals;
 
         /// <summary>
         /// The value to compare against.
         /// </summary>
-        [JsonPropertyName("value")]
         public string Value { get; set; } = null;
 
         #endregion
