@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import CopyableId from '../components/CopyableId'
+import ActionMenu from '../components/ActionMenu'
 import './SchemaElements.css'
 
 export default function SchemaElements() {
@@ -142,6 +143,10 @@ export default function SchemaElements() {
     return sort.direction === 'asc' ? '↑' : '↓'
   }
 
+  const handleViewIndexTables = (element) => {
+    navigate(`/tables?key=${encodeURIComponent(element.key)}`)
+  }
+
   if (loading) {
     return <div className="loading">Loading...</div>
   }
@@ -231,6 +236,7 @@ export default function SchemaElements() {
                     <span className="sort-icon">{getSortIcon('nullable')}</span>
                   </span>
                 </th>
+                <th>Actions</th>
               </tr>
               <tr className="filter-row">
                 <td>
@@ -260,12 +266,13 @@ export default function SchemaElements() {
                     onChange={(e) => handleFilterChange('nullable', e.target.value)}
                   />
                 </td>
+                <td className="no-filter"></td>
               </tr>
             </thead>
             <tbody>
               {filteredElements.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="empty-row">No elements match your filters.</td>
+                  <td colSpan={4} className="empty-row">No elements match your filters.</td>
                 </tr>
               ) : (
                 filteredElements.map((element) => (
@@ -273,6 +280,13 @@ export default function SchemaElements() {
                     <td className="monospace">{element.key}</td>
                     <td>{element.dataType}</td>
                     <td>{element.nullable ? 'Yes' : 'No'}</td>
+                    <td>
+                      <ActionMenu
+                        items={[
+                          { label: 'View Index Tables', onClick: () => handleViewIndexTables(element) },
+                        ]}
+                      />
+                    </td>
                   </tr>
                 ))
               )}

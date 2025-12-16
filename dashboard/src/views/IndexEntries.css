@@ -1,0 +1,117 @@
+.index-entries {
+  max-width: 100%;
+}
+
+.table-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.table-selector-label {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.table-selector-select {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  min-width: 300px;
+  cursor: pointer;
+  font-family: monospace;
+}
+
+.table-selector-select:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.table-selector-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.table-selector-or {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.table-key-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.table-key-input {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  min-width: 200px;
+  font-family: monospace;
+}
+
+.table-key-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.table-key-input::placeholder {
+  color: var(--text-muted);
+  font-family: inherit;
+}
+
+/* Entries table styles */
+.entries-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pagination-info {
+  color: var(--text-secondary);
+  font-size: 14px;
+  padding: 0 8px;
+}
+
+.pagination-footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.entry-value-cell {
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.null-value {
+  color: var(--text-muted);
+  font-style: italic;
+}

@@ -126,5 +126,23 @@ namespace Lattice.Core.Repositories.Interfaces
         /// <param name="collectionId">Collection ID.</param>
         /// <param name="token">Cancellation token.</param>
         Task DeleteValuesFromTable(string tableName, string collectionId, CancellationToken token = default);
+
+        /// <summary>
+        /// Get entries from an index table with pagination.
+        /// </summary>
+        /// <param name="tableName">Index table name.</param>
+        /// <param name="skip">Number of entries to skip.</param>
+        /// <param name="limit">Maximum number of entries to return.</param>
+        /// <param name="token">Cancellation token.</param>
+        /// <returns>List of index table entries.</returns>
+        Task<List<IndexTableEntry>> GetTableEntries(string tableName, int skip = 0, int limit = 100, CancellationToken token = default);
+
+        /// <summary>
+        /// Get the total count of entries in an index table.
+        /// </summary>
+        /// <param name="tableName">Index table name.</param>
+        /// <param name="token">Cancellation token.</param>
+        /// <returns>Total count of entries.</returns>
+        Task<long> GetTableEntryCount(string tableName, CancellationToken token = default);
     }
 }

@@ -56,6 +56,18 @@ namespace Lattice.Core.Client.Implementations
             return _Repo.Indexes.GetMappingByKey(key, token);
         }
 
+        /// <inheritdoc />
+        public Task<List<IndexTableEntry>> GetTableEntries(string tableName, int skip = 0, int limit = 100, CancellationToken token = default)
+        {
+            return _Repo.Indexes.GetTableEntries(tableName, skip, limit, token);
+        }
+
+        /// <inheritdoc />
+        public Task<long> GetTableEntryCount(string tableName, CancellationToken token = default)
+        {
+            return _Repo.Indexes.GetTableEntryCount(tableName, token);
+        }
+
         #endregion
     }
 }

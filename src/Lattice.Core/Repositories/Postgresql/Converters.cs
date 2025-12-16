@@ -241,5 +241,23 @@ namespace Lattice.Core.Repositories.Postgresql
                 CreatedUtc = Convert.ToDateTime(row["createdutc"])
             };
         }
+
+        internal static IndexTableEntry IndexTableEntryFromDataRow(DataRow row)
+        {
+            if (row == null) return null;
+
+            int? position = null;
+            if (row["position"] != DBNull.Value)
+                position = Convert.ToInt32(row["position"]);
+
+            return new IndexTableEntry
+            {
+                Id = row["id"]?.ToString(),
+                DocumentId = row["documentid"]?.ToString(),
+                Position = position,
+                Value = row["value"] != DBNull.Value ? row["value"]?.ToString() : null,
+                CreatedUtc = Convert.ToDateTime(row["createdutc"])
+            };
+        }
     }
 }

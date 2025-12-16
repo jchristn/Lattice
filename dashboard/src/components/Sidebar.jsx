@@ -50,6 +50,14 @@ export default function Sidebar() {
         </NavLink>
 
         <NavLink
+          to="/entries"
+          className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+        >
+          <span className="sidebar-icon">&#128209;</span>
+          Index Entries
+        </NavLink>
+
+        <NavLink
           to="/search"
           className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
         >

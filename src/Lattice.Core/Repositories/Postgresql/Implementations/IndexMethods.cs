@@ -328,5 +328,43 @@ namespace Lattice.Core.Repositories.Postgresql.Implementations
             ";
             await _Repo.ExecuteNonQueryAsync(query, token);
         }
+
+        public async Task<List<IndexTableEntry>> GetTableEntries(string tableName, int skip = 0, int limit = 100, CancellationToken token = default)
+        {
+            if (string.IsNullOrWhiteSpace(tableName)) throw new ArgumentNullException(nameof(tableName));
+            if (skip < 0) throw new ArgumentOutOfRangeException(nameof(skip), "Skip must be non-negative");
+            if (limit <= 0) throw new ArgumentOutOfRangeException(nameof(limit), "Limit must be positive");
+            token.ThrowIfCancellationRequested();
+
+            string sanitizedTableName = Sanitizer.SanitizeTableName(tableName);
+            string query = $"SELECT * FROM {sanitizedTableName} ORDER BY documentid, position LIMIT {limit} OFFSET {skip};";
+
+            DataTable result = await _Repo.ExecuteQueryAsync(query, false, token);
+
+            List<IndexTableEntry> entries = new List<IndexTableEntry>();
+            foreach (DataRow row in result.Rows)
+            {
+                token.ThrowIfCancellationRequested();
+                entries.Add(Converters.IndexTableEntryFromDataRow(row));
+            }
+
+            return entries;
+        }
+
+        public async Task<long> GetTableEntryCount(string tableName, CancellationToken token = default)
+        {
+            if (string.IsNullOrWhiteSpace(tableName)) throw new ArgumentNullException(nameof(tableName));
+            token.ThrowIfCancellationRequested();
+
+            string sanitizedTableName = Sanitizer.SanitizeTableName(tableName);
+            string query = $"SELECT COUNT(*) as cnt FROM {sanitizedTableName};";
+
+            DataTable result = await _Repo.ExecuteQueryAsync(query, false, token);
+
+            if (result.Rows.Count > 0)
+                return Convert.ToInt64(result.Rows[0]["cnt"]);
+
+            return 0;
+        }
     }
 }

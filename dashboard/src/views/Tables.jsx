@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import CopyableId from '../components/CopyableId'
 import ActionMenu from '../components/ActionMenu'
@@ -6,15 +7,17 @@ import Modal from '../components/Modal'
 import './Tables.css'
 
 export default function Tables() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
   const { api, setError } = useApp()
   const [tables, setTables] = useState([])
   const [loading, setLoading] = useState(true)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [selectedTable, setSelectedTable] = useState(null)
 
-  // Per-column filters
+  // Per-column filters - initialize from URL params
   const [filters, setFilters] = useState({
-    key: '',
+    key: searchParams.get('key') || '',
     tableName: '',
   })
 
@@ -72,6 +75,14 @@ export default function Tables() {
 
   const handleFilterChange = (column, value) => {
     setFilters(prev => ({ ...prev, [column]: value }))
+    // Update URL params for key filter
+    if (column === 'key') {
+      if (value) {
+        setSearchParams({ key: value })
+      } else {
+        setSearchParams({})
+      }
+    }
   }
 
   const getSortIcon = (column) => {
@@ -82,6 +93,10 @@ export default function Tables() {
   const handleViewDetails = (table) => {
     setSelectedTable(table)
     setShowDetailsModal(true)
+  }
+
+  const handleViewEntries = (table) => {
+    navigate(`/entries?table=${encodeURIComponent(table.key)}`)
   }
 
   if (loading) {
@@ -162,6 +177,7 @@ export default function Tables() {
                     <td>
                       <ActionMenu
                         items={[
+                          { label: 'View Entries', onClick: () => handleViewEntries(mapping) },
                           { label: 'View Details', onClick: () => handleViewDetails(mapping) },
                         ]}
                       />

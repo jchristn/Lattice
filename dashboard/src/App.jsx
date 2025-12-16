@@ -8,6 +8,7 @@ import Search from './views/Search'
 import Schemas from './views/Schemas'
 import SchemaElements from './views/SchemaElements'
 import Tables from './views/Tables'
+import IndexEntries from './views/IndexEntries'
 
 function App() {
   const { serverUrl } = useApp()
@@ -27,6 +28,7 @@ function App() {
         <Route path="schema-elements" element={<SchemaElements />} />
         <Route path="schemas/:schemaId/elements" element={<SchemaElements />} />
         <Route path="tables" element={<Tables />} />
+        <Route path="entries" element={<IndexEntries />} />
         <Route path="search" element={<Search />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

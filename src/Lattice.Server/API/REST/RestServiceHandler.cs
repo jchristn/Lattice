@@ -143,6 +143,7 @@ namespace Lattice.Server.API.REST
 
             // Index table routes
             _Webserver.Routes.PreAuthentication.Static.Add(HttpMethod.GET, "/v1.0/tables", GetIndexTablesRoute, ExceptionRoute);
+            _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.GET, "/v1.0/tables/{tableName}/entries", GetTableEntriesRoute, ExceptionRoute);
         }
 
         private async Task PreflightRoute(HttpContextBase ctx)
@@ -1111,6 +1112,66 @@ namespace Lattice.Server.API.REST
                     Success = true,
                     StatusCode = 200,
                     Data = mappings
+                };
+            });
+        }
+
+        private async Task GetTableEntriesRoute(HttpContextBase ctx)
+        {
+            await WrappedRequestHandler(ctx, RequestTypeEnum.Collection, async (reqCtx) =>
+            {
+                string? tableName = ctx.Request.Url.Parameters["tableName"];
+                if (String.IsNullOrEmpty(tableName))
+                {
+                    return new ResponseContext(false, 400, "Table name is required");
+                }
+
+                // Parse pagination parameters
+                int skip = 0;
+                int limit = 100;
+
+                string? skipParam = ctx.Request.Query.Elements["skip"];
+                if (!String.IsNullOrEmpty(skipParam) && Int32.TryParse(skipParam, out int parsedSkip))
+                {
+                    skip = Math.Max(0, parsedSkip);
+                }
+
+                string? limitParam = ctx.Request.Query.Elements["limit"];
+                if (!String.IsNullOrEmpty(limitParam) && Int32.TryParse(limitParam, out int parsedLimit))
+                {
+                    limit = Math.Clamp(parsedLimit, 1, 1000);
+                }
+
+                // Verify table exists
+                IndexTableMapping? mapping = await _Client.Index.GetMappingByKey(tableName, CancellationToken.None);
+                if (mapping == null)
+                {
+                    // Try by table name directly
+                    List<IndexTableMapping> allMappings = await _Client.Index.GetMappings(CancellationToken.None);
+                    mapping = allMappings.Find(m => m.TableName == tableName);
+                }
+
+                if (mapping == null)
+                {
+                    return new ResponseContext(false, 404, "Index table not found");
+                }
+
+                List<IndexTableEntry> entries = await _Client.Index.GetTableEntries(mapping.TableName, skip, limit, CancellationToken.None);
+                long totalCount = await _Client.Index.GetTableEntryCount(mapping.TableName, CancellationToken.None);
+
+                return new ResponseContext
+                {
+                    Success = true,
+                    StatusCode = 200,
+                    Data = new
+                    {
+                        TableName = mapping.TableName,
+                        FieldKey = mapping.Key,
+                        Entries = entries,
+                        TotalCount = totalCount,
+                        Skip = skip,
+                        Limit = limit
+                    }
                 };
             });
         }

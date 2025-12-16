@@ -130,6 +130,10 @@ export class LatticeApi {
     return this.request('GET', '/v1.0/tables')
   }
 
+  async getTableEntries(tableName, skip = 0, limit = 100) {
+    return this.request('GET', `/v1.0/tables/${encodeURIComponent(tableName)}/entries?skip=${skip}&limit=${limit}`)
+  }
+
   // Schema Constraints
   async getCollectionConstraints(collectionId) {
     return this.request('GET', `/v1.0/collections/${collectionId}/constraints`)
