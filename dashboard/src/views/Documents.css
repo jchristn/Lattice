@@ -135,3 +135,34 @@
 .doc-detail .copyable-id-value {
   word-break: break-all;
 }
+
+/* Document data modal header */
+.document-data-header {
+  margin-bottom: 16px;
+}
+
+.document-data-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.document-data-id {
+  font-size: 12px;
+  font-family: monospace;
+  color: var(--text-muted);
+}
+
+/* Icon buttons for document data modal */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  min-width: 36px;
+}
+
+.btn-icon svg {
+  display: block;
+}
