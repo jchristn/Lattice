@@ -1,0 +1,27 @@
+{
+  "name": "lattice-sdk",
+  "version": "1.0.0",
+  "description": "A comprehensive REST SDK for consuming a Lattice server",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "node dist/test-harness.js",
+    "test:dev": "ts-node src/test-harness.ts"
+  },
+  "keywords": [
+    "lattice",
+    "sdk",
+    "rest",
+    "api"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

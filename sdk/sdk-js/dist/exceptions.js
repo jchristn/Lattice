@@ -1,0 +1,53 @@
+"use strict";
+/**
+ * Lattice SDK Exceptions
+ *
+ * Custom exceptions for the Lattice SDK.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.LatticeValidationError = exports.LatticeApiError = exports.LatticeConnectionError = exports.LatticeError = void 0;
+/**
+ * Base exception for all Lattice SDK errors.
+ */
+class LatticeError extends Error {
+    constructor(message, statusCode) {
+        super(message);
+        this.name = "LatticeError";
+        this.statusCode = statusCode;
+    }
+}
+exports.LatticeError = LatticeError;
+/**
+ * Raised when unable to connect to the Lattice server.
+ */
+class LatticeConnectionError extends LatticeError {
+    constructor(message, originalError) {
+        super(message);
+        this.name = "LatticeConnectionError";
+        this.originalError = originalError;
+    }
+}
+exports.LatticeConnectionError = LatticeConnectionError;
+/**
+ * Raised when the API returns an error response.
+ */
+class LatticeApiError extends LatticeError {
+    constructor(message, statusCode, errorMessage) {
+        super(message, statusCode);
+        this.name = "LatticeApiError";
+        this.errorMessage = errorMessage || message;
+    }
+}
+exports.LatticeApiError = LatticeApiError;
+/**
+ * Raised when request validation fails.
+ */
+class LatticeValidationError extends LatticeError {
+    constructor(message, field) {
+        super(message);
+        this.name = "LatticeValidationError";
+        this.field = field;
+    }
+}
+exports.LatticeValidationError = LatticeValidationError;
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiZXhjZXB0aW9ucy5qcyIsInNvdXJjZVJvb3QiOiIiLCJzb3VyY2VzIjpbIi4uL3NyYy9leGNlcHRpb25zLnRzIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiI7QUFBQTs7OztHQUlHOzs7QUFFSDs7R0FFRztBQUNILE1BQWEsWUFBYSxTQUFRLEtBQUs7SUFHbkMsWUFBWSxPQUFlLEVBQUUsVUFBbUI7UUFDNUMsS0FBSyxDQUFDLE9BQU8sQ0FBQyxDQUFDO1FBQ2YsSUFBSSxDQUFDLElBQUksR0FBRyxjQUFjLENBQUM7UUFDM0IsSUFBSSxDQUFDLFVBQVUsR0FBRyxVQUFVLENBQUM7SUFDakMsQ0FBQztDQUNKO0FBUkQsb0NBUUM7QUFFRDs7R0FFRztBQUNILE1BQWEsc0JBQXVCLFNBQVEsWUFBWTtJQUdwRCxZQUFZLE9BQWUsRUFBRSxhQUFxQjtRQUM5QyxLQUFLLENBQUMsT0FBTyxDQUFDLENBQUM7UUFDZixJQUFJLENBQUMsSUFBSSxHQUFHLHdCQUF3QixDQUFDO1FBQ3JDLElBQUksQ0FBQyxhQUFhLEdBQUcsYUFBYSxDQUFDO0lBQ3ZDLENBQUM7Q0FDSjtBQVJELHdEQVFDO0FBRUQ7O0dBRUc7QUFDSCxNQUFhLGVBQWdCLFNBQVEsWUFBWTtJQUc3QyxZQUFZLE9BQWUsRUFBRSxVQUFrQixFQUFFLFlBQXFCO1FBQ2xFLEtBQUssQ0FBQyxPQUFPLEVBQUUsVUFBVSxDQUFDLENBQUM7UUFDM0IsSUFBSSxDQUFDLElBQUksR0FBRyxpQkFBaUIsQ0FBQztRQUM5QixJQUFJLENBQUMsWUFBWSxHQUFHLFlBQVksSUFBSSxPQUFPLENBQUM7SUFDaEQsQ0FBQztDQUNKO0FBUkQsMENBUUM7QUFFRDs7R0FFRztBQUNILE1BQWEsc0JBQXVCLFNBQVEsWUFBWTtJQUdwRCxZQUFZLE9BQWUsRUFBRSxLQUFjO1FBQ3ZDLEtBQUssQ0FBQyxPQUFPLENBQUMsQ0FBQztRQUNmLElBQUksQ0FBQyxJQUFJLEdBQUcsd0JBQXdCLENBQUM7UUFDckMsSUFBSSxDQUFDLEtBQUssR0FBRyxLQUFLLENBQUM7SUFDdkIsQ0FBQztDQUNKO0FBUkQsd0RBUUMiLCJzb3VyY2VzQ29udGVudCI6WyIvKipcbiAqIExhdHRpY2UgU0RLIEV4Y2VwdGlvbnNcbiAqXG4gKiBDdXN0b20gZXhjZXB0aW9ucyBmb3IgdGhlIExhdHRpY2UgU0RLLlxuICovXG5cbi8qKlxuICogQmFzZSBleGNlcHRpb24gZm9yIGFsbCBMYXR0aWNlIFNESyBlcnJvcnMuXG4gKi9cbmV4cG9ydCBjbGFzcyBMYXR0aWNlRXJyb3IgZXh0ZW5kcyBFcnJvciB7XG4gICAgcHVibGljIHN0YXR1c0NvZGU/OiBudW1iZXI7XG5cbiAgICBjb25zdHJ1Y3RvcihtZXNzYWdlOiBzdHJpbmcsIHN0YXR1c0NvZGU/OiBudW1iZXIpIHtcbiAgICAgICAgc3VwZXIobWVzc2FnZSk7XG4gICAgICAgIHRoaXMubmFtZSA9IFwiTGF0dGljZUVycm9yXCI7XG4gICAgICAgIHRoaXMuc3RhdHVzQ29kZSA9IHN0YXR1c0NvZGU7XG4gICAgfVxufVxuXG4vKipcbiAqIFJhaXNlZCB3aGVuIHVuYWJsZSB0byBjb25uZWN0IHRvIHRoZSBMYXR0aWNlIHNlcnZlci5cbiAqL1xuZXhwb3J0IGNsYXNzIExhdHRpY2VDb25uZWN0aW9uRXJyb3IgZXh0ZW5kcyBMYXR0aWNlRXJyb3Ige1xuICAgIHB1YmxpYyBvcmlnaW5hbEVycm9yPzogRXJyb3I7XG5cbiAgICBjb25zdHJ1Y3RvcihtZXNzYWdlOiBzdHJpbmcsIG9yaWdpbmFsRXJyb3I/OiBFcnJvcikge1xuICAgICAgICBzdXBlcihtZXNzYWdlKTtcbiAgICAgICAgdGhpcy5uYW1lID0gXCJMYXR0aWNlQ29ubmVjdGlvbkVycm9yXCI7XG4gICAgICAgIHRoaXMub3JpZ2luYWxFcnJvciA9IG9yaWdpbmFsRXJyb3I7XG4gICAgfVxufVxuXG4vKipcbiAqIFJhaXNlZCB3aGVuIHRoZSBBUEkgcmV0dXJucyBhbiBlcnJvciByZXNwb25zZS5cbiAqL1xuZXhwb3J0IGNsYXNzIExhdHRpY2VBcGlFcnJvciBleHRlbmRzIExhdHRpY2VFcnJvciB7XG4gICAgcHVibGljIGVycm9yTWVzc2FnZT86IHN0cmluZztcblxuICAgIGNvbnN0cnVjdG9yKG1lc3NhZ2U6IHN0cmluZywgc3RhdHVzQ29kZTogbnVtYmVyLCBlcnJvck1lc3NhZ2U/OiBzdHJpbmcpIHtcbiAgICAgICAgc3VwZXIobWVzc2FnZSwgc3RhdHVzQ29kZSk7XG4gICAgICAgIHRoaXMubmFtZSA9IFwiTGF0dGljZUFwaUVycm9yXCI7XG4gICAgICAgIHRoaXMuZXJyb3JNZXNzYWdlID0gZXJyb3JNZXNzYWdlIHx8IG1lc3NhZ2U7XG4gICAgfVxufVxuXG4vKipcbiAqIFJhaXNlZCB3aGVuIHJlcXVlc3QgdmFsaWRhdGlvbiBmYWlscy5cbiAqL1xuZXhwb3J0IGNsYXNzIExhdHRpY2VWYWxpZGF0aW9uRXJyb3IgZXh0ZW5kcyBMYXR0aWNlRXJyb3Ige1xuICAgIHB1YmxpYyBmaWVsZD86IHN0cmluZztcblxuICAgIGNvbnN0cnVjdG9yKG1lc3NhZ2U6IHN0cmluZywgZmllbGQ/OiBzdHJpbmcpIHtcbiAgICAgICAgc3VwZXIobWVzc2FnZSk7XG4gICAgICAgIHRoaXMubmFtZSA9IFwiTGF0dGljZVZhbGlkYXRpb25FcnJvclwiO1xuICAgICAgICB0aGlzLmZpZWxkID0gZmllbGQ7XG4gICAgfVxufVxuIl19

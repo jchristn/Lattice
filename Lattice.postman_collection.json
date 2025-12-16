@@ -197,7 +197,7 @@
 				{
 					"name": "Update Schema Constraints",
 					"request": {
-						"method": "POST",
+						"method": "PUT",
 						"header": [
 							{
 								"key": "Content-Type",
@@ -234,7 +234,7 @@
 				{
 					"name": "Update Indexing Configuration",
 					"request": {
-						"method": "POST",
+						"method": "PUT",
 						"header": [
 							{
 								"key": "Content-Type",
@@ -424,7 +424,7 @@
 					"response": []
 				},
 				{
-					"name": "Get Document",
+					"name": "Get Document Content (Raw JSON)",
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -436,16 +436,16 @@
 								{
 									"key": "includeContent",
 									"value": "true",
-									"description": "Set to true to include the raw JSON document content"
+									"description": "When true, returns the raw JSON document content directly (not wrapped)"
 								}
 							]
 						},
-						"description": "Retrieve a specific document by ID.\n\n**Path Parameters:**\n- `collectionId`: The unique identifier of the collection\n- `documentId`: The unique identifier of the document\n\n**Query Parameters:**\n| Parameter | Type | Default | Description |\n|-----------|------|---------|-------------|\n| includeContent | boolean | false | Include the raw JSON document content |\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"data\": {\n    \"id\": \"doc_xyz789\",\n    \"collectionId\": \"col_abc123\",\n    \"schemaId\": \"sch_def456\",\n    \"name\": \"customer_001.json\",\n    \"labels\": [\"active\"],\n    \"tags\": {\"priority\": \"high\"},\n    \"content\": \"{...}\",\n    \"createdUtc\": \"2024-01-15T12:00:00Z\"\n  }\n}\n```"
+						"description": "Retrieve the raw JSON content of a document.\n\n**Important:** When `includeContent=true`, this endpoint returns the document's JSON payload directly, without the standard API response wrapper. This makes it easy to consume the document content as-is.\n\n**Path Parameters:**\n- `collectionId`: The unique identifier of the collection\n- `documentId`: The unique identifier of the document\n\n**Query Parameters:**\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| includeContent | boolean | Yes | Must be `true` to get raw content |\n\n**Response:**\nReturns the raw JSON document content directly:\n```json\n{\n  \"Person\": {\n    \"First\": \"Joel\",\n    \"Last\": \"Christner\",\n    \"Email\": \"joel@example.com\"\n  },\n  \"Company\": \"Acme Corp\",\n  \"Active\": true\n}\n```\n\n**Note:** To get document metadata (ID, schema, timestamps, etc.), use the Get Document endpoint without the `includeContent` parameter."
 					},
 					"response": []
 				},
 				{
-					"name": "Get Document (Metadata Only)",
+					"name": "Get Document",
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -454,7 +454,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["v1.0", "collections", "{{collectionId}}", "documents", "{{documentId}}"]
 						},
-						"description": "Retrieve document metadata without the content. This is faster than including content.\n\n**Path Parameters:**\n- `collectionId`: The unique identifier of the collection\n- `documentId`: The unique identifier of the document"
+						"description": "Retrieve document metadata by ID.\n\n**Path Parameters:**\n- `collectionId`: The unique identifier of the collection\n- `documentId`: The unique identifier of the document\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"data\": {\n    \"id\": \"doc_xyz789\",\n    \"collectionId\": \"col_abc123\",\n    \"schemaId\": \"sch_def456\",\n    \"name\": \"customer_001.json\",\n    \"contentLength\": 1234,\n    \"sha256Hash\": \"abc123...\",\n    \"labels\": [\"active\"],\n    \"tags\": {\"priority\": \"high\"},\n    \"createdUtc\": \"2024-01-15T12:00:00Z\"\n  }\n}\n```\n\n**Note:** To get the actual document content, use the `?includeContent=true` query parameter."
 					},
 					"response": []
 				},
@@ -504,14 +504,14 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"filters\": [\n    {\n      \"field\": \"Person.First\",\n      \"condition\": \"Equals\",\n      \"value\": \"Joel\"\n    }\n  ],\n  \"maxResults\": 100,\n  \"skip\": 0,\n  \"ordering\": \"CreatedDescending\",\n  \"includeContent\": false,\n  \"includeLabels\": true,\n  \"includeTags\": true\n}"
+							"raw": "{\n  \"filters\": [\n    {\n      \"field\": \"Person.First\",\n      \"condition\": \"Equals\",\n      \"value\": \"Joel\"\n    }\n  ],\n  \"maxResults\": 100,\n  \"skip\": 0,\n  \"ordering\": \"CreatedDescending\",\n  \"includeContent\": false\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1.0/collections/{{collectionId}}/documents/search",
 							"host": ["{{baseUrl}}"],
 							"path": ["v1.0", "collections", "{{collectionId}}", "documents", "search"]
 						},
-						"description": "Search documents using structured filters.\n\n**Request Body:**\n| Field | Type | Description |\n|-------|------|-------------|\n| filters | array | Array of filter objects |\n| labels | string[] | Filter by labels (documents must have all) |\n| tags | object | Filter by tags (documents must have all) |\n| maxResults | number | Maximum results (default: 100, max: 1000) |\n| skip | number | Number of results to skip for pagination |\n| ordering | string | Result ordering (see below) |\n| includeContent | boolean | Include document content (default: false) |\n| includeLabels | boolean | Include document labels (default: true) |\n| includeTags | boolean | Include document tags (default: true) |\n\n**Filter Conditions:**\n- `Equals`, `NotEquals`\n- `GreaterThan`, `GreaterThanOrEqualTo`\n- `LessThan`, `LessThanOrEqualTo`\n- `Contains`, `StartsWith`, `EndsWith`\n- `IsNull`, `IsNotNull`\n\n**Ordering Options:**\n- `CreatedAscending`, `CreatedDescending`\n- `LastUpdateAscending`, `LastUpdateDescending`\n- `NameAscending`, `NameDescending`"
+						"description": "Search documents using structured filters.\n\n**Request Body:**\n| Field | Type | Description |\n|-------|------|-------------|\n| filters | array | Array of filter objects |\n| labels | string[] | Filter by labels (documents must have all) |\n| tags | object | Filter by tags (documents must have all) |\n| maxResults | number | Maximum results (default: 100, max: 1000) |\n| skip | number | Number of results to skip for pagination |\n| ordering | string | Result ordering (see below) |\n| includeContent | boolean | Include document content (default: false) |\n\n**Filter Conditions:**\n- `Equals`, `NotEquals`\n- `GreaterThan`, `GreaterThanOrEqualTo`\n- `LessThan`, `LessThanOrEqualTo`\n- `Contains`, `StartsWith`, `EndsWith`\n- `IsNull`, `IsNotNull`\n\n**Ordering Options:**\n- `CreatedAscending`, `CreatedDescending`\n- `LastUpdateAscending`, `LastUpdateDescending`\n- `NameAscending`, `NameDescending`"
 					},
 					"response": []
 				},
@@ -627,29 +627,6 @@
 							"path": ["v1.0", "collections", "{{collectionId}}", "documents", "search"]
 						},
 						"description": "Paginated search example.\n\nThis request retrieves page 3 (results 21-30) with 10 results per page.\n\n**Pagination:**\n- Page 1: `skip=0, maxResults=10`\n- Page 2: `skip=10, maxResults=10`\n- Page 3: `skip=20, maxResults=10`\n\n**Response includes:**\n- `totalRecords`: Total matching documents\n- `endOfResults`: Boolean indicating if this is the last page\n- `recordsRemaining`: Number of records after this page"
-					},
-					"response": []
-				},
-				{
-					"name": "Search (Fast - No Labels/Tags)",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"filters\": [\n    {\n      \"field\": \"Active\",\n      \"condition\": \"Equals\",\n      \"value\": \"true\"\n    }\n  ],\n  \"maxResults\": 1000,\n  \"includeContent\": false,\n  \"includeLabels\": false,\n  \"includeTags\": false\n}"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/v1.0/collections/{{collectionId}}/documents/search",
-							"host": ["{{baseUrl}}"],
-							"path": ["v1.0", "collections", "{{collectionId}}", "documents", "search"]
-						},
-						"description": "Performance-optimized search that excludes labels and tags.\n\nSetting `includeLabels` and `includeTags` to `false` eliminates additional database queries, providing significant speedups (up to 2-3x faster for large result sets).\n\nUse this when you only need document metadata without labels or tags."
 					},
 					"response": []
 				}

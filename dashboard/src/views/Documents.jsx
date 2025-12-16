@@ -197,8 +197,8 @@ export default function Documents() {
 
   const handleViewData = async (id) => {
     try {
-      const doc = await api.getDocument(collectionId, id, true)
-      setSelectedDocument(doc)
+      const content = await api.getDocumentContent(collectionId, id)
+      setSelectedDocument({ content })
       setShowDataModal(true)
     } catch (err) {
       setError('Failed to load document: ' + err.message)
@@ -517,7 +517,7 @@ export default function Documents() {
         {selectedDocument && (
           <pre className="json-preview">
             {selectedDocument.content
-              ? JSON.stringify(JSON.parse(selectedDocument.content), null, 2)
+              ? JSON.stringify(selectedDocument.content, null, 2)
               : '(content not loaded)'}
           </pre>
         )}

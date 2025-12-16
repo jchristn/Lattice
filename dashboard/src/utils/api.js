@@ -81,9 +81,26 @@ export class LatticeApi {
     return this.request('PUT', `/v1.0/collections/${collectionId}/documents`, data)
   }
 
-  async getDocument(collectionId, id, includeContent = false) {
-    const query = includeContent ? '?includeContent=true' : ''
-    return this.request('GET', `/v1.0/collections/${collectionId}/documents/${id}${query}`)
+  async getDocument(collectionId, id) {
+    return this.request('GET', `/v1.0/collections/${collectionId}/documents/${id}`)
+  }
+
+  async getDocumentContent(collectionId, id) {
+    // This endpoint returns raw JSON content directly (not wrapped)
+    const url = `${this.baseUrl}/v1.0/collections/${collectionId}/documents/${id}?includeContent=true`
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || `HTTP ${response.status}`)
+    }
+
+    return response.json()
   }
 
   async deleteDocument(collectionId, id) {
@@ -119,7 +136,7 @@ export class LatticeApi {
   }
 
   async updateCollectionConstraints(collectionId, data) {
-    return this.request('POST', `/v1.0/collections/${collectionId}/constraints`, data)
+    return this.request('PUT', `/v1.0/collections/${collectionId}/constraints`, data)
   }
 
   // Indexing Configuration
@@ -128,7 +145,7 @@ export class LatticeApi {
   }
 
   async updateCollectionIndexing(collectionId, data) {
-    return this.request('POST', `/v1.0/collections/${collectionId}/indexing`, data)
+    return this.request('PUT', `/v1.0/collections/${collectionId}/indexing`, data)
   }
 
   // Index Rebuild

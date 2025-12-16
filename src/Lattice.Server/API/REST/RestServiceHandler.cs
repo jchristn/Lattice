@@ -793,6 +793,22 @@ namespace Lattice.Server.API.REST
 
         private async Task GetDocumentRoute(HttpContextBase ctx)
         {
+            // Check for includeContent query parameter
+            bool includeContent = false;
+            string? includeContentParam = ctx.Request.Query.Elements["includeContent"];
+            if (!String.IsNullOrEmpty(includeContentParam))
+            {
+                Boolean.TryParse(includeContentParam, out includeContent);
+            }
+
+            // If includeContent=true, return raw JSON content directly (not wrapped)
+            if (includeContent)
+            {
+                await GetDocumentContentRaw(ctx);
+                return;
+            }
+
+            // Otherwise return document metadata in standard response wrapper
             await WrappedRequestHandler(ctx, RequestTypeEnum.Document, async (reqCtx) =>
             {
                 string? collectionId = ctx.Request.Url.Parameters["collectionId"];
@@ -808,15 +824,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Document ID is required");
                 }
 
-                // Check for includeContent query parameter
-                bool includeContent = false;
-                string? includeContentParam = ctx.Request.Query.Elements["includeContent"];
-                if (!String.IsNullOrEmpty(includeContentParam))
-                {
-                    Boolean.TryParse(includeContentParam, out includeContent);
-                }
-
-                Document? document = await _Client.Document.ReadById(documentId, includeContent: includeContent, token: CancellationToken.None);
+                Document? document = await _Client.Document.ReadById(documentId, includeContent: false, token: CancellationToken.None);
                 if (document == null || document.CollectionId != collectionId)
                 {
                     return new ResponseContext(false, 404, "Document not found");
@@ -829,6 +837,63 @@ namespace Lattice.Server.API.REST
                     Data = document
                 };
             });
+        }
+
+        private async Task GetDocumentContentRaw(HttpContextBase ctx)
+        {
+            DateTime startTime = DateTime.UtcNow;
+
+            try
+            {
+                string? collectionId = ctx.Request.Url.Parameters["collectionId"];
+                string? documentId = ctx.Request.Url.Parameters["documentId"];
+
+                if (String.IsNullOrEmpty(collectionId))
+                {
+                    ctx.Response.StatusCode = 400;
+                    ctx.Response.ContentType = "application/json";
+                    await ctx.Response.Send("{\"error\": \"Collection ID is required\"}");
+                    return;
+                }
+
+                if (String.IsNullOrEmpty(documentId))
+                {
+                    ctx.Response.StatusCode = 400;
+                    ctx.Response.ContentType = "application/json";
+                    await ctx.Response.Send("{\"error\": \"Document ID is required\"}");
+                    return;
+                }
+
+                Document? document = await _Client.Document.ReadById(documentId, includeContent: true, token: CancellationToken.None);
+                if (document == null || document.CollectionId != collectionId)
+                {
+                    ctx.Response.StatusCode = 404;
+                    ctx.Response.ContentType = "application/json";
+                    await ctx.Response.Send("{\"error\": \"Document not found\"}");
+                    return;
+                }
+
+                // Return raw JSON content directly
+                ctx.Response.StatusCode = 200;
+                ctx.Response.ContentType = "application/json";
+                await ctx.Response.Send(document.Content ?? "{}");
+            }
+            catch (Exception e)
+            {
+                _Logging?.Error(_Header + "Exception in GetDocumentContentRaw: " + e.Message);
+                ctx.Response.StatusCode = 500;
+                ctx.Response.ContentType = "application/json";
+                await ctx.Response.Send("{\"error\": \"" + e.Message.Replace("\"", "\\\"") + "\"}");
+            }
+            finally
+            {
+                double processingTimeMs = DateTime.UtcNow.Subtract(startTime).TotalMilliseconds;
+                _Logging?.Debug(
+                    _Header
+                    + ctx.Request.Method + " " + ctx.Request.Url.RawWithQuery + " "
+                    + ctx.Response.StatusCode + " "
+                    + "(" + processingTimeMs.ToString("F2") + "ms)");
+            }
         }
 
         private async Task HeadDocumentRoute(HttpContextBase ctx)
