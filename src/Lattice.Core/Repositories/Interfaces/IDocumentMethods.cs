@@ -108,6 +108,14 @@ namespace Lattice.Core.Repositories.Interfaces
         Task<long> CountInCollection(string collectionId, CancellationToken token = default);
 
         /// <summary>
+        /// Get the count of documents using a specific schema.
+        /// </summary>
+        /// <param name="schemaId">Schema ID.</param>
+        /// <param name="token">Cancellation token.</param>
+        /// <returns>Count.</returns>
+        Task<long> CountBySchemaId(string schemaId, CancellationToken token = default);
+
+        /// <summary>
         /// Enumerate documents with pagination.
         /// </summary>
         /// <param name="query">Enumeration query.</param>

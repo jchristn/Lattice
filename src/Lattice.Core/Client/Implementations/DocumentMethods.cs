@@ -483,9 +483,14 @@ namespace Lattice.Core.Client.Implementations
             Document? document = await _Repo.Documents.ReadById(documentId, token);
             if (document == null) return;
 
-            // Delete from all index tables
+            // Store schema ID for orphan cleanup later
+            string schemaId = document.SchemaId;
+
+            // Delete from all index tables, tracking which ones were touched
+            List<IndexTableMapping> touchedMappings = new List<IndexTableMapping>();
             await foreach (IndexTableMapping mapping in _Repo.Indexes.GetAllMappings(token))
             {
+                touchedMappings.Add(mapping);
                 await _Repo.Indexes.DeleteByDocumentId(mapping.TableName, documentId, token);
             }
 
@@ -501,6 +506,27 @@ namespace Lattice.Core.Client.Implementations
             if (File.Exists(documentPath))
             {
                 File.Delete(documentPath);
+            }
+
+            // Clean up orphaned schema if no other documents reference it
+            if (!string.IsNullOrEmpty(schemaId))
+            {
+                long schemaDocumentCount = await _Repo.Documents.CountBySchemaId(schemaId, token);
+                if (schemaDocumentCount == 0)
+                {
+                    await _Repo.Schemas.Delete(schemaId, token);
+                }
+            }
+
+            // Clean up empty index tables
+            foreach (IndexTableMapping mapping in touchedMappings)
+            {
+                long entryCount = await _Repo.Indexes.GetTableEntryCount(mapping.TableName, token);
+                if (entryCount == 0)
+                {
+                    await _Repo.Indexes.DropIndexTable(mapping.TableName, token);
+                    await _Repo.Indexes.DeleteMapping(mapping.TableName, token);
+                }
             }
         }
 

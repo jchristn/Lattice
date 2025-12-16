@@ -97,6 +97,13 @@ namespace Lattice.Core.Repositories.Interfaces
         Task DropIndexTable(string tableName, CancellationToken token = default);
 
         /// <summary>
+        /// Delete an index table mapping by table name.
+        /// </summary>
+        /// <param name="tableName">Table name.</param>
+        /// <param name="token">Cancellation token.</param>
+        Task DeleteMapping(string tableName, CancellationToken token = default);
+
+        /// <summary>
         /// Get mapping by table name.
         /// </summary>
         /// <param name="tableName">Table name.</param>

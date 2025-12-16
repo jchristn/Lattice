@@ -233,6 +233,15 @@ namespace Lattice.Core.Repositories.Postgresql.Implementations
             await _Repo.ExecuteNonQueryAsync(query, token);
         }
 
+        public async Task DeleteMapping(string tableName, CancellationToken token = default)
+        {
+            if (string.IsNullOrWhiteSpace(tableName)) throw new ArgumentNullException(nameof(tableName));
+            token.ThrowIfCancellationRequested();
+
+            string query = $"DELETE FROM indextablemappings WHERE tablename = '{Sanitizer.Sanitize(tableName)}';";
+            await _Repo.ExecuteNonQueryAsync(query, token);
+        }
+
         public async Task<IndexTableMapping> GetMappingByTableName(string tableName, CancellationToken token = default)
         {
             if (string.IsNullOrWhiteSpace(tableName)) throw new ArgumentNullException(nameof(tableName));

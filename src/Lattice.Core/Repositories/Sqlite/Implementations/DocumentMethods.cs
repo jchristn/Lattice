@@ -312,6 +312,20 @@ namespace Lattice.Core.Repositories.Sqlite.Implementations
             return 0;
         }
 
+        public async Task<long> CountBySchemaId(string schemaId, CancellationToken token = default)
+        {
+            if (string.IsNullOrWhiteSpace(schemaId)) throw new ArgumentNullException(nameof(schemaId));
+            token.ThrowIfCancellationRequested();
+
+            string query = $"SELECT COUNT(*) as cnt FROM documents WHERE schemaid = '{Sanitizer.Sanitize(schemaId)}';";
+            DataTable result = await _Repo.ExecuteQueryAsync(query, false, token);
+
+            if (result.Rows.Count > 0)
+                return Convert.ToInt64(result.Rows[0]["cnt"]);
+
+            return 0;
+        }
+
         public async Task<EnumerationResult<Document>> Enumerate(EnumerationQuery query, CancellationToken token = default)
         {
             if (query == null) throw new ArgumentNullException(nameof(query));
