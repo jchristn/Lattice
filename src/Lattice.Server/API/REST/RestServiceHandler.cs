@@ -55,11 +55,11 @@ namespace Lattice.Server.API.REST
         /// <param name="client">Lattice client.</param>
         /// <param name="logging">Logging module.</param>
         /// <exception cref="ArgumentNullException">Thrown when required parameter is null.</exception>
-        public RestServiceHandler(Settings settings, LatticeClient client, LoggingModule? logging)
+        public RestServiceHandler(Settings settings, LatticeClient client, LoggingModule logging)
         {
             _Settings = settings ?? throw new ArgumentNullException(nameof(settings));
             _Client = client ?? throw new ArgumentNullException(nameof(client));
-            _Logging = logging;
+            _Logging = logging ?? throw new ArgumentNullException(nameof(logging));
 
             InitializeWebserver();
         }
@@ -192,13 +192,13 @@ namespace Lattice.Server.API.REST
 
         private async Task PostRoutingRoute(HttpContextBase ctx)
         {
-            ctx.Response.Timestamp.End = DateTime.UtcNow;
+            ctx.Request.Timestamp.End = DateTime.UtcNow;
 
             _Logging?.Debug(
                 _Header
                 + ctx.Request.Method + " " + ctx.Request.Url.RawWithQuery + " "
                 + ctx.Response.StatusCode + " "
-                + "(" + ctx.Response.Timestamp.TotalMs?.ToString("F2") + "ms)");
+                + "(" + ctx.Request.Timestamp.TotalMs?.ToString("F2") + "ms)");
         }
 
         private async Task DefaultRoute(HttpContextBase ctx)

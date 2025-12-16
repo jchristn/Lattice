@@ -60,7 +60,7 @@ namespace Lattice.Server.Classes
         #region Private-Members
 
         private bool _ConsoleLogging = true;
-        private Severity _MinimumSeverity = Severity.Info;
+        private Severity _MinimumSeverity = Severity.Debug;
         private string? _LogFilename = null;
 
         #endregion
