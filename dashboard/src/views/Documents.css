@@ -136,6 +136,14 @@
   word-break: break-all;
 }
 
+/* Modal action buttons */
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
 /* Document data modal header */
 .document-data-header {
   margin-bottom: 16px;

@@ -2,6 +2,12 @@ import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { formatDate } from '../utils/api'
+import Modal from '../components/Modal'
+import ActionMenu from '../components/ActionMenu'
+import CopyableId from '../components/CopyableId'
+import TagInput from '../components/TagInput'
+import KeyValueEditor from '../components/KeyValueEditor'
+import './Documents.css'
 
 // Format bytes to human-readable string
 function formatBytes(bytes) {
@@ -11,12 +17,6 @@ function formatBytes(bytes) {
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }
-import Modal from '../components/Modal'
-import ActionMenu from '../components/ActionMenu'
-import CopyableId from '../components/CopyableId'
-import TagInput from '../components/TagInput'
-import KeyValueEditor from '../components/KeyValueEditor'
-import './Documents.css'
 
 export default function Documents() {
   const { collectionId } = useParams()

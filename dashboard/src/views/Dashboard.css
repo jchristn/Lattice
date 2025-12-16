@@ -35,3 +35,36 @@
   display: flex;
   gap: 12px;
 }
+
+/* Error banner */
+.error-banner {
+  position: fixed;
+  top: var(--topbar-height);
+  left: 0;
+  right: 0;
+  background-color: #dc3545;
+  color: white;
+  padding: 12px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 999;
+}
+
+.error-banner-message {
+  flex: 1;
+}
+
+.error-banner-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 0 0 16px;
+  line-height: 1;
+}
+
+.error-banner-close:hover {
+  opacity: 0.8;
+}
