@@ -12,6 +12,26 @@ Lattice is a JSON document store with automatic schema detection, SQL-like query
 - **Optional Schema Enforcement**: Add constraints at any time
 - **REST API**: Built-in HTTP server for remote access
 
+## Screenshots
+
+### Creating a Collection
+
+![Creating a Collection](assets/screenshot1.png)
+
+Create collections with custom labels, tags, schema enforcement modes, and indexing options.
+
+### Adding a Document
+
+![Adding a Document](assets/screenshot2.png)
+
+Add JSON documents with optional names, labels, and key-value tags for metadata.
+
+### Searching Documents
+
+![Searching Documents](assets/screenshot3.png)
+
+Search documents by labels, tags, and SQL-like expressions on data properties.
+
 ## Installation
 
 ```bash
