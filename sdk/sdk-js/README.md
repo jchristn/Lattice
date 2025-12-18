@@ -218,20 +218,25 @@ const client = new LatticeClient("http://localhost:8000", 30000);
 
 ### Enums
 
+All enums are serialized as lowercase strings in JSON.
+
 ```typescript
+// Schema enforcement modes
 enum SchemaEnforcementMode {
-    None = 0,
-    Strict = 1,
-    Flexible = 2,
-    Partial = 3
+    None = "none",       // No validation
+    Strict = "strict",   // All constraints must pass
+    Flexible = "flexible", // Warns but accepts documents
+    Partial = "partial"  // Only validates constrained fields
 }
 
+// Indexing modes
 enum IndexingMode {
-    All = 0,
-    Selective = 1,
-    None = 2
+    All = "all",         // Index all fields
+    Selective = "selective", // Only index specified fields
+    None = "none"        // No indexing
 }
 
+// Search condition operators
 enum SearchCondition {
     Equals = "Equals",
     NotEquals = "NotEquals",
@@ -247,6 +252,7 @@ enum SearchCondition {
     Like = "Like"
 }
 
+// Enumeration ordering options
 enum EnumerationOrder {
     CreatedAscending = "CreatedAscending",
     CreatedDescending = "CreatedDescending",

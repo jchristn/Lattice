@@ -6,23 +6,23 @@ Data models for the Lattice REST API.
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum, IntEnum
+from enum import Enum
 from typing import Optional, List, Dict, Any
 
 
-class SchemaEnforcementMode(IntEnum):
+class SchemaEnforcementMode(str, Enum):
     """Schema enforcement mode for collections."""
-    NONE = 0
-    STRICT = 1
-    FLEXIBLE = 2
-    PARTIAL = 3
+    NONE = "None"
+    STRICT = "Strict"
+    FLEXIBLE = "Flexible"
+    PARTIAL = "Partial"
 
 
-class IndexingMode(IntEnum):
+class IndexingMode(str, Enum):
     """Indexing mode for collections."""
-    ALL = 0
-    SELECTIVE = 1
-    NONE = 2
+    ALL = "All"
+    SELECTIVE = "Selective"
+    NONE = "None"
 
 
 class SearchCondition(str, Enum):
@@ -90,8 +90,8 @@ class Collection:
             tags=data.get("tags", {}) or {},
             created_utc=_parse_datetime(data.get("createdUtc")),
             last_update_utc=_parse_datetime(data.get("lastUpdateUtc")),
-            schema_enforcement_mode=SchemaEnforcementMode(data.get("schemaEnforcementMode", 0)),
-            indexing_mode=IndexingMode(data.get("indexingMode", 0))
+            schema_enforcement_mode=_parse_schema_enforcement_mode(data.get("schemaEnforcementMode", "None")),
+            indexing_mode=_parse_indexing_mode(data.get("indexingMode", "All"))
         )
 
 
@@ -461,3 +461,41 @@ def _parse_datetime(value: Any) -> Optional[datetime]:
         except ValueError:
             return None
     return None
+
+
+def _parse_schema_enforcement_mode(value: Any) -> SchemaEnforcementMode:
+    """Parse a SchemaEnforcementMode from various formats."""
+    if value is None:
+        return SchemaEnforcementMode.NONE
+    if isinstance(value, SchemaEnforcementMode):
+        return value
+    if isinstance(value, str):
+        # Handle case-insensitive matching
+        value_lower = value.lower()
+        if value_lower == "none":
+            return SchemaEnforcementMode.NONE
+        elif value_lower == "strict":
+            return SchemaEnforcementMode.STRICT
+        elif value_lower == "flexible":
+            return SchemaEnforcementMode.FLEXIBLE
+        elif value_lower == "partial":
+            return SchemaEnforcementMode.PARTIAL
+    return SchemaEnforcementMode.NONE
+
+
+def _parse_indexing_mode(value: Any) -> IndexingMode:
+    """Parse an IndexingMode from various formats."""
+    if value is None:
+        return IndexingMode.ALL
+    if isinstance(value, IndexingMode):
+        return value
+    if isinstance(value, str):
+        # Handle case-insensitive matching
+        value_lower = value.lower()
+        if value_lower == "all":
+            return IndexingMode.ALL
+        elif value_lower == "selective":
+            return IndexingMode.SELECTIVE
+        elif value_lower == "none":
+            return IndexingMode.NONE
+    return IndexingMode.ALL

@@ -206,14 +206,14 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"schemaEnforcementMode\": 1,\n  \"fieldConstraints\": [\n    {\n      \"fieldPath\": \"email\",\n      \"dataType\": \"string\",\n      \"required\": true,\n      \"nullable\": false,\n      \"regexPattern\": \"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\\\.[a-zA-Z0-9-.]+$\"\n    },\n    {\n      \"fieldPath\": \"age\",\n      \"dataType\": \"integer\",\n      \"required\": false,\n      \"nullable\": true,\n      \"minValue\": 0,\n      \"maxValue\": 150\n    },\n    {\n      \"fieldPath\": \"status\",\n      \"dataType\": \"string\",\n      \"required\": true,\n      \"allowedValues\": [\"active\", \"inactive\", \"pending\"]\n    }\n  ]\n}"
+							"raw": "{\n  \"schemaEnforcementMode\": \"strict\",\n  \"fieldConstraints\": [\n    {\n      \"fieldPath\": \"email\",\n      \"dataType\": \"string\",\n      \"required\": true,\n      \"nullable\": false,\n      \"regexPattern\": \"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\\\.[a-zA-Z0-9-.]+$\"\n    },\n    {\n      \"fieldPath\": \"age\",\n      \"dataType\": \"integer\",\n      \"required\": false,\n      \"nullable\": true,\n      \"minValue\": 0,\n      \"maxValue\": 150\n    },\n    {\n      \"fieldPath\": \"status\",\n      \"dataType\": \"string\",\n      \"required\": true,\n      \"allowedValues\": [\"active\", \"inactive\", \"pending\"]\n    }\n  ]\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1.0/collections/{{collectionId}}/constraints",
 							"host": ["{{baseUrl}}"],
 							"path": ["v1.0", "collections", "{{collectionId}}", "constraints"]
 						},
-						"description": "Update the schema enforcement mode and field constraints for a collection.\n\n**Schema Enforcement Modes:**\n- `0` (None): No validation, constraints are stored but not enforced\n- `1` (Strict): All constraints must pass or document ingestion fails\n- `2` (Flexible): Validation warnings are logged but documents are accepted\n- `3` (Partial): Only fields with defined constraints are validated\n\n**Field Constraint Properties:**\n| Field | Type | Description |\n|-------|------|-------------|\n| fieldPath | string | Dot-notation path to the field (e.g., `user.email`) |\n| dataType | string | Expected type: string, integer, number, boolean, array, object |\n| required | boolean | Field must be present |\n| nullable | boolean | Field can be null |\n| regexPattern | string | Regex pattern for string validation |\n| minValue | number | Minimum value for numbers |\n| maxValue | number | Maximum value for numbers |\n| minLength | integer | Minimum length for strings/arrays |\n| maxLength | integer | Maximum length for strings/arrays |\n| allowedValues | array | List of allowed values |\n| arrayElementType | string | Expected type of array elements |"
+						"description": "Update the schema enforcement mode and field constraints for a collection.\n\n**Schema Enforcement Modes:**\n- `none`: No validation, constraints are stored but not enforced\n- `strict`: All constraints must pass or document ingestion fails\n- `flexible`: Validation warnings are logged but documents are accepted\n- `partial`: Only fields with defined constraints are validated\n\n**Field Constraint Properties:**\n| Field | Type | Description |\n|-------|------|-------------|\n| fieldPath | string | Dot-notation path to the field (e.g., `user.email`) |\n| dataType | string | Expected type: string, integer, number, boolean, array, object |\n| required | boolean | Field must be present |\n| nullable | boolean | Field can be null |\n| regexPattern | string | Regex pattern for string validation |\n| minValue | number | Minimum value for numbers |\n| maxValue | number | Maximum value for numbers |\n| minLength | integer | Minimum length for strings/arrays |\n| maxLength | integer | Maximum length for strings/arrays |\n| allowedValues | array | List of allowed values |\n| arrayElementType | string | Expected type of array elements |"
 					},
 					"response": []
 				},
@@ -243,14 +243,14 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"indexingMode\": 1,\n  \"indexedFields\": [\n    \"email\",\n    \"name\",\n    \"status\",\n    \"user.id\",\n    \"createdAt\"\n  ],\n  \"rebuildIndexes\": false\n}"
+							"raw": "{\n  \"indexingMode\": \"selective\",\n  \"indexedFields\": [\n    \"email\",\n    \"name\",\n    \"status\",\n    \"user.id\",\n    \"createdAt\"\n  ],\n  \"rebuildIndexes\": false\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1.0/collections/{{collectionId}}/indexing",
 							"host": ["{{baseUrl}}"],
 							"path": ["v1.0", "collections", "{{collectionId}}", "indexing"]
 						},
-						"description": "Update the indexing mode and indexed fields for a collection.\n\n**Indexing Modes:**\n- `0` (All): Index all fields in documents (default behavior)\n- `1` (Selective): Only index the specified fields\n- `2` (None): Do not index any fields\n\n**Request Body:**\n| Field | Type | Description |\n|-------|------|-------------|\n| indexingMode | integer | Indexing mode (0=All, 1=Selective, 2=None) |\n| indexedFields | string[] | List of field paths to index (for Selective mode) |\n| rebuildIndexes | boolean | Whether to rebuild indexes after updating (default: false) |\n\n**Note:** Use dot-notation for nested fields (e.g., `user.email`)"
+						"description": "Update the indexing mode and indexed fields for a collection.\n\n**Indexing Modes:**\n- `all`: Index all fields in documents (default behavior)\n- `selective`: Only index the specified fields\n- `none`: Do not index any fields\n\n**Request Body:**\n| Field | Type | Description |\n|-------|------|-------------|\n| indexingMode | string | Indexing mode (all, selective, none) |\n| indexedFields | string[] | List of field paths to index (for Selective mode) |\n| rebuildIndexes | boolean | Whether to rebuild indexes after updating (default: false) |\n\n**Note:** Use dot-notation for nested fields (e.g., `user.email`)"
 					},
 					"response": []
 				},
@@ -306,14 +306,14 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"name\": \"Validated Collection\",\n  \"description\": \"A collection with schema constraints and selective indexing\",\n  \"schemaEnforcementMode\": 1,\n  \"fieldConstraints\": [\n    {\n      \"fieldPath\": \"email\",\n      \"dataType\": \"string\",\n      \"required\": true,\n      \"nullable\": false,\n      \"regexPattern\": \"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\\\.[a-zA-Z0-9-.]+$\"\n    },\n    {\n      \"fieldPath\": \"name\",\n      \"dataType\": \"string\",\n      \"required\": true,\n      \"minLength\": 1,\n      \"maxLength\": 100\n    },\n    {\n      \"fieldPath\": \"age\",\n      \"dataType\": \"integer\",\n      \"required\": false,\n      \"minValue\": 0,\n      \"maxValue\": 150\n    }\n  ],\n  \"indexingMode\": 1,\n  \"indexedFields\": [\n    \"email\",\n    \"name\",\n    \"status\"\n  ]\n}"
+							"raw": "{\n  \"name\": \"Validated Collection\",\n  \"description\": \"A collection with schema constraints and selective indexing\",\n  \"schemaEnforcementMode\": \"strict\",\n  \"fieldConstraints\": [\n    {\n      \"fieldPath\": \"email\",\n      \"dataType\": \"string\",\n      \"required\": true,\n      \"nullable\": false,\n      \"regexPattern\": \"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\\\.[a-zA-Z0-9-.]+$\"\n    },\n    {\n      \"fieldPath\": \"name\",\n      \"dataType\": \"string\",\n      \"required\": true,\n      \"minLength\": 1,\n      \"maxLength\": 100\n    },\n    {\n      \"fieldPath\": \"age\",\n      \"dataType\": \"integer\",\n      \"required\": false,\n      \"minValue\": 0,\n      \"maxValue\": 150\n    }\n  ],\n  \"indexingMode\": \"selective\",\n  \"indexedFields\": [\n    \"email\",\n    \"name\",\n    \"status\"\n  ]\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/v1.0/collections",
 							"host": ["{{baseUrl}}"],
 							"path": ["v1.0", "collections"]
 						},
-						"description": "Create a new collection with schema constraints and selective indexing.\n\nThis example creates a collection that:\n- Enforces strict schema validation (mode 1)\n- Requires valid email format for the `email` field\n- Requires `name` to be 1-100 characters\n- Validates `age` is between 0-150 (optional field)\n- Only indexes `email`, `name`, and `status` fields\n\n**Schema Enforcement Modes:**\n- `0` (None): No validation\n- `1` (Strict): All constraints must pass\n- `2` (Flexible): Warns but accepts documents\n- `3` (Partial): Only validates constrained fields\n\n**Indexing Modes:**\n- `0` (All): Index all fields\n- `1` (Selective): Only index specified fields\n- `2` (None): No indexing"
+						"description": "Create a new collection with schema constraints and selective indexing.\n\nThis example creates a collection that:\n- Enforces strict schema validation\n- Requires valid email format for the `email` field\n- Requires `name` to be 1-100 characters\n- Validates `age` is between 0-150 (optional field)\n- Only indexes `email`, `name`, and `status` fields\n\n**Schema Enforcement Modes:**\n- `none`: No validation\n- `strict`: All constraints must pass\n- `flexible`: Warns but accepts documents\n- `partial`: Only validates constrained fields\n\n**Indexing Modes:**\n- `all`: Index all fields\n- `selective`: Only index specified fields\n- `none`: No indexing"
 					},
 					"response": []
 				}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
 import { formatDate } from '../utils/api'
 import Modal from '../components/Modal'
+import ActionMenu from '../components/ActionMenu'
 import TagInput from '../components/TagInput'
 import KeyValueEditor from '../components/KeyValueEditor'
 import './Search.css'
@@ -15,8 +16,10 @@ export default function Search() {
   const [filterTags, setFilterTags] = useState({})
   const [results, setResults] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [showViewModal, setShowViewModal] = useState(false)
+  const [showMetadataModal, setShowMetadataModal] = useState(false)
+  const [showDataModal, setShowDataModal] = useState(false)
   const [selectedDocument, setSelectedDocument] = useState(null)
+  const [documentData, setDocumentData] = useState(null)
 
   useEffect(() => {
     const loadCollections = async () => {
@@ -70,13 +73,25 @@ export default function Search() {
     }
   }
 
-  const handleView = async (doc) => {
+  const handleViewMetadata = async (doc) => {
     try {
-      const fullDoc = await api.getDocument(selectedCollection, doc.id, true)
+      const fullDoc = await api.getDocument(selectedCollection, doc.id)
       setSelectedDocument(fullDoc)
-      setShowViewModal(true)
+      setShowMetadataModal(true)
     } catch (err) {
-      setError('Failed to load document: ' + err.message)
+      setError('Failed to load document metadata: ' + err.message)
+    }
+  }
+
+  const handleViewData = async (doc) => {
+    try {
+      // getDocumentContent returns the raw JSON content directly (not a document object)
+      const contentData = await api.getDocumentContent(selectedCollection, doc.id)
+      setSelectedDocument(doc)
+      setDocumentData(contentData)
+      setShowDataModal(true)
+    } catch (err) {
+      setError('Failed to load document data: ' + err.message)
     }
   }
 
@@ -184,12 +199,12 @@ export default function Search() {
                       <td>{doc.name || '-'}</td>
                       <td>{formatDate(doc.createdUtc)}</td>
                       <td>
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => handleView(doc)}
-                        >
-                          View
-                        </button>
+                        <ActionMenu
+                          items={[
+                            { label: 'View Metadata', onClick: () => handleViewMetadata(doc) },
+                            { label: 'View Data', onClick: () => handleViewData(doc) },
+                          ]}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -210,12 +225,12 @@ export default function Search() {
       )}
 
       <Modal
-        isOpen={showViewModal}
+        isOpen={showMetadataModal}
         onClose={() => {
-          setShowViewModal(false)
+          setShowMetadataModal(false)
           setSelectedDocument(null)
         }}
-        title="Document Details"
+        title="Document Metadata"
       >
         {selectedDocument && (
           <>
@@ -234,12 +249,54 @@ export default function Search() {
             <div className="doc-detail">
               <strong>Created:</strong> {formatDate(selectedDocument.createdUtc)}
             </div>
+            {selectedDocument.labels?.length > 0 && (
+              <div className="doc-detail">
+                <strong>Labels:</strong>
+                <div className="doc-labels">
+                  {selectedDocument.labels.map((label, i) => (
+                    <span key={i} className="label-badge">{label}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {selectedDocument.tags && Object.keys(selectedDocument.tags).length > 0 && (
+              <div className="doc-detail">
+                <strong>Tags:</strong>
+                <div className="doc-tags">
+                  {Object.entries(selectedDocument.tags).map(([k, v]) => (
+                    <span key={k} className="tag-item">
+                      <span className="tag-key">{k}</span>
+                      <span className="tag-sep">=</span>
+                      <span className="tag-val">{v}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={showDataModal}
+        onClose={() => {
+          setShowDataModal(false)
+          setSelectedDocument(null)
+          setDocumentData(null)
+        }}
+        title="Document Data"
+      >
+        {selectedDocument && (
+          <>
             <div className="doc-detail">
-              <strong>Content:</strong>
+              <strong>Document:</strong> <span className="monospace">{selectedDocument.name || selectedDocument.id}</span>
+            </div>
+            <div className="doc-detail">
+              <strong>Data:</strong>
               <pre className="json-preview">
-                {selectedDocument.content
-                  ? JSON.stringify(JSON.parse(selectedDocument.content), null, 2)
-                  : '(content not loaded)'}
+                {documentData
+                  ? JSON.stringify(documentData, null, 2)
+                  : '(no data available)'}
               </pre>
             </div>
           </>

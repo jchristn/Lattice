@@ -194,22 +194,27 @@ The client implements `IDisposable`, so use `using` statements or call `Dispose(
 
 ### Enums
 
+All enums are serialized as lowercase strings in JSON (e.g., `"none"`, `"strict"`, `"all"`).
+
 ```csharp
+// Schema enforcement modes (serialized as: "none", "strict", "flexible", "partial")
 public enum SchemaEnforcementMode
 {
-    None = 0,
-    Strict = 1,
-    Flexible = 2,
-    Partial = 3
+    None,    // No validation
+    Strict,  // All constraints must pass
+    Flexible, // Warns but accepts documents
+    Partial  // Only validates constrained fields
 }
 
+// Indexing modes (serialized as: "all", "selective", "none")
 public enum IndexingMode
 {
-    All = 0,
-    Selective = 1,
-    None = 2
+    All,       // Index all fields
+    Selective, // Only index specified fields
+    None       // No indexing
 }
 
+// Search condition operators
 public enum SearchCondition
 {
     Equals,
@@ -226,6 +231,7 @@ public enum SearchCondition
     Like
 }
 
+// Enumeration ordering options
 public enum EnumerationOrder
 {
     CreatedAscending,

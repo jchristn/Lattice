@@ -8,19 +8,19 @@
  * Schema enforcement mode for collections.
  */
 export enum SchemaEnforcementMode {
-    None = 0,
-    Strict = 1,
-    Flexible = 2,
-    Partial = 3
+    None = "none",
+    Strict = "strict",
+    Flexible = "flexible",
+    Partial = "partial"
 }
 
 /**
  * Indexing mode for collections.
  */
 export enum IndexingMode {
-    All = 0,
-    Selective = 1,
-    None = 2
+    All = "all",
+    Selective = "selective",
+    None = "none"
 }
 
 /**

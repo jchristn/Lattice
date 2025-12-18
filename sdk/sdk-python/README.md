@@ -184,8 +184,10 @@ client = LatticeClient("http://localhost:8000", timeout=30)
 
 ### Enums
 
-- `SchemaEnforcementMode`: NONE, STRICT, FLEXIBLE, PARTIAL
-- `IndexingMode`: ALL, SELECTIVE, NONE
+All enums are serialized as lowercase strings in JSON.
+
+- `SchemaEnforcementMode`: NONE (`"none"`), STRICT (`"strict"`), FLEXIBLE (`"flexible"`), PARTIAL (`"partial"`)
+- `IndexingMode`: ALL (`"all"`), SELECTIVE (`"selective"`), NONE (`"none"`)
 - `SearchCondition`: EQUALS, NOT_EQUALS, GREATER_THAN, LESS_THAN, CONTAINS, STARTS_WITH, ENDS_WITH, IS_NULL, IS_NOT_NULL, LIKE
 - `EnumerationOrder`: CREATED_ASCENDING, CREATED_DESCENDING, LAST_UPDATE_ASCENDING, LAST_UPDATE_DESCENDING, NAME_ASCENDING, NAME_DESCENDING
 

@@ -86,21 +86,7 @@ export class LatticeApi {
   }
 
   async getDocumentContent(collectionId, id) {
-    // This endpoint returns raw JSON content directly (not wrapped)
-    const url = `${this.baseUrl}/v1.0/collections/${collectionId}/documents/${id}?includeContent=true`
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || `HTTP ${response.status}`)
-    }
-
-    return response.json()
+    return this.request('GET', `/v1.0/collections/${collectionId}/documents/${id}?includeContent=true`)
   }
 
   async deleteDocument(collectionId, id) {

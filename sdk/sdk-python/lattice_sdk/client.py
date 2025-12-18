@@ -186,11 +186,11 @@ class CollectionMethods:
         if tags:
             data["tags"] = tags
         if schema_enforcement_mode != SchemaEnforcementMode.NONE:
-            data["schemaEnforcementMode"] = int(schema_enforcement_mode)
+            data["schemaEnforcementMode"] = schema_enforcement_mode.value
         if field_constraints:
             data["fieldConstraints"] = [c.to_dict() for c in field_constraints]
         if indexing_mode != IndexingMode.ALL:
-            data["indexingMode"] = int(indexing_mode)
+            data["indexingMode"] = indexing_mode.value
         if indexed_fields:
             data["indexedFields"] = indexed_fields
 
@@ -293,7 +293,7 @@ class CollectionMethods:
             True if the update was successful
         """
         data = {
-            "schemaEnforcementMode": int(schema_enforcement_mode)
+            "schemaEnforcementMode": schema_enforcement_mode.value
         }
         if field_constraints:
             data["fieldConstraints"] = [c.to_dict() for c in field_constraints]
@@ -343,7 +343,7 @@ class CollectionMethods:
             True if the update was successful
         """
         data = {
-            "indexingMode": int(indexing_mode),
+            "indexingMode": indexing_mode.value,
             "rebuildIndexes": rebuild_indexes
         }
         if indexed_fields:

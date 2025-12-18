@@ -88,3 +88,77 @@
 .filter-tags {
   margin-bottom: 0;
 }
+
+/* Document detail styles */
+.doc-detail {
+  margin-bottom: 12px;
+}
+
+.doc-detail strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.json-preview {
+  background-color: var(--bg-secondary);
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  overflow-x: auto;
+  margin-top: 4px;
+  font-family: monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.doc-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.label-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  background: rgba(74, 144, 217, 0.15);
+  color: var(--accent-color);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.doc-tags {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.tag-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+
+.tag-key {
+  font-weight: 600;
+  color: var(--accent-color);
+}
+
+.tag-sep {
+  color: var(--text-muted);
+}
+
+.tag-val {
+  color: var(--text-primary);
+}

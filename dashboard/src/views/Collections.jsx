@@ -9,19 +9,19 @@ import TagInput from '../components/TagInput'
 import KeyValueEditor from '../components/KeyValueEditor'
 import './Collections.css'
 
-// Schema enforcement mode labels
+// Schema enforcement mode labels (string values match server enum serialization)
 const ENFORCEMENT_MODES = {
-  0: { label: 'None', description: 'No validation' },
-  1: { label: 'Strict', description: 'All constraints must pass' },
-  2: { label: 'Flexible', description: 'Warns but allows' },
-  3: { label: 'Partial', description: 'Only validates constrained fields' },
+  'none': { label: 'None', description: 'No validation' },
+  'strict': { label: 'Strict', description: 'All constraints must pass' },
+  'flexible': { label: 'Flexible', description: 'Warns but allows' },
+  'partial': { label: 'Partial', description: 'Only validates constrained fields' },
 }
 
-// Indexing mode labels
+// Indexing mode labels (string values match server enum serialization)
 const INDEXING_MODES = {
-  0: { label: 'All', description: 'Index all fields' },
-  1: { label: 'Selective', description: 'Index only specified fields' },
-  2: { label: 'None', description: 'No indexing' },
+  'all': { label: 'All', description: 'Index all fields' },
+  'selective': { label: 'Selective', description: 'Index only specified fields' },
+  'none': { label: 'None', description: 'No indexing' },
 }
 
 // Data type options for constraints
@@ -38,8 +38,8 @@ export default function Collections() {
   const [showIndexingModal, setShowIndexingModal] = useState(false)
   const [showRebuildModal, setShowRebuildModal] = useState(false)
   const [selectedCollection, setSelectedCollection] = useState(null)
-  const [constraints, setConstraints] = useState({ mode: 0, fields: [] })
-  const [indexing, setIndexing] = useState({ mode: 0, fields: [] })
+  const [constraints, setConstraints] = useState({ mode: 'none', fields: [] })
+  const [indexing, setIndexing] = useState({ mode: 'all', fields: [] })
   const [rebuildProgress, setRebuildProgress] = useState(null)
   const [rebuildResult, setRebuildResult] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -47,8 +47,8 @@ export default function Collections() {
     name: '',
     description: '',
     documentsDirectory: '',
-    schemaEnforcementMode: 0,
-    indexingMode: 0,
+    schemaEnforcementMode: 'none',
+    indexingMode: 'all',
   })
   const [newLabels, setNewLabels] = useState([])
   const [newTags, setNewTags] = useState({})
@@ -137,7 +137,7 @@ export default function Collections() {
         indexedFields: newIndexedFields.length > 0 ? newIndexedFields : null,
       })
       setShowCreateModal(false)
-      setNewCollection({ name: '', description: '', documentsDirectory: '', schemaEnforcementMode: 0, indexingMode: 0 })
+      setNewCollection({ name: '', description: '', documentsDirectory: '', schemaEnforcementMode: 'none', indexingMode: 'all' })
       setNewLabels([])
       setNewTags({})
       setNewConstraints([])
@@ -173,7 +173,7 @@ export default function Collections() {
     setSelectedCollection(collection)
     // Set defaults first, then try to load
     setConstraints({
-      mode: collection.schemaEnforcementMode || 0,
+      mode: collection.schemaEnforcementMode || 'none',
       fields: [],
     })
     setShowConstraintsModal(true)
@@ -182,7 +182,7 @@ export default function Collections() {
       const data = await api.getCollectionConstraints(collection.id)
       if (data && Array.isArray(data)) {
         setConstraints({
-          mode: collection.schemaEnforcementMode || 0,
+          mode: collection.schemaEnforcementMode || 'none',
           fields: data,
         })
       }
@@ -240,7 +240,7 @@ export default function Collections() {
     setSelectedCollection(collection)
     // Set defaults first, then try to load
     setIndexing({
-      mode: collection.indexingMode || 0,
+      mode: collection.indexingMode || 'all',
       fields: [],
     })
     setShowIndexingModal(true)
@@ -249,7 +249,7 @@ export default function Collections() {
       const data = await api.getCollectionIndexedFields(collection.id)
       if (data && Array.isArray(data)) {
         setIndexing({
-          mode: collection.indexingMode || 0,
+          mode: collection.indexingMode || 'all',
           fields: data.map(f => f.fieldPath || f),
         })
       }
@@ -552,7 +552,7 @@ export default function Collections() {
           <select
             className="input"
             value={newCollection.schemaEnforcementMode}
-            onChange={(e) => setNewCollection({ ...newCollection, schemaEnforcementMode: parseInt(e.target.value) })}
+            onChange={(e) => setNewCollection({ ...newCollection, schemaEnforcementMode: e.target.value })}
           >
             {Object.entries(ENFORCEMENT_MODES).map(([val, { label, description }]) => (
               <option key={val} value={val}>{label} - {description}</option>
@@ -560,7 +560,7 @@ export default function Collections() {
           </select>
         </div>
 
-        {newCollection.schemaEnforcementMode > 0 && (
+        {newCollection.schemaEnforcementMode !== 'none' && (
           <div className="form-group">
             <div className="form-label-row">
               <label className="form-label">Field Constraints</label>
@@ -653,7 +653,7 @@ export default function Collections() {
           <select
             className="input"
             value={newCollection.indexingMode}
-            onChange={(e) => setNewCollection({ ...newCollection, indexingMode: parseInt(e.target.value) })}
+            onChange={(e) => setNewCollection({ ...newCollection, indexingMode: e.target.value })}
           >
             {Object.entries(INDEXING_MODES).map(([val, { label, description }]) => (
               <option key={val} value={val}>{label} - {description}</option>
@@ -661,7 +661,7 @@ export default function Collections() {
           </select>
         </div>
 
-        {newCollection.indexingMode === 1 && (
+        {newCollection.indexingMode === 'selective' && (
           <div className="form-group">
             <div className="form-label-row">
               <label className="form-label">Indexed Fields</label>
@@ -797,7 +797,7 @@ export default function Collections() {
               <select
                 className="input"
                 value={constraints.mode}
-                onChange={(e) => setConstraints(prev => ({ ...prev, mode: parseInt(e.target.value) }))}
+                onChange={(e) => setConstraints(prev => ({ ...prev, mode: e.target.value }))}
               >
                 {Object.entries(ENFORCEMENT_MODES).map(([val, { label, description }]) => (
                   <option key={val} value={val}>{label} - {description}</option>
@@ -946,7 +946,7 @@ export default function Collections() {
               <select
                 className="input"
                 value={indexing.mode}
-                onChange={(e) => setIndexing(prev => ({ ...prev, mode: parseInt(e.target.value) }))}
+                onChange={(e) => setIndexing(prev => ({ ...prev, mode: e.target.value }))}
               >
                 {Object.entries(INDEXING_MODES).map(([val, { label, description }]) => (
                   <option key={val} value={val}>{label} - {description}</option>
@@ -954,7 +954,7 @@ export default function Collections() {
               </select>
             </div>
 
-            {indexing.mode === 1 && (
+            {indexing.mode === 'selective' && (
               <div className="form-group">
                 <div className="form-label-row">
                   <label className="form-label">Indexed Fields</label>
