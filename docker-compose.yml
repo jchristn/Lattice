@@ -7,7 +7,7 @@ services:
       dockerfile: docker/Dockerfile.server
     container_name: lattice-server
     ports:
-      - "5099:5099"
+      - "8000:8000"
     volumes:
       - lattice-data:/app/data
       - lattice-documents:/app/documents
@@ -18,7 +18,7 @@ services:
       - Lattice__InMemory=false
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5099/v1.0/collections"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/v1.0/collections"]
       interval: 30s
       timeout: 10s
       retries: 3

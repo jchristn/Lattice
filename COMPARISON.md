@@ -55,12 +55,12 @@ Traditional databases operate in one of two paradigms:
 |  Flexible                                                    Rigid    |
 |  <----------------------------------------------------------------->  |
 |                                                                       |
-|  MongoDB     CouchDB      LATTICE      PostgreSQL JSONB      MySQL    |
+|  MongoDB     CouchDB        Lattice    PostgreSQL JSONB      MySQL    |
 |  DynamoDB    Elasticsearch                                            |
-|                              ^                                        |
-|                              |                                        |
-|                       Optional Schema                                 |
-|                       Enforcement                                     |
+|                               ^                                       |
+|                               |                                       |
+|                        Optional Schema                                |
+|                        Enforcement                                    |
 +-----------------------------------------------------------------------+
 ```
 

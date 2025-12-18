@@ -1,4 +1,4 @@
-# Lattice SDK
+# Lattice
 
 Lattice is a JSON document store with automatic schema detection, SQL-like querying, and flexible indexing. It supports multiple database backends including SQLite, SQL Server, PostgreSQL, and MySQL, enabling both embedded single-node deployments and horizontally scalable distributed architectures.
 
@@ -165,7 +165,7 @@ using LatticeClient client = new LatticeClient(repo, new LatticeSettings());
 
 ### Using Lattice.Server (REST API)
 
-Lattice.Server loads configuration from a JSON settings file and exposes a REST API.
+Lattice.Server loads configuration from the `lattice.json` settings file and exposes a REST API.
 
 #### Starting the Server
 
@@ -432,6 +432,26 @@ dotnet run --project src/Test.Automated
 # Run throughput tests
 dotnet run --project src/Test.Throughput
 ```
+
+## Docker
+
+The fastest way to get started with Lattice is using Docker Compose, which runs both the server and dashboard:
+
+```bash
+# Start both server and dashboard
+docker-compose up -d
+
+# Access the dashboard at http://localhost:3000
+# Access the API directly at http://localhost:8000
+```
+
+This starts:
+- **Lattice Server** on port 8000 with SQLite storage
+- **Lattice Dashboard** on port 3000 (proxies API requests to the server)
+
+Data is persisted in Docker volumes (`lattice-data` and `lattice-documents`).
+
+For detailed Docker configuration including external database backends, environment variables, and production deployment, see [DOCKER.md](DOCKER.md).
 
 ## Database Backend Comparison
 

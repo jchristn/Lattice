@@ -117,22 +117,22 @@ For each unique key in the schema, Lattice ensures an index table exists:
 |--------|-------|
 | id | `itm_` + K-sortable ID |
 | key | Original key name (e.g., `person.first`) |
-| tablename | `idx_` + MD5 hash of key |
+| tablename | `index_` + MD5 hash of key |
 | createdutc | Current UTC timestamp |
 
 Example mappings:
 | Key | Table Name |
 |-----|------------|
-| `person.first` | `idx_a1b2c3d4e5f6...` |
-| `person.last` | `idx_f6e5d4c3b2a1...` |
-| `age` | `idx_9876543210ab...` |
+| `person.first` | `index_a1b2c3d4e5f6...` |
+| `person.last` | `index_f6e5d4c3b2a1...` |
+| `age` | `index_9876543210ab...` |
 
 #### 3b. Dynamic Index Table
 
 For each new key, a dedicated index table is created:
 
 ```sql
-CREATE TABLE idx_{hash} (
+CREATE TABLE index_{hash} (
     id TEXT PRIMARY KEY,
     documentid TEXT NOT NULL,
     position INTEGER,          -- Array index (NULL for non-array values)
@@ -247,12 +247,12 @@ The `JsonFlattener` converts nested JSON into flat key-value pairs (preserving o
 
 For each flattened value, a row is inserted into the appropriate index table:
 
-**Table:** `idx_{hash_of_Person.First}`
+**Table:** `index_{hash_of_Person.First}`
 | id | documentid | position | value | createdutc |
 |----|------------|----------|-------|------------|
 | val_xxx | doc_abc123 | NULL | Joel | 2024-01-15T... |
 
-**Table:** `idx_{hash_of_Person.Addresses.City}`
+**Table:** `index_{hash_of_Person.Addresses.City}`
 | id | documentid | position | value | createdutc |
 |----|------------|----------|-------|------------|
 | val_yyy | doc_abc123 | 0 | San Jose | 2024-01-15T... |
@@ -328,8 +328,8 @@ await client.Document.Ingest(
 10. INSERT into `documents`
 11. INSERT into `labels` (1 row)
 12. INSERT into `tags` (1 row)
-13. INSERT into `idx_{Person.First_hash}` (1 row)
-14. INSERT into `idx_{Active_hash}` (1 row)
+13. INSERT into `index_{Person.First_hash}` (1 row)
+14. INSERT into `index_{Active_hash}` (1 row)
 
 **File System:**
 ```
