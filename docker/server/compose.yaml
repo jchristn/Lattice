@@ -1,0 +1,12 @@
+services:
+  server:
+    image: jchristn/lattice:latest
+    container_name: lattice-server
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./lattice.json:/app/lattice.json:ro
+      - ./logs:/app/logs
+      - ./data:/app/data
+    command: ["lattice.json"]

@@ -1,0 +1,21 @@
+services:
+  server:
+    image: jchristn/lattice:${SERVER_IMAGE_TAG:-v0.1.0}
+    container_name: lattice-server
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./server/lattice.json:/app/lattice.json:ro
+      - ./server/logs:/app/logs
+      - ./server/data:/app/data
+    command: ["lattice.json"]
+
+  dashboard:
+    image: jchristn/lattice-ui:${DASHBOARD_IMAGE_TAG:-v0.1.0}
+    container_name: lattice-dashboard
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - server
