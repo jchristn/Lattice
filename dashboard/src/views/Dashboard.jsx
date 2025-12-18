@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Outlet } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import Topbar from '../components/Topbar'
@@ -6,6 +7,15 @@ import './Dashboard.css'
 
 export default function Dashboard() {
   const { error, setError } = useApp()
+
+  useEffect(() => {
+    if (error) {
+      const timeout = setTimeout(() => {
+        setError(null)
+      }, 5000)
+      return () => clearTimeout(timeout)
+    }
+  }, [error, setError])
 
   return (
     <div className="dashboard">

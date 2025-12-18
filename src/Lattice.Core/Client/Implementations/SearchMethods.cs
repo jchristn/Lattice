@@ -215,6 +215,16 @@ namespace Lattice.Core.Client.Implementations
         }
 
         /// <inheritdoc />
+        public Task<SearchResult> SearchBySql(string collectionId, string sql, List<string> labels, Dictionary<string, string> tags, CancellationToken token = default)
+        {
+            SearchQuery query = _SqlParser.Parse(sql);
+            query.CollectionId = collectionId;
+            query.Labels = labels ?? new List<string>();
+            query.Tags = tags ?? new Dictionary<string, string>();
+            return Search(query, token);
+        }
+
+        /// <inheritdoc />
         public async Task<EnumerationResult<Document>> Enumerate(EnumerationQuery query, CancellationToken token = default)
         {
             EnumerationResult<Document> result = await _Repo.Documents.Enumerate(query, token);

@@ -998,7 +998,12 @@ namespace Lattice.Server.API.REST
                 // Use SQL expression if provided
                 if (!String.IsNullOrWhiteSpace(request.SqlExpression))
                 {
-                    SearchResult result = await _Client.Search.SearchBySql(collectionId, request.SqlExpression, CancellationToken.None);
+                    SearchResult result = await _Client.Search.SearchBySql(
+                        collectionId,
+                        request.SqlExpression,
+                        request.Labels ?? new List<string>(),
+                        request.Tags ?? new Dictionary<string, string>(),
+                        CancellationToken.None);
                     return new ResponseContext
                     {
                         Success = true,

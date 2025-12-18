@@ -1,5 +1,6 @@
 namespace Lattice.Core.Client.Interfaces
 {
+    using System.Collections.Generic;
     using System.Threading;
     using System.Threading.Tasks;
     using Lattice.Core.Models;
@@ -26,6 +27,17 @@ namespace Lattice.Core.Client.Interfaces
         /// <param name="token">Cancellation token.</param>
         /// <returns>Search result.</returns>
         Task<SearchResult> SearchBySql(string collectionId, string sql, CancellationToken token = default);
+
+        /// <summary>
+        /// Search documents using a SQL-like expression with additional label and tag filters.
+        /// </summary>
+        /// <param name="collectionId">Collection ID.</param>
+        /// <param name="sql">SQL-like expression.</param>
+        /// <param name="labels">Labels to filter by (documents must have all specified labels).</param>
+        /// <param name="tags">Tags to filter by (documents must have all specified tags).</param>
+        /// <param name="token">Cancellation token.</param>
+        /// <returns>Search result.</returns>
+        Task<SearchResult> SearchBySql(string collectionId, string sql, List<string> labels, Dictionary<string, string> tags, CancellationToken token = default);
 
         /// <summary>
         /// Enumerate documents with pagination.
