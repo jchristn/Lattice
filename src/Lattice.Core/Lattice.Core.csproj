@@ -1,55 +1,55 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>disable</Nullable>
-    <NoWarn>$(NoWarn);CS8632</NoWarn>
-    <ApplicationIcon>logo.ico</ApplicationIcon>
-    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-    <Title>Lattice</Title>
-    <Version>0.1.0</Version>
-    <Authors>Joel Christner</Authors>
-    <Description>Lattice is a JSON document store with real-time schema processing, indexing during ingestion, and a SQL-like interface for querying data</Description>
-    <Copyright>(c)2025 Joel Christner</Copyright>
-    <PackageProjectUrl>https://github.com/jchristn/lattice</PackageProjectUrl>
-    <PackageIcon>logo.png</PackageIcon>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-    <RepositoryUrl>https://github.com/jchristn/lattice</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
-    <PackageTags>json;document-store;storage;index;indexing;search;retrieval;rag;nosql;sql</PackageTags>
-    <PackageReleaseNotes>Initial release</PackageReleaseNotes>
-    <IncludeSymbols>True</IncludeSymbols>
-    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
-    <PackageId>Lattice</PackageId>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>disable</Nullable>
+		<NoWarn>$(NoWarn);CS8632</NoWarn>
+		<ApplicationIcon>logo.ico</ApplicationIcon>
+		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+		<Title>Lattice</Title>
+		<Version>0.1.2</Version>
+		<Authors>Joel Christner</Authors>
+		<Description>Lattice is a JSON document store with real-time schema processing, indexing during ingestion, and a SQL-like interface for querying data</Description>
+		<Copyright>(c)2025 Joel Christner</Copyright>
+		<PackageProjectUrl>https://github.com/jchristn/lattice</PackageProjectUrl>
+		<PackageIcon>logo.png</PackageIcon>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<RepositoryUrl>https://github.com/jchristn/lattice</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageTags>json;document-store;storage;index;indexing;search;retrieval;rag;nosql;sql</PackageTags>
+		<PackageReleaseNotes>Initial release</PackageReleaseNotes>
+		<IncludeSymbols>True</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+		<PackageId>Lattice</PackageId>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <Content Include="logo.ico" />
-  </ItemGroup>
+	<ItemGroup>
+		<Content Include="logo.ico" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <None Include="..\..\assets\logo.png">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
-    <None Include="..\..\LICENSE.md">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
-    <None Include="..\..\README.md">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
-  </ItemGroup>
+	<ItemGroup>
+		<None Include="..\..\assets\logo.png">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+		<None Include="..\..\LICENSE.md">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+		<None Include="..\..\README.md">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+	</ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.1" />
-    <PackageReference Include="MySqlConnector" Version="2.4.0" />
-    <PackageReference Include="Npgsql" Version="9.0.2" />
-    <PackageReference Include="PrettyId" Version="2.0.0" />
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+		<PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.1" />
+		<PackageReference Include="MySqlConnector" Version="2.4.0" />
+		<PackageReference Include="Npgsql" Version="9.0.2" />
+		<PackageReference Include="PrettyId" Version="2.0.0" />
+	</ItemGroup>
 
 </Project>

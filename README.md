@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/jchristn/Lattice/main/assets/logo.png" alt="Lattice Logo" width="192" height="192">
+</p>
+
 # Lattice
 
 Lattice is a JSON document store with automatic schema detection, SQL-like querying, and flexible indexing. It supports multiple database backends including SQLite, SQL Server, PostgreSQL, and MySQL, enabling both embedded single-node deployments and horizontally scalable distributed architectures.
@@ -16,19 +20,19 @@ Lattice is a JSON document store with automatic schema detection, SQL-like query
 
 ### Creating a Collection
 
-![Creating a Collection](assets/screenshot1.png)
+<img src="https://raw.githubusercontent.com/jchristn/Lattice/main/assets/screenshot1.png" alt="Creating a Collection">
 
 Create collections with custom labels, tags, schema enforcement modes, and indexing options.
 
 ### Adding a Document
 
-![Adding a Document](assets/screenshot2.png)
+<img src="https://raw.githubusercontent.com/jchristn/Lattice/main/assets/screenshot2.png" alt="Adding a Document">
 
 Add JSON documents with optional names, labels, and key-value tags for metadata.
 
 ### Searching Documents
 
-![Searching Documents](assets/screenshot3.png)
+<img src="https://raw.githubusercontent.com/jchristn/Lattice/main/assets/screenshot3.png" alt="Searching Documents">
 
 Search documents by labels, tags, and SQL-like expressions on data properties.
 

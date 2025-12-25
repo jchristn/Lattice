@@ -86,6 +86,20 @@ namespace Lattice.Server.Classes
             }
         }
 
+        /// <summary>
+        /// Enable OpenAPI documentation endpoint.
+        /// When enabled, the OpenAPI JSON specification is available at /openapi.json.
+        /// This provides machine-readable API documentation for client generation and tooling.
+        /// </summary>
+        public bool EnableOpenApi { get; set; } = true;
+
+        /// <summary>
+        /// Enable Swagger UI.
+        /// When enabled, an interactive API documentation UI is available at /swagger.
+        /// Requires EnableOpenApi to be true for the UI to function.
+        /// </summary>
+        public bool EnableSwaggerUi { get; set; } = true;
+
         #endregion
 
         #region Private-Members

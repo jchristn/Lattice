@@ -23,7 +23,7 @@ namespace Lattice.Core.Helpers
 
             byte[] inputBytes = Encoding.UTF8.GetBytes(input);
             byte[] hashBytes = MD5.HashData(inputBytes);
-            return Convert.ToHexStringLower(hashBytes);
+            return Convert.ToHexString(hashBytes).ToLowerInvariant();
         }
 
         /// <summary>
@@ -38,7 +38,7 @@ namespace Lattice.Core.Helpers
 
             byte[] inputBytes = Encoding.UTF8.GetBytes(input);
             byte[] hashBytes = SHA256.HashData(inputBytes);
-            return Convert.ToHexStringLower(hashBytes);
+            return Convert.ToHexString(hashBytes).ToLowerInvariant();
         }
 
         /// <summary>

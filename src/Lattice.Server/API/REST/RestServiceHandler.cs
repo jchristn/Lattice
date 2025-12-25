@@ -13,6 +13,7 @@ namespace Lattice.Server.API.REST
     using SyslogLogging;
     using WatsonWebserver;
     using WatsonWebserver.Core;
+    using WatsonWebserver.Core.OpenApi;
     using Lattice.Core;
     using Lattice.Core.Exceptions;
     using Lattice.Core.Models;
@@ -75,7 +76,8 @@ namespace Lattice.Server.API.REST
         public void Start()
         {
             _Webserver?.Start();
-            _Logging?.Info(_Header + "started on http://" + _Settings.Rest.Hostname + ":" + _Settings.Rest.Port);
+            string protocol = _Settings.Rest.Ssl ? "https" : "http";
+            _Logging?.Info(_Header + "started on " + protocol + "://" + _Settings.Rest.Hostname + ":" + _Settings.Rest.Port);
         }
 
         /// <summary>
@@ -99,7 +101,53 @@ namespace Lattice.Server.API.REST
                 Port = _Settings.Rest.Port
             };
 
+            // Configure SSL/TLS settings
+            if (_Settings.Rest.Ssl)
+            {
+                webserverSettings.Ssl.Enable = true;
+
+                if (!String.IsNullOrEmpty(_Settings.Rest.SslCertificateFile))
+                {
+                    webserverSettings.Ssl.PfxCertificateFile = _Settings.Rest.SslCertificateFile;
+                }
+
+                if (!String.IsNullOrEmpty(_Settings.Rest.SslCertificatePassword))
+                {
+                    webserverSettings.Ssl.PfxCertificatePassword = _Settings.Rest.SslCertificatePassword;
+                }
+            }
+
             _Webserver = new Webserver(webserverSettings, DefaultRoute);
+
+            // Configure OpenAPI/Swagger
+            _Webserver.UseOpenApi(openApi =>
+            {
+                openApi.EnableOpenApi = _Settings.Rest.EnableOpenApi;
+                openApi.EnableSwaggerUi = _Settings.Rest.EnableSwaggerUi;
+
+                openApi.Info.Title = "Lattice API";
+                openApi.Info.Version = "1.0.0";
+                openApi.Info.Description = "Lattice is a JSON document store with schema validation, full-text indexing, and flexible search capabilities.";
+                openApi.Info.Contact = new OpenApiContact
+                {
+                    Name = "Lattice Support",
+                    Url = "https://github.com/jchristn/Lattice"
+                };
+                openApi.Info.License = new OpenApiLicense
+                {
+                    Name = "MIT",
+                    Url = "https://opensource.org/licenses/MIT"
+                };
+
+                // Define tags for grouping endpoints
+                openApi.Tags.Add(new OpenApiTag { Name = "Health", Description = "Health check endpoints" });
+                openApi.Tags.Add(new OpenApiTag { Name = "Collections", Description = "Collection management operations" });
+                openApi.Tags.Add(new OpenApiTag { Name = "Documents", Description = "Document CRUD operations" });
+                openApi.Tags.Add(new OpenApiTag { Name = "Search", Description = "Document search operations" });
+                openApi.Tags.Add(new OpenApiTag { Name = "Schemas", Description = "Schema management operations" });
+                openApi.Tags.Add(new OpenApiTag { Name = "Index Tables", Description = "Index table operations" });
+            });
+
             InitializeRoutes();
         }
 
@@ -110,41 +158,319 @@ namespace Lattice.Server.API.REST
             _Webserver.Routes.PostRouting = PostRoutingRoute;
 
             // Health check routes
-            _Webserver.Routes.PreAuthentication.Static.Add(HttpMethod.GET, "/", GetHealthRoute, ExceptionRoute);
-            _Webserver.Routes.PreAuthentication.Static.Add(HttpMethod.GET, "/v1.0/health", GetHealthRoute, ExceptionRoute);
+            _Webserver.Routes.PreAuthentication.Static.Add(
+                HttpMethod.GET, "/", GetHealthRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Health check", "Health")
+                    .WithDescription("Returns the health status of the Lattice server")
+                    .WithResponse(200, OpenApiResponseMetadata.Json("Server is healthy", new OpenApiSchemaMetadata
+                    {
+                        Type = "object",
+                        Properties = new Dictionary<string, OpenApiSchemaMetadata>
+                        {
+                            ["success"] = OpenApiSchemaMetadata.Boolean(),
+                            ["statusCode"] = OpenApiSchemaMetadata.Integer(),
+                            ["data"] = new OpenApiSchemaMetadata
+                            {
+                                Type = "object",
+                                Properties = new Dictionary<string, OpenApiSchemaMetadata>
+                                {
+                                    ["status"] = OpenApiSchemaMetadata.String(),
+                                    ["version"] = OpenApiSchemaMetadata.String(),
+                                    ["timestamp"] = OpenApiSchemaMetadata.String("date-time")
+                                }
+                            }
+                        }
+                    })));
+
+            _Webserver.Routes.PreAuthentication.Static.Add(
+                HttpMethod.GET, "/v1.0/health", GetHealthRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Health check (versioned)", "Health")
+                    .WithDescription("Returns the health status of the Lattice server")
+                    .WithResponse(200, OpenApiResponseMetadata.Json("Server is healthy", new OpenApiSchemaMetadata
+                    {
+                        Type = "object",
+                        Properties = new Dictionary<string, OpenApiSchemaMetadata>
+                        {
+                            ["success"] = OpenApiSchemaMetadata.Boolean(),
+                            ["statusCode"] = OpenApiSchemaMetadata.Integer(),
+                            ["data"] = new OpenApiSchemaMetadata
+                            {
+                                Type = "object",
+                                Properties = new Dictionary<string, OpenApiSchemaMetadata>
+                                {
+                                    ["status"] = OpenApiSchemaMetadata.String(),
+                                    ["version"] = OpenApiSchemaMetadata.String(),
+                                    ["timestamp"] = OpenApiSchemaMetadata.String("date-time")
+                                }
+                            }
+                        }
+                    })));
 
             // Collection routes
-            _Webserver.Routes.PreAuthentication.Static.Add(HttpMethod.GET, "/v1.0/collections", GetCollectionsRoute, ExceptionRoute);
-            _Webserver.Routes.PreAuthentication.Static.Add(HttpMethod.PUT, "/v1.0/collections", PutCollectionRoute, ExceptionRoute);
-            _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.GET, "/v1.0/collections/{collectionId}", GetCollectionRoute, ExceptionRoute);
-            _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.HEAD, "/v1.0/collections/{collectionId}", HeadCollectionRoute, ExceptionRoute);
-            _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.DELETE, "/v1.0/collections/{collectionId}", DeleteCollectionRoute, ExceptionRoute);
+            _Webserver.Routes.PreAuthentication.Static.Add(
+                HttpMethod.GET, "/v1.0/collections", GetCollectionsRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("List all collections", "Collections")
+                    .WithDescription("Retrieves a list of all collections in the database")
+                    .WithResponse(200, OpenApiResponseMetadata.Create("List of collections retrieved successfully")));
+
+            _Webserver.Routes.PreAuthentication.Static.Add(
+                HttpMethod.PUT, "/v1.0/collections", PutCollectionRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Create a collection", "Collections")
+                    .WithDescription("Creates a new collection with optional schema constraints and indexing configuration")
+                    .WithRequestBody(OpenApiRequestBodyMetadata.Json(
+                        new OpenApiSchemaMetadata
+                        {
+                            Type = "object",
+                            Required = new List<string> { "name" },
+                            Properties = new Dictionary<string, OpenApiSchemaMetadata>
+                            {
+                                ["name"] = new OpenApiSchemaMetadata { Type = "string", Description = "Name of the collection" },
+                                ["description"] = new OpenApiSchemaMetadata { Type = "string", Description = "Optional description" },
+                                ["documentsDirectory"] = new OpenApiSchemaMetadata { Type = "string", Description = "Custom storage directory for documents" },
+                                ["labels"] = new OpenApiSchemaMetadata { Type = "array", Items = OpenApiSchemaMetadata.String(), Description = "Labels for categorization" },
+                                ["tags"] = new OpenApiSchemaMetadata { Type = "object", Description = "Key-value metadata tags" },
+                                ["schemaEnforcementMode"] = new OpenApiSchemaMetadata { Type = "string", Enum = new List<object> { "none", "strict", "warn" }, Description = "Schema validation mode" },
+                                ["fieldConstraints"] = new OpenApiSchemaMetadata { Type = "array", Description = "Field-level validation rules" },
+                                ["indexingMode"] = new OpenApiSchemaMetadata { Type = "string", Enum = new List<object> { "all", "selective" }, Description = "Indexing mode" },
+                                ["indexedFields"] = new OpenApiSchemaMetadata { Type = "array", Items = OpenApiSchemaMetadata.String(), Description = "Fields to index (if selective mode)" }
+                            }
+                        }, "Collection creation request", true))
+                    .WithResponse(201, OpenApiResponseMetadata.Create("Collection created successfully"))
+                    .WithResponse(400, OpenApiResponseMetadata.BadRequest()));
+
+            _Webserver.Routes.PreAuthentication.Parameter.Add(
+                HttpMethod.GET, "/v1.0/collections/{collectionId}", GetCollectionRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Get a collection", "Collections")
+                    .WithDescription("Retrieves a specific collection by its ID")
+                    .WithParameter(OpenApiParameterMetadata.Path("collectionId", "The unique identifier of the collection", OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Collection retrieved successfully"))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
+
+            _Webserver.Routes.PreAuthentication.Parameter.Add(
+                HttpMethod.HEAD, "/v1.0/collections/{collectionId}", HeadCollectionRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Check if collection exists", "Collections")
+                    .WithDescription("Checks if a collection exists without returning the full collection data")
+                    .WithParameter(OpenApiParameterMetadata.Path("collectionId", "The unique identifier of the collection", OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Collection exists"))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
+
+            _Webserver.Routes.PreAuthentication.Parameter.Add(
+                HttpMethod.DELETE, "/v1.0/collections/{collectionId}", DeleteCollectionRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Delete a collection", "Collections")
+                    .WithDescription("Deletes a collection and all its documents")
+                    .WithParameter(OpenApiParameterMetadata.Path("collectionId", "The unique identifier of the collection", OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Collection deleted successfully"))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
 
             // Collection constraints and indexing routes
-            _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.GET, "/v1.0/collections/{collectionId}/constraints", GetConstraintsRoute, ExceptionRoute);
-            _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.PUT, "/v1.0/collections/{collectionId}/constraints", PutConstraintsRoute, ExceptionRoute);
-            _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.GET, "/v1.0/collections/{collectionId}/indexing", GetIndexingRoute, ExceptionRoute);
-            _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.PUT, "/v1.0/collections/{collectionId}/indexing", PutIndexingRoute, ExceptionRoute);
-            _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.POST, "/v1.0/collections/{collectionId}/indexes/rebuild", PostRebuildIndexesRoute, ExceptionRoute);
+            _Webserver.Routes.PreAuthentication.Parameter.Add(
+                HttpMethod.GET, "/v1.0/collections/{collectionId}/constraints", GetConstraintsRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Get collection constraints", "Collections")
+                    .WithDescription("Retrieves the schema enforcement mode and field constraints for a collection")
+                    .WithParameter(OpenApiParameterMetadata.Path("collectionId", "The unique identifier of the collection", OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Constraints retrieved successfully"))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
+
+            _Webserver.Routes.PreAuthentication.Parameter.Add(
+                HttpMethod.PUT, "/v1.0/collections/{collectionId}/constraints", PutConstraintsRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Update collection constraints", "Collections")
+                    .WithDescription("Updates the schema enforcement mode and field constraints for a collection")
+                    .WithParameter(OpenApiParameterMetadata.Path("collectionId", "The unique identifier of the collection", OpenApiSchemaMetadata.String()))
+                    .WithRequestBody(OpenApiRequestBodyMetadata.Json(
+                        new OpenApiSchemaMetadata
+                        {
+                            Type = "object",
+                            Properties = new Dictionary<string, OpenApiSchemaMetadata>
+                            {
+                                ["schemaEnforcementMode"] = new OpenApiSchemaMetadata { Type = "string", Enum = new List<object> { "none", "strict", "warn" }, Description = "Schema validation mode" },
+                                ["fieldConstraints"] = new OpenApiSchemaMetadata { Type = "array", Description = "Field-level validation rules" }
+                            }
+                        }, "Constraints update request", true))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Constraints updated successfully"))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
+
+            _Webserver.Routes.PreAuthentication.Parameter.Add(
+                HttpMethod.GET, "/v1.0/collections/{collectionId}/indexing", GetIndexingRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Get indexing configuration", "Collections")
+                    .WithDescription("Retrieves the indexing mode and indexed fields for a collection")
+                    .WithParameter(OpenApiParameterMetadata.Path("collectionId", "The unique identifier of the collection", OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Indexing configuration retrieved successfully"))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
+
+            _Webserver.Routes.PreAuthentication.Parameter.Add(
+                HttpMethod.PUT, "/v1.0/collections/{collectionId}/indexing", PutIndexingRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Update indexing configuration", "Collections")
+                    .WithDescription("Updates the indexing mode and indexed fields for a collection")
+                    .WithParameter(OpenApiParameterMetadata.Path("collectionId", "The unique identifier of the collection", OpenApiSchemaMetadata.String()))
+                    .WithRequestBody(OpenApiRequestBodyMetadata.Json(
+                        new OpenApiSchemaMetadata
+                        {
+                            Type = "object",
+                            Properties = new Dictionary<string, OpenApiSchemaMetadata>
+                            {
+                                ["indexingMode"] = new OpenApiSchemaMetadata { Type = "string", Enum = new List<object> { "all", "selective" }, Description = "Indexing mode" },
+                                ["indexedFields"] = new OpenApiSchemaMetadata { Type = "array", Items = OpenApiSchemaMetadata.String(), Description = "Fields to index" },
+                                ["rebuildIndexes"] = new OpenApiSchemaMetadata { Type = "boolean", Description = "Whether to rebuild indexes immediately" }
+                            }
+                        }, "Indexing update request", true))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Indexing configuration updated successfully"))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
+
+            _Webserver.Routes.PreAuthentication.Parameter.Add(
+                HttpMethod.POST, "/v1.0/collections/{collectionId}/indexes/rebuild", PostRebuildIndexesRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Rebuild collection indexes", "Collections")
+                    .WithDescription("Triggers a rebuild of all indexes for a collection")
+                    .WithParameter(OpenApiParameterMetadata.Path("collectionId", "The unique identifier of the collection", OpenApiSchemaMetadata.String()))
+                    .WithRequestBody(OpenApiRequestBodyMetadata.Json(
+                        new OpenApiSchemaMetadata
+                        {
+                            Type = "object",
+                            Properties = new Dictionary<string, OpenApiSchemaMetadata>
+                            {
+                                ["dropUnusedIndexes"] = new OpenApiSchemaMetadata { Type = "boolean", Description = "Whether to drop indexes that are no longer needed" }
+                            }
+                        }, "Rebuild options", false))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Index rebuild completed"))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
 
             // Document routes
-            _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.GET, "/v1.0/collections/{collectionId}/documents", GetDocumentsRoute, ExceptionRoute);
-            _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.PUT, "/v1.0/collections/{collectionId}/documents", PutDocumentRoute, ExceptionRoute);
-            _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.GET, "/v1.0/collections/{collectionId}/documents/{documentId}", GetDocumentRoute, ExceptionRoute);
-            _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.HEAD, "/v1.0/collections/{collectionId}/documents/{documentId}", HeadDocumentRoute, ExceptionRoute);
-            _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.DELETE, "/v1.0/collections/{collectionId}/documents/{documentId}", DeleteDocumentRoute, ExceptionRoute);
+            _Webserver.Routes.PreAuthentication.Parameter.Add(
+                HttpMethod.GET, "/v1.0/collections/{collectionId}/documents", GetDocumentsRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("List documents in collection", "Documents")
+                    .WithDescription("Retrieves all documents in a collection")
+                    .WithParameter(OpenApiParameterMetadata.Path("collectionId", "The unique identifier of the collection", OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("List of documents retrieved successfully"))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
+
+            _Webserver.Routes.PreAuthentication.Parameter.Add(
+                HttpMethod.PUT, "/v1.0/collections/{collectionId}/documents", PutDocumentRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Create a document", "Documents")
+                    .WithDescription("Creates a new document in the specified collection")
+                    .WithParameter(OpenApiParameterMetadata.Path("collectionId", "The unique identifier of the collection", OpenApiSchemaMetadata.String()))
+                    .WithRequestBody(OpenApiRequestBodyMetadata.Json(
+                        new OpenApiSchemaMetadata
+                        {
+                            Type = "object",
+                            Required = new List<string> { "content" },
+                            Properties = new Dictionary<string, OpenApiSchemaMetadata>
+                            {
+                                ["content"] = new OpenApiSchemaMetadata { Type = "object", Description = "The JSON document content" },
+                                ["name"] = new OpenApiSchemaMetadata { Type = "string", Description = "Optional document name" },
+                                ["labels"] = new OpenApiSchemaMetadata { Type = "array", Items = OpenApiSchemaMetadata.String(), Description = "Labels for categorization" },
+                                ["tags"] = new OpenApiSchemaMetadata { Type = "object", Description = "Key-value metadata tags" }
+                            }
+                        }, "Document creation request", true))
+                    .WithResponse(201, OpenApiResponseMetadata.Create("Document created successfully"))
+                    .WithResponse(400, OpenApiResponseMetadata.BadRequest())
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
+
+            _Webserver.Routes.PreAuthentication.Parameter.Add(
+                HttpMethod.GET, "/v1.0/collections/{collectionId}/documents/{documentId}", GetDocumentRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Get a document", "Documents")
+                    .WithDescription("Retrieves a specific document by its ID. Use includeContent=true to get raw JSON content.")
+                    .WithParameter(OpenApiParameterMetadata.Path("collectionId", "The unique identifier of the collection", OpenApiSchemaMetadata.String()))
+                    .WithParameter(OpenApiParameterMetadata.Path("documentId", "The unique identifier of the document", OpenApiSchemaMetadata.String()))
+                    .WithParameter(OpenApiParameterMetadata.Query("includeContent", "If true, returns raw JSON content instead of document metadata", false, OpenApiSchemaMetadata.Boolean()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Document retrieved successfully"))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
+
+            _Webserver.Routes.PreAuthentication.Parameter.Add(
+                HttpMethod.HEAD, "/v1.0/collections/{collectionId}/documents/{documentId}", HeadDocumentRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Check if document exists", "Documents")
+                    .WithDescription("Checks if a document exists without returning the document data")
+                    .WithParameter(OpenApiParameterMetadata.Path("collectionId", "The unique identifier of the collection", OpenApiSchemaMetadata.String()))
+                    .WithParameter(OpenApiParameterMetadata.Path("documentId", "The unique identifier of the document", OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Document exists"))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
+
+            _Webserver.Routes.PreAuthentication.Parameter.Add(
+                HttpMethod.DELETE, "/v1.0/collections/{collectionId}/documents/{documentId}", DeleteDocumentRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Delete a document", "Documents")
+                    .WithDescription("Deletes a document from the collection")
+                    .WithParameter(OpenApiParameterMetadata.Path("collectionId", "The unique identifier of the collection", OpenApiSchemaMetadata.String()))
+                    .WithParameter(OpenApiParameterMetadata.Path("documentId", "The unique identifier of the document", OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Document deleted successfully"))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
 
             // Search route
-            _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.POST, "/v1.0/collections/{collectionId}/documents/search", PostSearchRoute, ExceptionRoute);
+            _Webserver.Routes.PreAuthentication.Parameter.Add(
+                HttpMethod.POST, "/v1.0/collections/{collectionId}/documents/search", PostSearchRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Search documents", "Search")
+                    .WithDescription("Searches for documents in a collection using SQL expressions or structured filters")
+                    .WithParameter(OpenApiParameterMetadata.Path("collectionId", "The unique identifier of the collection", OpenApiSchemaMetadata.String()))
+                    .WithRequestBody(OpenApiRequestBodyMetadata.Json(
+                        new OpenApiSchemaMetadata
+                        {
+                            Type = "object",
+                            Properties = new Dictionary<string, OpenApiSchemaMetadata>
+                            {
+                                ["sqlExpression"] = new OpenApiSchemaMetadata { Type = "string", Description = "SQL-like query expression" },
+                                ["filters"] = new OpenApiSchemaMetadata
+                                {
+                                    Type = "array",
+                                    Description = "List of field filters",
+                                    Items = new OpenApiSchemaMetadata
+                                    {
+                                        Type = "object",
+                                        Properties = new Dictionary<string, OpenApiSchemaMetadata>
+                                        {
+                                            ["field"] = OpenApiSchemaMetadata.String(),
+                                            ["condition"] = new OpenApiSchemaMetadata { Type = "string", Enum = new List<object> { "equals", "notEquals", "contains", "startsWith", "endsWith", "greaterThan", "lessThan" } },
+                                            ["value"] = OpenApiSchemaMetadata.String()
+                                        }
+                                    }
+                                },
+                                ["labels"] = new OpenApiSchemaMetadata { Type = "array", Items = OpenApiSchemaMetadata.String(), Description = "Filter by labels" },
+                                ["tags"] = new OpenApiSchemaMetadata { Type = "object", Description = "Filter by tags" },
+                                ["maxResults"] = new OpenApiSchemaMetadata { Type = "integer", Description = "Maximum number of results to return" },
+                                ["skip"] = new OpenApiSchemaMetadata { Type = "integer", Description = "Number of results to skip" },
+                                ["ordering"] = new OpenApiSchemaMetadata { Type = "string", Enum = new List<object> { "createdAscending", "createdDescending", "updatedAscending", "updatedDescending" }, Description = "Sort order" },
+                                ["includeContent"] = new OpenApiSchemaMetadata { Type = "boolean", Description = "Whether to include document content in results" }
+                            }
+                        }, "Search request", true))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Search results"))
+                    .WithResponse(400, OpenApiResponseMetadata.BadRequest())
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
 
             // Schema routes
-            _Webserver.Routes.PreAuthentication.Static.Add(HttpMethod.GET, "/v1.0/schemas", GetSchemasRoute, ExceptionRoute);
-            _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.GET, "/v1.0/schemas/{schemaId}", GetSchemaRoute, ExceptionRoute);
-            _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.GET, "/v1.0/schemas/{schemaId}/elements", GetSchemaElementsRoute, ExceptionRoute);
+            _Webserver.Routes.PreAuthentication.Static.Add(
+                HttpMethod.GET, "/v1.0/schemas", GetSchemasRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("List all schemas", "Schemas")
+                    .WithDescription("Retrieves a list of all discovered schemas from ingested documents")
+                    .WithResponse(200, OpenApiResponseMetadata.Create("List of schemas retrieved successfully")));
+
+            _Webserver.Routes.PreAuthentication.Parameter.Add(
+                HttpMethod.GET, "/v1.0/schemas/{schemaId}", GetSchemaRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Get a schema", "Schemas")
+                    .WithDescription("Retrieves a specific schema by its ID")
+                    .WithParameter(OpenApiParameterMetadata.Path("schemaId", "The unique identifier of the schema", OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Schema retrieved successfully"))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
+
+            _Webserver.Routes.PreAuthentication.Parameter.Add(
+                HttpMethod.GET, "/v1.0/schemas/{schemaId}/elements", GetSchemaElementsRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Get schema elements", "Schemas")
+                    .WithDescription("Retrieves the elements (fields) defined in a schema")
+                    .WithParameter(OpenApiParameterMetadata.Path("schemaId", "The unique identifier of the schema", OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Schema elements retrieved successfully"))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
 
             // Index table routes
-            _Webserver.Routes.PreAuthentication.Static.Add(HttpMethod.GET, "/v1.0/tables", GetIndexTablesRoute, ExceptionRoute);
-            _Webserver.Routes.PreAuthentication.Parameter.Add(HttpMethod.GET, "/v1.0/tables/{tableName}/entries", GetTableEntriesRoute, ExceptionRoute);
+            _Webserver.Routes.PreAuthentication.Static.Add(
+                HttpMethod.GET, "/v1.0/tables", GetIndexTablesRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("List index tables", "Index Tables")
+                    .WithDescription("Retrieves a list of all index table mappings")
+                    .WithResponse(200, OpenApiResponseMetadata.Create("List of index tables retrieved successfully")));
+
+            _Webserver.Routes.PreAuthentication.Parameter.Add(
+                HttpMethod.GET, "/v1.0/tables/{tableName}/entries", GetTableEntriesRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Get index table entries", "Index Tables")
+                    .WithDescription("Retrieves entries from a specific index table with pagination")
+                    .WithParameter(OpenApiParameterMetadata.Path("tableName", "The name of the index table", OpenApiSchemaMetadata.String()))
+                    .WithParameter(OpenApiParameterMetadata.Query("skip", "Number of entries to skip", false, OpenApiSchemaMetadata.Integer()))
+                    .WithParameter(OpenApiParameterMetadata.Query("limit", "Maximum number of entries to return (1-1000)", false, OpenApiSchemaMetadata.Integer()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Index table entries retrieved successfully"))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
         }
 
         private async Task PreflightRoute(HttpContextBase ctx)
