@@ -13,7 +13,7 @@ RUN dotnet restore Lattice.Server/Lattice.Server.csproj
 # Copy source code and build
 COPY Lattice.Core/ Lattice.Core/
 COPY Lattice.Server/ Lattice.Server/
-RUN dotnet publish Lattice.Server/Lattice.Server.csproj -c Release -o /app/publish
+RUN dotnet publish Lattice.Server/Lattice.Server.csproj -c Release -f net10.0 -o /app/publish
 
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
