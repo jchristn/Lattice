@@ -1,19 +1,20 @@
 # Lattice Server Dockerfile
-# Multi-stage build for .NET application
+# Multi-stage build for .NET application with cross-compilation support
 
-# Build stage
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+# Build stage - always runs on native architecture (amd64)
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+ARG TARGETARCH
 WORKDIR /src
 
-# Copy csproj files and restore
+# Copy csproj files and restore for target architecture
 COPY src/Lattice.Core/Lattice.Core.csproj Lattice.Core/
 COPY src/Lattice.Server/Lattice.Server.csproj Lattice.Server/
-RUN dotnet restore Lattice.Server/Lattice.Server.csproj
+RUN dotnet restore Lattice.Server/Lattice.Server.csproj -a $TARGETARCH
 
-# Copy source code and build
+# Copy source code and build for target architecture
 COPY src/Lattice.Core/ Lattice.Core/
 COPY src/Lattice.Server/ Lattice.Server/
-RUN dotnet publish Lattice.Server/Lattice.Server.csproj -c Release -f net10.0 -o /app/publish
+RUN dotnet publish Lattice.Server/Lattice.Server.csproj -c Release -f net10.0 -a $TARGETARCH -o /app/publish
 
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
