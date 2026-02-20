@@ -11,6 +11,6 @@ docker run -d ^
     --name lattice-dashboard ^
     --restart unless-stopped ^
     -p 3000:80 ^
-    jchristn/lattice-ui:%~1
+    jchristn77/lattice-ui:%~1
 
 echo Lattice Dashboard started on port 3000.

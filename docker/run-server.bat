@@ -14,7 +14,7 @@ docker run -d ^
     -v "%~dp0server\lattice.json:/app/lattice.json:ro" ^
     -v "%~dp0server\logs:/app/logs" ^
     -v "%~dp0server\data:/app/data" ^
-    jchristn/lattice:%~1 ^
+    jchristn77/lattice:%~1 ^
     lattice.json
 
 echo Lattice Server started on port 8000.

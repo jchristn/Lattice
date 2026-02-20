@@ -5,11 +5,12 @@ if "%~1"=="" (
     exit /b 1
 )
 
-echo Building jchristn/lattice-ui:%~1 for linux/amd64 and linux/arm64/v8...
+echo Building jchristn77/lattice-ui:%~1 for linux/amd64 and linux/arm64/v8...
 
 docker buildx build ^
     --platform linux/amd64,linux/arm64/v8 ^
-    -t jchristn/lattice-ui:%~1 ^
+    -t jchristn77/lattice-ui:%~1 ^
+    -t jchristn77/lattice-ui:latest ^
     -f Dockerfile ^
     --push ^
     .

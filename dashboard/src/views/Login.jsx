@@ -4,7 +4,7 @@ import './Login.css'
 
 export default function Login() {
   const { connect, error, theme, toggleTheme } = useApp()
-  const [url, setUrl] = useState('http://localhost:8000')
+  const [url, setUrl] = useState(window.__LATTICE_CONFIG__?.serverUrl || 'http://localhost:8000')
   const [loading, setLoading] = useState(false)
   const [localError, setLocalError] = useState('')
 

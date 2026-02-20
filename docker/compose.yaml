@@ -1,6 +1,6 @@
 services:
   server:
-    image: jchristn/lattice:${SERVER_IMAGE_TAG:-v0.1.0}
+    image: jchristn77/lattice:${SERVER_IMAGE_TAG:-v0.1.0}
     container_name: lattice-server
     restart: unless-stopped
     ports:
@@ -12,10 +12,13 @@ services:
     command: ["lattice.json"]
 
   dashboard:
-    image: jchristn/lattice-ui:${DASHBOARD_IMAGE_TAG:-v0.1.0}
+    image: jchristn77/lattice-ui:${DASHBOARD_IMAGE_TAG:-v0.1.0}
     container_name: lattice-dashboard
     restart: unless-stopped
     ports:
       - "3000:80"
+    environment:
+      - LATTICE_SERVER_URL=${LATTICE_SERVER_URL:-http://lattice-server:8000}
+    command: ["/bin/sh", "-c", "echo \"window.__LATTICE_CONFIG__={serverUrl:'$$LATTICE_SERVER_URL'};\" > /usr/share/nginx/html/config.js && nginx -g 'daemon off;'"]
     depends_on:
       - server

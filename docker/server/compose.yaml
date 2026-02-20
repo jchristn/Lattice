@@ -1,6 +1,6 @@
 services:
   server:
-    image: jchristn/lattice:latest
+    image: jchristn77/lattice:latest
     container_name: lattice-server
     restart: unless-stopped
     ports:
