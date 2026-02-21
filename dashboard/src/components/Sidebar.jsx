@@ -1,8 +1,10 @@
 import { NavLink, useLocation } from 'react-router-dom'
+import { useApp } from '../context/AppContext'
 import './Sidebar.css'
 
 export default function Sidebar() {
   const location = useLocation()
+  const { startTour, startSetupWizard } = useApp()
   const isDocumentsPage = location.pathname === '/documents' || location.pathname.endsWith('/documents')
   const isSchemaElementsPage = location.pathname === '/schema-elements' || location.pathname.endsWith('/elements')
 
@@ -65,6 +67,15 @@ export default function Sidebar() {
           Search
         </NavLink>
       </nav>
+
+      <div className="sidebar-footer">
+        <button className="sidebar-footer-link" onClick={startTour}>
+          Take Tour
+        </button>
+        <button className="sidebar-footer-link" onClick={startSetupWizard}>
+          Setup Wizard
+        </button>
+      </div>
     </aside>
   )
 }

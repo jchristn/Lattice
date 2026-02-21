@@ -11,7 +11,7 @@ export default function Search() {
   const { api, setError } = useApp()
   const [collections, setCollections] = useState([])
   const [selectedCollection, setSelectedCollection] = useState('')
-  const [sqlExpression, setSqlExpression] = useState('')
+  const [sqlExpression, setSqlExpression] = useState('SELECT * FROM documents')
   const [filterLabels, setFilterLabels] = useState([])
   const [filterTags, setFilterTags] = useState({})
   const [results, setResults] = useState(null)

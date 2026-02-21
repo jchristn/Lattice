@@ -12,6 +12,8 @@ export function AppProvider({ children }) {
   })
   const [api, setApi] = useState(null)
   const [error, setError] = useState(null)
+  const [showTour, setShowTour] = useState(false)
+  const [showSetupWizard, setShowSetupWizard] = useState(false)
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -27,6 +29,13 @@ export function AppProvider({ children }) {
       setApi(null)
     }
   }, [serverUrl])
+
+  // Auto-trigger tour for first-time visitors after connecting
+  useEffect(() => {
+    if (api && !localStorage.getItem('lattice_tour_completed')) {
+      setShowTour(true)
+    }
+  }, [api])
 
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light')
@@ -50,6 +59,28 @@ export function AppProvider({ children }) {
     setApi(null)
   }
 
+  const startTour = () => {
+    setShowTour(true)
+  }
+
+  const completeTour = () => {
+    setShowTour(false)
+    localStorage.setItem('lattice_tour_completed', 'true')
+    // Auto-trigger setup wizard after tour if not completed
+    if (!localStorage.getItem('lattice_setup_completed')) {
+      setShowSetupWizard(true)
+    }
+  }
+
+  const startSetupWizard = () => {
+    setShowSetupWizard(true)
+  }
+
+  const completeSetupWizard = () => {
+    setShowSetupWizard(false)
+    localStorage.setItem('lattice_setup_completed', 'true')
+  }
+
   const value = {
     serverUrl,
     theme,
@@ -59,6 +90,12 @@ export function AppProvider({ children }) {
     toggleTheme,
     connect,
     disconnect,
+    showTour,
+    showSetupWizard,
+    startTour,
+    completeTour,
+    startSetupWizard,
+    completeSetupWizard,
   }
 
   return (

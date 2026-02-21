@@ -1,0 +1,28 @@
+{
+  "Logging": {
+    "ConsoleLogging": true,
+    "MinimumSeverity": 6,
+    "LogFilename": "/app/logs/lattice.log"
+  },
+  "Rest": {
+    "Hostname": "+",
+    "Port": 8000,
+    "Ssl": false,
+    "SslCertificateFile": null,
+    "SslCertificatePassword": null
+  },
+  "Lattice": {
+    "Database": {
+      "Type": "Sqlite",
+      "Filename": "/app/data/lattice.db",
+      "Hostname": null,
+      "Port": 0,
+      "DatabaseName": null,
+      "Username": null,
+      "Password": null
+    },
+    "InMemory": false,
+    "DefaultDocumentsDirectory": "/app/documents",
+    "EnableLogging": false
+  }
+}

@@ -3,10 +3,12 @@ import { Outlet } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import Topbar from '../components/Topbar'
 import Sidebar from '../components/Sidebar'
+import TourOverlay from '../components/TourOverlay'
+import SetupWizard from '../components/SetupWizard'
 import './Dashboard.css'
 
 export default function Dashboard() {
-  const { error, setError } = useApp()
+  const { error, setError, showTour, showSetupWizard, completeTour, completeSetupWizard } = useApp()
 
   useEffect(() => {
     if (error) {
@@ -34,6 +36,8 @@ export default function Dashboard() {
           <Outlet />
         </main>
       </div>
+      <TourOverlay isOpen={showTour} onComplete={completeTour} />
+      <SetupWizard isOpen={showSetupWizard} onComplete={completeSetupWizard} />
     </div>
   )
 }
