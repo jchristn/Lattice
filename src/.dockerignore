@@ -1,0 +1,15 @@
+.git
+.gitignore
+**/bin
+**/obj
+**/out
+**/Debug
+**/Release
+Test.Automated
+Test.Throughput
+build-server.bat
+Lattice.sln
+*.db
+documents
+data
+logs
