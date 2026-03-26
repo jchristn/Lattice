@@ -27,15 +27,27 @@
 
 .modal-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   padding: 20px 24px;
   border-bottom: 1px solid var(--border-color);
+  gap: 16px;
+}
+
+.modal-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .modal-title {
   font-size: 18px;
   font-weight: 600;
+}
+
+.modal-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 .modal-close {

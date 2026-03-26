@@ -11,8 +11,8 @@ docker buildx build ^
     --platform linux/amd64,linux/arm64/v8 ^
     -t jchristn77/lattice-ui:%~1 ^
     -t jchristn77/lattice-ui:latest ^
-    -f Dockerfile ^
+    -f dashboard/Dockerfile ^
     --push ^
-    .
+    dashboard
 
 echo Build complete.

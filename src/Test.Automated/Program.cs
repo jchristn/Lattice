@@ -5,10 +5,12 @@ namespace Test.Automated
     using System.Diagnostics;
     using System.IO;
     using System.Linq;
+    using System.Reflection;
     using System.Threading.Tasks;
     using Lattice.Core;
     using Lattice.Core.Exceptions;
     using Lattice.Core.Models;
+    using Lattice.Core.Repositories;
     using Lattice.Core.Search;
 
     class Program
@@ -198,6 +200,7 @@ namespace Test.Automated
                     await RunTest("Perf: search in 100 documents", TestPerfSearch100);
                     await RunTest("Perf: GetDocuments for 100 documents", TestPerfGetDocuments100);
                     await RunTest("Perf: enumerate 100 documents", TestPerfEnumerate100);
+                    await RunTest("Perf: hammer collection CRUD timings", TestPerfHammerCollectionCrudTimings);
                 });
 
                 // ===== SCHEMA CONSTRAINTS TESTS =====
@@ -654,6 +657,23 @@ namespace Test.Automated
                 Database = dbSettings,
                 EnableObjectLocking = _enableObjectLocking
             });
+        }
+
+        private static RepositoryBase GetRepository(LatticeClient client)
+        {
+            FieldInfo repoField = typeof(LatticeClient).GetField("_Repo", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (repoField == null)
+            {
+                throw new InvalidOperationException("Unable to access the internal repository field.");
+            }
+
+            RepositoryBase repo = repoField.GetValue(client) as RepositoryBase;
+            if (repo == null)
+            {
+                throw new InvalidOperationException("The internal repository was not available.");
+            }
+
+            return repo;
         }
 
         #endregion
@@ -2789,6 +2809,115 @@ namespace Test.Automated
 
                 if (result.Objects.Count != 100) return TestOutcome.Fail($"Expected 100, got {result.Objects.Count}");
                 if (sw.ElapsedMilliseconds > 5000) return TestOutcome.Fail($"Too slow: {sw.ElapsedMilliseconds}ms");
+
+                return TestOutcome.Pass();
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<TestOutcome> TestPerfHammerCollectionCrudTimings()
+        {
+            const int DocumentCount = 300;
+            const int UpdateCount = 75;
+            const int DeleteCount = 75;
+
+            string testDir = CreateTestDir();
+            try
+            {
+                using LatticeClient client = CreateClient(testDir);
+                RepositoryBase repo = GetRepository(client);
+                Collection collection = await client.Collection.Create("HammerCollection", "High-volume CRUD performance validation");
+
+                List<Document> createdDocuments = new List<Document>(DocumentCount);
+
+                Stopwatch insertStopwatch = Stopwatch.StartNew();
+                for (int i = 0; i < DocumentCount; i++)
+                {
+                    string json = $@"{{
+  ""Sequence"": {i},
+  ""Customer"": {{
+    ""Id"": ""cust-{i:0000}"",
+    ""Region"": ""{(i % 2 == 0 ? "west" : "east")}"",
+    ""Tier"": ""{(i % 3 == 0 ? "gold" : "standard")}""
+  }},
+  ""Metrics"": {{
+    ""Score"": {1000 + i},
+    ""Active"": {(i % 2 == 0 ? "true" : "false")}
+  }},
+  ""Tags"": [""hammer"", ""batch-{i % 10}"", ""segment-{i % 5}""]
+}}";
+
+                    Document created = await client.Document.Ingest(
+                        collection.Id,
+                        json,
+                        $"HammerDoc-{i:0000}",
+                        new List<string> { "hammer", $"batch-{i % 10}" },
+                        new Dictionary<string, string> { { "region", i % 2 == 0 ? "west" : "east" } });
+
+                    createdDocuments.Add(created);
+                }
+                insertStopwatch.Stop();
+
+                Stopwatch retrieveStopwatch = Stopwatch.StartNew();
+                Dictionary<string, Document> retrievedDocuments = await client.Document.ReadByIds(
+                    createdDocuments.Select(d => d.Id).ToList(),
+                    includeContent: false,
+                    includeLabels: true,
+                    includeTags: true);
+                retrieveStopwatch.Stop();
+
+                Stopwatch updateStopwatch = Stopwatch.StartNew();
+                for (int i = 0; i < UpdateCount; i++)
+                {
+                    Document stored = await repo.Documents.ReadById(createdDocuments[i].Id);
+                    if (stored == null)
+                    {
+                        return TestOutcome.Fail($"Unable to load document for update: {createdDocuments[i].Id}");
+                    }
+
+                    stored.Name = $"HammerDoc-Updated-{i:0000}";
+                    await repo.Documents.Update(stored);
+                }
+                updateStopwatch.Stop();
+
+                Stopwatch deleteStopwatch = Stopwatch.StartNew();
+                foreach (Document document in createdDocuments.Skip(DocumentCount - DeleteCount))
+                {
+                    await client.Document.Delete(document.Id);
+                }
+                deleteStopwatch.Stop();
+
+                List<Document> remainingDocuments = await client.Document.ReadAllInCollection(collection.Id);
+                Document updatedDocument = await client.Document.ReadById(createdDocuments[0].Id);
+
+                Console.WriteLine($"           Hammer Insert: {DocumentCount} docs in {insertStopwatch.ElapsedMilliseconds}ms");
+                Console.WriteLine($"           Hammer Retrieve: {retrievedDocuments.Count} docs in {retrieveStopwatch.ElapsedMilliseconds}ms");
+                Console.WriteLine($"           Hammer Update: {UpdateCount} docs in {updateStopwatch.ElapsedMilliseconds}ms");
+                Console.WriteLine($"           Hammer Delete: {DeleteCount} docs in {deleteStopwatch.ElapsedMilliseconds}ms");
+
+                if (retrievedDocuments.Count != DocumentCount)
+                {
+                    return TestOutcome.Fail($"Expected {DocumentCount} retrieved docs, got {retrievedDocuments.Count}");
+                }
+
+                if (updatedDocument == null || updatedDocument.Name != "HammerDoc-Updated-0000")
+                {
+                    return TestOutcome.Fail("Updated document name was not persisted");
+                }
+
+                int expectedRemaining = DocumentCount - DeleteCount;
+                if (remainingDocuments.Count != expectedRemaining)
+                {
+                    return TestOutcome.Fail($"Expected {expectedRemaining} remaining docs, got {remainingDocuments.Count}");
+                }
+
+                if (insertStopwatch.ElapsedMilliseconds <= 0 ||
+                    retrieveStopwatch.ElapsedMilliseconds <= 0 ||
+                    updateStopwatch.ElapsedMilliseconds <= 0 ||
+                    deleteStopwatch.ElapsedMilliseconds <= 0)
+                {
+                    return TestOutcome.Fail("One or more CRUD timing measurements were not recorded correctly");
+                }
 
                 return TestOutcome.Pass();
             }

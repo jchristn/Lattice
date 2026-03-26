@@ -1,25 +1,26 @@
-import { useState, useEffect, useMemo } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { formatDate } from '../utils/api'
-import Modal from '../components/Modal'
 import ActionMenu from '../components/ActionMenu'
 import CopyableId from '../components/CopyableId'
+import JsonViewerModal from '../components/JsonViewerModal'
+import Modal from '../components/Modal'
+import TablePagination from '../components/TablePagination'
 import TagInput from '../components/TagInput'
 import KeyValueEditor from '../components/KeyValueEditor'
 import './Documents.css'
 
-// Format bytes to human-readable string
 function formatBytes(bytes) {
   if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+  const units = ['B', 'KB', 'MB', 'GB']
+  const index = Math.floor(Math.log(bytes) / Math.log(1024))
+  return `${parseFloat((bytes / Math.pow(1024, index)).toFixed(1))} ${units[index]}`
 }
 
 export default function Documents() {
   const { collectionId } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const { api, setError } = useApp()
   const [collections, setCollections] = useState([])
@@ -28,17 +29,16 @@ export default function Documents() {
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showMetadataModal, setShowMetadataModal] = useState(false)
-  const [showDataModal, setShowDataModal] = useState(false)
   const [selectedDocument, setSelectedDocument] = useState(null)
+  const [jsonViewer, setJsonViewer] = useState({ open: false, title: '', subtitle: '', identifier: '', value: null })
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(25)
   const [newDocument, setNewDocument] = useState({
     name: '',
     content: '{\n  \n}',
   })
-  const [copied, setCopied] = useState(false)
   const [newLabels, setNewLabels] = useState([])
   const [newTags, setNewTags] = useState({})
-
-  // Per-column filters
   const [filters, setFilters] = useState({
     id: '',
     name: '',
@@ -46,85 +46,26 @@ export default function Documents() {
     schemaId: '',
     createdUtc: '',
   })
-
-  // Sorting state
   const [sort, setSort] = useState({ column: 'name', direction: 'asc' })
 
-  // Filter and sort documents
-  const filteredDocuments = useMemo(() => {
-    let result = [...documents]
-
-    // Apply column filters
-    if (filters.id) {
-      const query = filters.id.toLowerCase()
-      result = result.filter(d => d.id.toLowerCase().includes(query))
-    }
-    if (filters.name) {
-      const query = filters.name.toLowerCase()
-      result = result.filter(d => (d.name || '').toLowerCase().includes(query))
-    }
-    if (filters.contentLength) {
-      const query = filters.contentLength.toLowerCase()
-      result = result.filter(d => formatBytes(d.contentLength || 0).toLowerCase().includes(query))
-    }
-    if (filters.schemaId) {
-      const query = filters.schemaId.toLowerCase()
-      result = result.filter(d => (d.schemaId || '').toLowerCase().includes(query))
-    }
-    if (filters.createdUtc) {
-      const query = filters.createdUtc.toLowerCase()
-      result = result.filter(d => formatDate(d.createdUtc).toLowerCase().includes(query))
-    }
-
-    // Apply sorting
-    if (sort.column) {
-      result.sort((a, b) => {
-        let aVal, bVal
-        if (sort.column === 'createdUtc') {
-          aVal = a.createdUtc || ''
-          bVal = b.createdUtc || ''
-          const comparison = aVal.localeCompare(bVal)
-          return sort.direction === 'asc' ? comparison : -comparison
-        } else if (sort.column === 'contentLength') {
-          aVal = a.contentLength || 0
-          bVal = b.contentLength || 0
-          const comparison = aVal - bVal
-          return sort.direction === 'asc' ? comparison : -comparison
-        } else {
-          aVal = a[sort.column] || ''
-          bVal = b[sort.column] || ''
-          const comparison = aVal.localeCompare(bVal)
-          return sort.direction === 'asc' ? comparison : -comparison
-        }
-      })
-    }
-
-    return result
-  }, [documents, filters, sort])
-
-  useEffect(() => {
-    const loadCollections = async () => {
-      try {
-        const data = await api.getCollections()
-        setCollections(data || [])
-        // Auto-select first collection if none selected
-        if (!collectionId && data?.length > 0) {
-          navigate(`/collections/${data[0].id}/documents`, { replace: true })
-        }
-      } catch (err) {
-        console.error('Failed to load collections:', err)
+  const loadCollections = async () => {
+    try {
+      const data = await api.getCollections()
+      setCollections(data || [])
+      if (!collectionId && data?.length > 0) {
+        navigate(`/collections/${data[0].id}/documents`, { replace: true })
       }
+    } catch (err) {
+      console.error('Failed to load collections:', err)
     }
-    if (api) {
-      loadCollections()
-    }
-  }, [api, collectionId, navigate])
+  }
 
   const loadData = async () => {
     if (!collectionId) {
       setLoading(false)
       return
     }
+
     try {
       setLoading(true)
       const [collectionData, documentsData] = await Promise.all([
@@ -140,14 +81,89 @@ export default function Documents() {
     }
   }
 
+  const filteredDocuments = useMemo(() => {
+    let result = [...documents]
+
+    if (filters.id) {
+      const query = filters.id.toLowerCase()
+      result = result.filter((document) => document.id.toLowerCase().includes(query))
+    }
+    if (filters.name) {
+      const query = filters.name.toLowerCase()
+      result = result.filter((document) => (document.name || '').toLowerCase().includes(query))
+    }
+    if (filters.contentLength) {
+      const query = filters.contentLength.toLowerCase()
+      result = result.filter((document) => formatBytes(document.contentLength || 0).toLowerCase().includes(query))
+    }
+    if (filters.schemaId) {
+      const query = filters.schemaId.toLowerCase()
+      result = result.filter((document) => (document.schemaId || '').toLowerCase().includes(query))
+    }
+    if (filters.createdUtc) {
+      const query = filters.createdUtc.toLowerCase()
+      result = result.filter((document) => formatDate(document.createdUtc).toLowerCase().includes(query))
+    }
+
+    result.sort((a, b) => {
+      if (sort.column === 'createdUtc') {
+        const comparison = (a.createdUtc || '').localeCompare(b.createdUtc || '')
+        return sort.direction === 'asc' ? comparison : -comparison
+      }
+      if (sort.column === 'contentLength') {
+        const comparison = (a.contentLength || 0) - (b.contentLength || 0)
+        return sort.direction === 'asc' ? comparison : -comparison
+      }
+
+      const comparison = (a[sort.column] || '').localeCompare(b[sort.column] || '')
+      return sort.direction === 'asc' ? comparison : -comparison
+    })
+
+    return result
+  }, [documents, filters, sort])
+
+  const totalPages = Math.max(1, Math.ceil(filteredDocuments.length / pageSize))
+  const pagedDocuments = filteredDocuments.slice(page * pageSize, (page + 1) * pageSize)
+
+  useEffect(() => {
+    if (api) {
+      loadCollections()
+    }
+  }, [api, collectionId, navigate])
+
   useEffect(() => {
     loadData()
   }, [api, collectionId])
 
-  const handleCollectionChange = (e) => {
-    const newCollectionId = e.target.value
-    if (newCollectionId) {
-      navigate(`/collections/${newCollectionId}/documents`)
+  useEffect(() => {
+    setPage(0)
+  }, [filters, sort, collectionId])
+
+  useEffect(() => {
+    if (page > totalPages - 1) {
+      setPage(Math.max(totalPages - 1, 0))
+    }
+  }, [page, totalPages])
+
+  useEffect(() => {
+    if (searchParams.get('create') === '1' && collectionId) {
+      setShowCreateModal(true)
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.delete('create')
+      setSearchParams(nextParams, { replace: true })
+    }
+  }, [searchParams, collectionId, setSearchParams])
+
+  const resetCreateForm = () => {
+    setNewDocument({ name: '', content: '{\n  \n}' })
+    setNewLabels([])
+    setNewTags({})
+  }
+
+  const handleCollectionChange = (event) => {
+    const nextCollectionId = event.target.value
+    if (nextCollectionId) {
+      navigate(`/collections/${nextCollectionId}/documents`)
     }
   }
 
@@ -156,14 +172,12 @@ export default function Documents() {
       const content = JSON.parse(newDocument.content)
       await api.createDocument(collectionId, {
         name: newDocument.name || null,
-        content: content,
+        content,
         labels: newLabels.length > 0 ? newLabels : null,
         tags: Object.keys(newTags).length > 0 ? newTags : null,
       })
       setShowCreateModal(false)
-      setNewDocument({ name: '', content: '{\n  \n}' })
-      setNewLabels([])
-      setNewTags({})
+      resetCreateForm()
       await loadData()
     } catch (err) {
       if (err instanceof SyntaxError) {
@@ -178,6 +192,7 @@ export default function Documents() {
     if (!confirm('Are you sure you want to delete this document?')) {
       return
     }
+
     try {
       await api.deleteDocument(collectionId, id)
       await loadData()
@@ -188,8 +203,8 @@ export default function Documents() {
 
   const handleViewMetadata = async (id) => {
     try {
-      const doc = await api.getDocument(collectionId, id, false)
-      setSelectedDocument(doc)
+      const document = await api.getDocument(collectionId, id)
+      setSelectedDocument(document)
       setShowMetadataModal(true)
     } catch (err) {
       setError('Failed to load document: ' + err.message)
@@ -199,55 +214,42 @@ export default function Documents() {
   const handleViewData = async (id, name) => {
     try {
       const content = await api.getDocumentContent(collectionId, id)
-      setSelectedDocument({ id, name, content })
-      setShowDataModal(true)
+      setJsonViewer({
+        open: true,
+        title: 'Document JSON',
+        subtitle: 'This is the full JSON payload stored for the selected document.',
+        identifier: id,
+        value: content,
+      })
     } catch (err) {
       setError('Failed to load document: ' + err.message)
     }
   }
 
-  const handleCopyData = async () => {
-    if (!selectedDocument?.content) return
-    try {
-      const jsonString = JSON.stringify(selectedDocument.content, null, 2)
-      await navigator.clipboard.writeText(jsonString)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch (err) {
-      setError('Failed to copy to clipboard: ' + err.message)
-    }
-  }
-
-  const handleDownloadData = () => {
-    if (!selectedDocument?.content) return
-    const jsonString = JSON.stringify(selectedDocument.content, null, 2)
-    const blob = new Blob([jsonString], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = selectedDocument.name
-      ? `${selectedDocument.name}.json`
-      : `document-${selectedDocument.id}.json`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
+  const handleViewDocumentJson = (document) => {
+    setJsonViewer({
+      open: true,
+      title: 'Document Metadata JSON',
+      subtitle: 'This object shows the document metadata returned by the dashboard list view.',
+      identifier: document.id,
+      value: document,
+    })
   }
 
   const handleSort = (column) => {
-    setSort(prev => ({
+    setSort((previous) => ({
       column,
-      direction: prev.column === column && prev.direction === 'asc' ? 'desc' : 'asc'
+      direction: previous.column === column && previous.direction === 'asc' ? 'desc' : 'asc',
     }))
   }
 
   const handleFilterChange = (column, value) => {
-    setFilters(prev => ({ ...prev, [column]: value }))
+    setFilters((previous) => ({ ...previous, [column]: value }))
   }
 
   const getSortIcon = (column) => {
-    if (sort.column !== column) return '↕'
-    return sort.direction === 'asc' ? '↑' : '↓'
+    if (sort.column !== column) return '<>'
+    return sort.direction === 'asc' ? '^' : 'v'
   }
 
   if (loading) {
@@ -259,29 +261,26 @@ export default function Documents() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Documents</h1>
+          <p className="page-subtitle">Open a collection to inspect its stored documents, validate schema assignment, and create new documents with labels and tags.</p>
           <div className="collection-selector">
             <label className="collection-selector-label">Collection:</label>
-            <select
-              className="collection-selector-select"
-              value={collectionId || ''}
-              onChange={handleCollectionChange}
-            >
+            <select className="collection-selector-select" value={collectionId || ''} onChange={handleCollectionChange}>
               <option value="">Select a collection...</option>
-              {collections.map((col) => (
-                <option key={col.id} value={col.id}>
-                  {col.name}
+              {collections.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
                 </option>
               ))}
             </select>
           </div>
         </div>
-        {collectionId && (
+        {collectionId ? (
           <div className="page-actions">
-            <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+            <button className="btn btn-primary" type="button" onClick={() => setShowCreateModal(true)}>
               + New Document
             </button>
           </div>
-        )}
+        ) : null}
       </div>
 
       {!collectionId ? (
@@ -296,125 +295,70 @@ export default function Documents() {
         <div className="card">
           <div className="table-results-count">
             Showing {filteredDocuments.length} of {documents.length} documents
+            {collection ? ` in ${collection.name}` : ''}
           </div>
+          <TablePagination
+            totalRecords={filteredDocuments.length}
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            onRefresh={loadData}
+            disabled={loading}
+            pageSize={pageSize}
+            onPageSizeChange={(value) => {
+              setPageSize(value)
+              setPage(0)
+            }}
+          />
           <table className="table">
             <thead>
               <tr>
-                <th
-                  className={`sortable ${sort.column === 'id' ? 'sorted' : ''}`}
-                  onClick={() => handleSort('id')}
-                >
-                  <span className="th-content">
-                    ID
-                    <span className="sort-icon">{getSortIcon('id')}</span>
-                  </span>
+                <th className={`sortable ${sort.column === 'id' ? 'sorted' : ''}`} onClick={() => handleSort('id')}>
+                  <span className="th-content">ID <span className="sort-icon">{getSortIcon('id')}</span></span>
                 </th>
-                <th
-                  className={`sortable ${sort.column === 'name' ? 'sorted' : ''}`}
-                  onClick={() => handleSort('name')}
-                >
-                  <span className="th-content">
-                    Name
-                    <span className="sort-icon">{getSortIcon('name')}</span>
-                  </span>
+                <th className={`sortable ${sort.column === 'name' ? 'sorted' : ''}`} onClick={() => handleSort('name')}>
+                  <span className="th-content">Name <span className="sort-icon">{getSortIcon('name')}</span></span>
                 </th>
-                <th
-                  className={`sortable ${sort.column === 'contentLength' ? 'sorted' : ''}`}
-                  onClick={() => handleSort('contentLength')}
-                >
-                  <span className="th-content">
-                    Size
-                    <span className="sort-icon">{getSortIcon('contentLength')}</span>
-                  </span>
+                <th className={`sortable ${sort.column === 'contentLength' ? 'sorted' : ''}`} onClick={() => handleSort('contentLength')}>
+                  <span className="th-content">Size <span className="sort-icon">{getSortIcon('contentLength')}</span></span>
                 </th>
-                <th
-                  className={`sortable ${sort.column === 'schemaId' ? 'sorted' : ''}`}
-                  onClick={() => handleSort('schemaId')}
-                >
-                  <span className="th-content">
-                    Schema ID
-                    <span className="sort-icon">{getSortIcon('schemaId')}</span>
-                  </span>
+                <th className={`sortable ${sort.column === 'schemaId' ? 'sorted' : ''}`} onClick={() => handleSort('schemaId')}>
+                  <span className="th-content">Schema ID <span className="sort-icon">{getSortIcon('schemaId')}</span></span>
                 </th>
-                <th
-                  className={`sortable ${sort.column === 'createdUtc' ? 'sorted' : ''}`}
-                  onClick={() => handleSort('createdUtc')}
-                >
-                  <span className="th-content">
-                    Created
-                    <span className="sort-icon">{getSortIcon('createdUtc')}</span>
-                  </span>
+                <th className={`sortable ${sort.column === 'createdUtc' ? 'sorted' : ''}`} onClick={() => handleSort('createdUtc')}>
+                  <span className="th-content">Created <span className="sort-icon">{getSortIcon('createdUtc')}</span></span>
                 </th>
                 <th>Actions</th>
               </tr>
               <tr className="filter-row">
-                <td>
-                  <input
-                    type="text"
-                    className="column-filter"
-                    placeholder="Filter..."
-                    value={filters.id}
-                    onChange={(e) => handleFilterChange('id', e.target.value)}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="text"
-                    className="column-filter"
-                    placeholder="Filter..."
-                    value={filters.name}
-                    onChange={(e) => handleFilterChange('name', e.target.value)}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="text"
-                    className="column-filter"
-                    placeholder="Filter..."
-                    value={filters.contentLength}
-                    onChange={(e) => handleFilterChange('contentLength', e.target.value)}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="text"
-                    className="column-filter"
-                    placeholder="Filter..."
-                    value={filters.schemaId}
-                    onChange={(e) => handleFilterChange('schemaId', e.target.value)}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="text"
-                    className="column-filter"
-                    placeholder="Filter..."
-                    value={filters.createdUtc}
-                    onChange={(e) => handleFilterChange('createdUtc', e.target.value)}
-                  />
-                </td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.id} onChange={(event) => handleFilterChange('id', event.target.value)} /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.name} onChange={(event) => handleFilterChange('name', event.target.value)} /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.contentLength} onChange={(event) => handleFilterChange('contentLength', event.target.value)} /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.schemaId} onChange={(event) => handleFilterChange('schemaId', event.target.value)} /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.createdUtc} onChange={(event) => handleFilterChange('createdUtc', event.target.value)} /></td>
                 <td className="no-filter"></td>
               </tr>
             </thead>
             <tbody>
-              {filteredDocuments.length === 0 ? (
+              {pagedDocuments.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="empty-row">No documents match your filters.</td>
                 </tr>
               ) : (
-                filteredDocuments.map((doc) => (
-                  <tr key={doc.id}>
-                    <td><CopyableId value={doc.id} /></td>
-                    <td>{doc.name || '-'}</td>
-                    <td>{formatBytes(doc.contentLength || 0)}</td>
-                    <td>{doc.schemaId ? <CopyableId value={doc.schemaId} /> : '-'}</td>
-                    <td>{formatDate(doc.createdUtc)}</td>
+                pagedDocuments.map((document) => (
+                  <tr key={document.id}>
+                    <td><CopyableId value={document.id} /></td>
+                    <td>{document.name || '-'}</td>
+                    <td>{formatBytes(document.contentLength || 0)}</td>
+                    <td>{document.schemaId ? <CopyableId value={document.schemaId} /> : '-'}</td>
+                    <td>{formatDate(document.createdUtc)}</td>
                     <td>
                       <ActionMenu
                         items={[
-                          { label: 'View Metadata', onClick: () => handleViewMetadata(doc.id) },
-                          { label: 'View Data', onClick: () => handleViewData(doc.id, doc.name) },
-                          { label: 'Delete Document', onClick: () => handleDelete(doc.id), variant: 'danger' },
+                          { label: 'View Metadata', onClick: () => handleViewMetadata(document.id) },
+                          { label: 'View Data', onClick: () => handleViewData(document.id, document.name) },
+                          { label: 'View JSON', onClick: () => handleViewDocumentJson(document) },
+                          { label: 'Delete Document', onClick: () => handleDelete(document.id), variant: 'danger' },
                         ]}
                       />
                     </td>
@@ -430,49 +374,29 @@ export default function Documents() {
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         title="New Document"
+        subtitle="Create a JSON document in the selected collection so it can be indexed, searched, and analyzed."
       >
         <div className="form-group">
           <label className="form-label">Name (optional)</label>
-          <input
-            type="text"
-            className="input"
-            value={newDocument.name}
-            onChange={(e) => setNewDocument({ ...newDocument, name: e.target.value })}
-            placeholder="Enter document name"
-          />
+          <input type="text" className="input" value={newDocument.name} onChange={(event) => setNewDocument({ ...newDocument, name: event.target.value })} placeholder="Enter document name" />
         </div>
         <div className="form-group">
           <label className="form-label">Content (JSON) *</label>
-          <textarea
-            className="textarea json-editor"
-            value={newDocument.content}
-            onChange={(e) => setNewDocument({ ...newDocument, content: e.target.value })}
-            placeholder='{"key": "value"}'
-            rows={10}
-          />
+          <textarea className="textarea json-editor" value={newDocument.content} onChange={(event) => setNewDocument({ ...newDocument, content: event.target.value })} placeholder='{"key": "value"}' rows={10} />
         </div>
         <div className="form-group">
           <label className="form-label">Labels</label>
-          <TagInput
-            value={newLabels}
-            onChange={setNewLabels}
-            placeholder="Add labels..."
-          />
+          <TagInput value={newLabels} onChange={setNewLabels} placeholder="Add labels..." />
         </div>
         <div className="form-group">
           <label className="form-label">Tags</label>
-          <KeyValueEditor
-            value={newTags}
-            onChange={setNewTags}
-            keyPlaceholder="Tag name"
-            valuePlaceholder="Tag value"
-          />
+          <KeyValueEditor value={newTags} onChange={setNewTags} keyPlaceholder="Tag name" valuePlaceholder="Tag value" />
         </div>
         <div className="modal-actions">
-          <button className="btn btn-secondary" onClick={() => setShowCreateModal(false)}>
+          <button className="btn btn-secondary" type="button" onClick={() => setShowCreateModal(false)}>
             Cancel
           </button>
-          <button className="btn btn-primary" onClick={handleCreate}>
+          <button className="btn btn-primary" type="button" onClick={handleCreate}>
             Create
           </button>
         </div>
@@ -485,6 +409,7 @@ export default function Documents() {
           setSelectedDocument(null)
         }}
         title="Document Metadata"
+        subtitle="Review identifiers, schema assignment, and stored document attributes for the selected record."
         wide
       >
         {selectedDocument && (
@@ -511,8 +436,8 @@ export default function Documents() {
               <div className="doc-detail">
                 <strong>Labels:</strong>
                 <div className="doc-labels">
-                  {selectedDocument.labels.map((label, i) => (
-                    <span key={i} className="label-badge">{label}</span>
+                  {selectedDocument.labels.map((label, index) => (
+                    <span key={index} className="label-badge">{label}</span>
                   ))}
                 </div>
               </div>
@@ -521,11 +446,11 @@ export default function Documents() {
               <div className="doc-detail">
                 <strong>Tags:</strong>
                 <div className="doc-tags">
-                  {Object.entries(selectedDocument.tags).map(([k, v]) => (
-                    <span key={k} className="tag-item">
-                      <span className="tag-key">{k}</span>
+                  {Object.entries(selectedDocument.tags).map(([key, value]) => (
+                    <span key={key} className="tag-item">
+                      <span className="tag-key">{key}</span>
                       <span className="tag-sep">=</span>
-                      <span className="tag-val">{v}</span>
+                      <span className="tag-val">{value}</span>
                     </span>
                   ))}
                 </div>
@@ -535,58 +460,14 @@ export default function Documents() {
         )}
       </Modal>
 
-      <Modal
-        isOpen={showDataModal}
-        onClose={() => {
-          setShowDataModal(false)
-          setSelectedDocument(null)
-          setCopied(false)
-        }}
-        title="Document Data"
-      >
-        {selectedDocument && (
-          <>
-            <div className="document-data-header">
-              <div className="document-data-name">{selectedDocument.name || '(unnamed)'}</div>
-              <div className="document-data-id">{selectedDocument.id}</div>
-            </div>
-            <pre className="json-preview">
-              {selectedDocument.content
-                ? JSON.stringify(selectedDocument.content, null, 2)
-                : '(content not loaded)'}
-            </pre>
-            <div className="modal-actions">
-              <button
-                className="btn btn-secondary btn-icon"
-                onClick={handleCopyData}
-                title={copied ? 'Copied!' : 'Copy to clipboard'}
-              >
-                {copied ? (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                  </svg>
-                ) : (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                  </svg>
-                )}
-              </button>
-              <button
-                className="btn btn-secondary btn-icon"
-                onClick={handleDownloadData}
-                title="Download as JSON"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                  <polyline points="7 10 12 15 17 10"></polyline>
-                  <line x1="12" y1="15" x2="12" y2="3"></line>
-                </svg>
-              </button>
-            </div>
-          </>
-        )}
-      </Modal>
+      <JsonViewerModal
+        isOpen={jsonViewer.open}
+        onClose={() => setJsonViewer({ open: false, title: '', subtitle: '', identifier: '', value: null })}
+        title={jsonViewer.title}
+        subtitle={jsonViewer.subtitle}
+        identifier={jsonViewer.identifier}
+        value={jsonViewer.value}
+      />
     </div>
   )
 }

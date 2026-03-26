@@ -11,8 +11,8 @@ docker buildx build ^
     --platform linux/amd64,linux/arm64/v8 ^
     -t jchristn77/lattice:%~1 ^
     -t jchristn77/lattice:latest ^
-    -f Lattice.Server/Dockerfile ^
+    -f src/Lattice.Server/Dockerfile ^
     --push ^
-    .
+    src
 
 echo Build complete.

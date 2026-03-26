@@ -139,6 +139,34 @@ input, textarea, select {
   padding: 20px;
 }
 
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.page-title {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.page-subtitle {
+  margin-top: 8px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.page-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .form-group {
   margin-bottom: 16px;
 }
@@ -270,4 +298,8 @@ input, textarea, select {
   color: var(--text-muted);
   font-style: italic;
   padding: 24px 12px;
+}
+
+.monospace {
+  font-family: monospace;
 }

@@ -1,0 +1,103 @@
+.table-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.table-pagination-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.table-pagination-total strong {
+  color: var(--text-primary);
+}
+
+.table-pagination-size {
+  color: var(--text-muted);
+}
+
+.table-pagination-page-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.table-pagination-page-size select {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.table-pagination-page-size select:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.table-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.table-pagination-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 36px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.table-pagination-btn:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+}
+
+.table-pagination-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.table-pagination-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.table-pagination-jump input {
+  width: 64px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.table-pagination-jump input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}

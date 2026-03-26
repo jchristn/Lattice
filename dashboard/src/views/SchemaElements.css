@@ -7,6 +7,7 @@
   align-items: center;
   gap: 8px;
   margin-top: 8px;
+  min-height: 38px;
 }
 
 .schema-selector-label {
@@ -33,7 +34,7 @@
 
 .schema-selector-row {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 12px;
   margin-top: 8px;
   flex-wrap: wrap;
@@ -47,11 +48,12 @@
 
 .schema-id-form {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 8px;
 }
 
 .schema-id-input {
+  height: 38px;
   padding: 8px 12px;
   border-radius: 6px;
   border: 1px solid var(--border-color);
@@ -70,4 +72,8 @@
 .schema-id-input::placeholder {
   color: var(--text-muted);
   font-family: inherit;
+}
+
+.schema-selector-select {
+  height: 38px;
 }

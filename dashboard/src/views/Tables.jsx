@@ -1,9 +1,11 @@
-import { useState, useEffect, useMemo } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import CopyableId from '../components/CopyableId'
 import ActionMenu from '../components/ActionMenu'
+import CopyableId from '../components/CopyableId'
+import JsonViewerModal from '../components/JsonViewerModal'
 import Modal from '../components/Modal'
+import TablePagination from '../components/TablePagination'
 import './Tables.css'
 
 export default function Tables() {
@@ -14,68 +16,75 @@ export default function Tables() {
   const [loading, setLoading] = useState(true)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [selectedTable, setSelectedTable] = useState(null)
-
-  // Per-column filters - initialize from URL params
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(25)
+  const [jsonViewer, setJsonViewer] = useState({ open: false, title: '', subtitle: '', identifier: '', value: null })
   const [filters, setFilters] = useState({
     key: searchParams.get('key') || '',
     tableName: '',
   })
-
-  // Sorting state: { column: string, direction: 'asc' | 'desc' }
   const [sort, setSort] = useState({ column: 'key', direction: 'asc' })
 
-  // Filter and sort tables
+  const loadTables = async () => {
+    try {
+      setLoading(true)
+      const data = await api.getIndexTables()
+      setTables(data || [])
+    } catch (err) {
+      setError('Failed to load tables: ' + err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const filteredTables = useMemo(() => {
     let result = [...tables]
 
-    // Apply column filters
     if (filters.key) {
       const query = filters.key.toLowerCase()
-      result = result.filter(t => t.key.toLowerCase().includes(query))
+      result = result.filter((table) => table.key.toLowerCase().includes(query))
     }
     if (filters.tableName) {
       const query = filters.tableName.toLowerCase()
-      result = result.filter(t => t.tableName.toLowerCase().includes(query))
+      result = result.filter((table) => table.tableName.toLowerCase().includes(query))
     }
 
-    // Apply sorting
-    if (sort.column) {
-      result.sort((a, b) => {
-        const aVal = a[sort.column] || ''
-        const bVal = b[sort.column] || ''
-        const comparison = aVal.localeCompare(bVal)
-        return sort.direction === 'asc' ? comparison : -comparison
-      })
-    }
+    result.sort((a, b) => {
+      const aValue = a[sort.column] || ''
+      const bValue = b[sort.column] || ''
+      const comparison = aValue.localeCompare(bValue)
+      return sort.direction === 'asc' ? comparison : -comparison
+    })
 
     return result
   }, [tables, filters, sort])
 
+  const totalPages = Math.max(1, Math.ceil(filteredTables.length / pageSize))
+  const pagedTables = filteredTables.slice(page * pageSize, (page + 1) * pageSize)
+
   useEffect(() => {
-    const loadTables = async () => {
-      try {
-        setLoading(true)
-        const data = await api.getIndexTables()
-        setTables(data || [])
-      } catch (err) {
-        setError('Failed to load tables: ' + err.message)
-      } finally {
-        setLoading(false)
-      }
-    }
     loadTables()
   }, [api])
 
+  useEffect(() => {
+    setPage(0)
+  }, [filters, sort])
+
+  useEffect(() => {
+    if (page > totalPages - 1) {
+      setPage(Math.max(totalPages - 1, 0))
+    }
+  }, [page, totalPages])
+
   const handleSort = (column) => {
-    setSort(prev => ({
+    setSort((previous) => ({
       column,
-      direction: prev.column === column && prev.direction === 'asc' ? 'desc' : 'asc'
+      direction: previous.column === column && previous.direction === 'asc' ? 'desc' : 'asc',
     }))
   }
 
   const handleFilterChange = (column, value) => {
-    setFilters(prev => ({ ...prev, [column]: value }))
-    // Update URL params for key filter
+    setFilters((previous) => ({ ...previous, [column]: value }))
     if (column === 'key') {
       if (value) {
         setSearchParams({ key: value })
@@ -86,8 +95,8 @@ export default function Tables() {
   }
 
   const getSortIcon = (column) => {
-    if (sort.column !== column) return '↕'
-    return sort.direction === 'asc' ? '↑' : '↓'
+    if (sort.column !== column) return '<>'
+    return sort.direction === 'asc' ? '^' : 'v'
   }
 
   const handleViewDetails = (table) => {
@@ -99,6 +108,16 @@ export default function Tables() {
     navigate(`/entries?table=${encodeURIComponent(table.key)}`)
   }
 
+  const handleViewJson = (table) => {
+    setJsonViewer({
+      open: true,
+      title: 'Index Table Mapping JSON',
+      subtitle: 'This mapping shows how a flattened field key is assigned to a physical index table for search operations.',
+      identifier: table.id,
+      value: table,
+    })
+  }
+
   if (loading) {
     return <div className="loading">Loading...</div>
   }
@@ -106,8 +125,10 @@ export default function Tables() {
   return (
     <div className="tables">
       <div className="page-header">
-        <h1 className="page-title">Index Tables</h1>
-        <p className="page-subtitle">Field-to-table mappings for search indices</p>
+        <div>
+          <h1 className="page-title">Index Tables</h1>
+          <p className="page-subtitle">Inspect how searchable field paths map to backing index tables so you can trace where flattened values are stored and queried.</p>
+        </div>
       </div>
 
       {tables.length === 0 ? (
@@ -119,58 +140,43 @@ export default function Tables() {
           <div className="table-results-count">
             Showing {filteredTables.length} of {tables.length} tables
           </div>
+          <TablePagination
+            totalRecords={filteredTables.length}
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            onRefresh={loadTables}
+            disabled={loading}
+            pageSize={pageSize}
+            onPageSizeChange={(value) => {
+              setPageSize(value)
+              setPage(0)
+            }}
+          />
           <table className="table">
             <thead>
               <tr>
-                <th
-                  className={`sortable ${sort.column === 'key' ? 'sorted' : ''}`}
-                  onClick={() => handleSort('key')}
-                >
-                  <span className="th-content">
-                    Field Key
-                    <span className="sort-icon">{getSortIcon('key')}</span>
-                  </span>
+                <th className={`sortable ${sort.column === 'key' ? 'sorted' : ''}`} onClick={() => handleSort('key')}>
+                  <span className="th-content">Field Key <span className="sort-icon">{getSortIcon('key')}</span></span>
                 </th>
-                <th
-                  className={`sortable ${sort.column === 'tableName' ? 'sorted' : ''}`}
-                  onClick={() => handleSort('tableName')}
-                >
-                  <span className="th-content">
-                    Table Name
-                    <span className="sort-icon">{getSortIcon('tableName')}</span>
-                  </span>
+                <th className={`sortable ${sort.column === 'tableName' ? 'sorted' : ''}`} onClick={() => handleSort('tableName')}>
+                  <span className="th-content">Table Name <span className="sort-icon">{getSortIcon('tableName')}</span></span>
                 </th>
                 <th>Actions</th>
               </tr>
               <tr className="filter-row">
-                <td>
-                  <input
-                    type="text"
-                    className="column-filter"
-                    placeholder="Filter..."
-                    value={filters.key}
-                    onChange={(e) => handleFilterChange('key', e.target.value)}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="text"
-                    className="column-filter"
-                    placeholder="Filter..."
-                    value={filters.tableName}
-                    onChange={(e) => handleFilterChange('tableName', e.target.value)}
-                  />
-                </td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.key} onChange={(event) => handleFilterChange('key', event.target.value)} /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.tableName} onChange={(event) => handleFilterChange('tableName', event.target.value)} /></td>
                 <td className="no-filter"></td>
               </tr>
             </thead>
             <tbody>
-              {filteredTables.length === 0 ? (
+              {pagedTables.length === 0 ? (
                 <tr>
                   <td colSpan={3} className="empty-row">No tables match your filters.</td>
                 </tr>
               ) : (
-                filteredTables.map((mapping) => (
+                pagedTables.map((mapping) => (
                   <tr key={mapping.id}>
                     <td className="monospace">{mapping.key}</td>
                     <td><CopyableId value={mapping.tableName} /></td>
@@ -179,6 +185,7 @@ export default function Tables() {
                         items={[
                           { label: 'View Entries', onClick: () => handleViewEntries(mapping) },
                           { label: 'View Details', onClick: () => handleViewDetails(mapping) },
+                          { label: 'View JSON', onClick: () => handleViewJson(mapping) },
                         ]}
                       />
                     </td>
@@ -197,6 +204,7 @@ export default function Tables() {
           setSelectedTable(null)
         }}
         title="Table Details"
+        subtitle="Use this metadata to understand which generated table backs a given searchable field."
       >
         {selectedTable && (
           <>
@@ -212,6 +220,15 @@ export default function Tables() {
           </>
         )}
       </Modal>
+
+      <JsonViewerModal
+        isOpen={jsonViewer.open}
+        onClose={() => setJsonViewer({ open: false, title: '', subtitle: '', identifier: '', value: null })}
+        title={jsonViewer.title}
+        subtitle={jsonViewer.subtitle}
+        identifier={jsonViewer.identifier}
+        value={jsonViewer.value}
+      />
     </div>
   )
 }

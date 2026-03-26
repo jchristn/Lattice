@@ -1,4 +1,6 @@
 import { useApp } from '../context/AppContext'
+import CopyButton from './CopyButton'
+import { MoonIcon, SunIcon } from './Icons'
 import './Topbar.css'
 
 export default function Topbar() {
@@ -12,9 +14,12 @@ export default function Topbar() {
       </div>
 
       <div className="topbar-info">
-        <span className="topbar-server" title={serverUrl}>
-          {serverUrl}
-        </span>
+        <div className="topbar-server-wrap">
+          <span className="topbar-server" title={serverUrl}>
+            {serverUrl}
+          </span>
+          {serverUrl ? <CopyButton value={serverUrl} className="topbar-copy-btn" /> : null}
+        </div>
       </div>
 
       <div className="topbar-actions">
@@ -22,13 +27,15 @@ export default function Topbar() {
           className="topbar-btn"
           onClick={toggleTheme}
           title="Toggle theme"
+          type="button"
         >
-          {theme === 'light' ? '🌙' : '☀️'}
+          {theme === 'light' ? <MoonIcon size={16} /> : <SunIcon size={16} />}
         </button>
         <button
           className="topbar-btn topbar-btn-disconnect"
           onClick={disconnect}
           title="Disconnect"
+          type="button"
         >
           Disconnect
         </button>

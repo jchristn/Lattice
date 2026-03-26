@@ -9,23 +9,9 @@
 }
 
 .copyable-id-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
+  width: 24px;
+  height: 24px;
+  padding: 0;
   border: none;
-  padding: 2px;
-  cursor: pointer;
-  color: var(--text-muted);
-  border-radius: 4px;
-  transition: color 0.2s, background-color 0.2s;
-}
-
-.copyable-id-btn:hover {
-  color: var(--text-primary);
-  background-color: var(--bg-secondary);
-}
-
-.copyable-id-btn svg {
-  display: block;
+  background: transparent;
 }

@@ -1,5 +1,14 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
+import {
+  BracketsIcon,
+  FileIcon,
+  FolderIcon,
+  ListIcon,
+  SchemaIcon,
+  SearchIcon,
+  TableIcon,
+} from './Icons'
 import './Sidebar.css'
 
 export default function Sidebar() {
@@ -15,7 +24,7 @@ export default function Sidebar() {
           to="/collections"
           className={() => `sidebar-link ${location.pathname === '/collections' ? 'active' : ''}`}
         >
-          <span className="sidebar-icon">&#128193;</span>
+          <span className="sidebar-icon"><FolderIcon size={16} /></span>
           Collections
         </NavLink>
 
@@ -23,7 +32,7 @@ export default function Sidebar() {
           to="/documents"
           className={() => `sidebar-link ${isDocumentsPage ? 'active' : ''}`}
         >
-          <span className="sidebar-icon">&#128196;</span>
+          <span className="sidebar-icon"><FileIcon size={16} /></span>
           Documents
         </NavLink>
 
@@ -31,7 +40,7 @@ export default function Sidebar() {
           to="/schemas"
           className={() => `sidebar-link ${location.pathname === '/schemas' ? 'active' : ''}`}
         >
-          <span className="sidebar-icon">&#128221;</span>
+          <span className="sidebar-icon"><SchemaIcon size={16} /></span>
           Schemas
         </NavLink>
 
@@ -39,7 +48,7 @@ export default function Sidebar() {
           to="/schema-elements"
           className={() => `sidebar-link ${isSchemaElementsPage ? 'active' : ''}`}
         >
-          <span className="sidebar-icon">&#128203;</span>
+          <span className="sidebar-icon"><BracketsIcon size={16} /></span>
           Schema Elements
         </NavLink>
 
@@ -47,7 +56,7 @@ export default function Sidebar() {
           to="/tables"
           className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
         >
-          <span className="sidebar-icon">&#128202;</span>
+          <span className="sidebar-icon"><TableIcon size={16} /></span>
           Index Tables
         </NavLink>
 
@@ -55,7 +64,7 @@ export default function Sidebar() {
           to="/entries"
           className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
         >
-          <span className="sidebar-icon">&#128209;</span>
+          <span className="sidebar-icon"><ListIcon size={16} /></span>
           Index Entries
         </NavLink>
 
@@ -63,7 +72,7 @@ export default function Sidebar() {
           to="/search"
           className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
         >
-          <span className="sidebar-icon">&#128269;</span>
+          <span className="sidebar-icon"><SearchIcon size={16} /></span>
           Search
         </NavLink>
       </nav>

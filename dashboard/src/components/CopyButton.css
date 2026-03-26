@@ -1,0 +1,27 @@
+.copy-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-muted);
+  transition: color 0.2s, background-color 0.2s, border-color 0.2s;
+}
+
+.copy-button:hover {
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+}
+
+.copy-button.is-copied {
+  color: var(--success-color);
+  border-color: rgba(40, 167, 69, 0.35);
+  background: rgba(40, 167, 69, 0.08);
+}
+
+.copy-button svg {
+  display: block;
+}

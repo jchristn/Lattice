@@ -5,6 +5,8 @@ import { formatDate } from '../utils/api'
 import Modal from '../components/Modal'
 import ActionMenu from '../components/ActionMenu'
 import CopyableId from '../components/CopyableId'
+import JsonViewerModal from '../components/JsonViewerModal'
+import TablePagination from '../components/TablePagination'
 import TagInput from '../components/TagInput'
 import KeyValueEditor from '../components/KeyValueEditor'
 import './Collections.css'
@@ -26,7 +28,6 @@ const INDEXING_MODES = {
 
 // Data type options for constraints
 const DATA_TYPES = ['string', 'integer', 'number', 'boolean', 'array', 'object']
-
 export default function Collections() {
   const { api, setError } = useApp()
   const navigate = useNavigate()
@@ -42,7 +43,10 @@ export default function Collections() {
   const [indexing, setIndexing] = useState({ mode: 'all', fields: [] })
   const [rebuildProgress, setRebuildProgress] = useState(null)
   const [rebuildResult, setRebuildResult] = useState(null)
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(25)
   const [saving, setSaving] = useState(false)
+  const [jsonViewer, setJsonViewer] = useState({ open: false, title: '', subtitle: '', identifier: '', value: null })
   const [newCollection, setNewCollection] = useState({
     name: '',
     description: '',
@@ -107,6 +111,9 @@ export default function Collections() {
     return result
   }, [collections, filters, sort])
 
+  const totalPages = Math.max(1, Math.ceil(filteredCollections.length / pageSize))
+  const pagedCollections = filteredCollections.slice(page * pageSize, (page + 1) * pageSize)
+
   const loadCollections = async () => {
     try {
       setLoading(true)
@@ -122,6 +129,16 @@ export default function Collections() {
   useEffect(() => {
     loadCollections()
   }, [api])
+
+  useEffect(() => {
+    setPage(0)
+  }, [filters, sort])
+
+  useEffect(() => {
+    if (page > totalPages - 1) {
+      setPage(Math.max(totalPages - 1, 0))
+    }
+  }, [page, totalPages])
 
   const handleCreate = async () => {
     try {
@@ -162,6 +179,10 @@ export default function Collections() {
 
   const handleViewDocuments = (collectionId) => {
     navigate(`/collections/${collectionId}/documents`)
+  }
+
+  const handleAddDocument = (collectionId) => {
+    navigate(`/collections/${collectionId}/documents?create=1`)
   }
 
   const handleViewMetadata = (collection) => {
@@ -350,6 +371,16 @@ export default function Collections() {
     return sort.direction === 'asc' ? '↑' : '↓'
   }
 
+  const handleViewJson = (collection) => {
+    setJsonViewer({
+      open: true,
+      title: 'Collection JSON',
+      subtitle: 'This object contains the collection metadata, indexing configuration, and schema enforcement settings used by the dashboard.',
+      identifier: collection.id,
+      value: collection,
+    })
+  }
+
   if (loading) {
     return <div className="loading">Loading...</div>
   }
@@ -357,7 +388,10 @@ export default function Collections() {
   return (
     <div className="collections">
       <div className="page-header">
-        <h1 className="page-title">Collections</h1>
+        <div>
+          <h1 className="page-title">Collections</h1>
+          <p className="page-subtitle">Manage document collections, review storage/indexing settings, and jump into the documents contained within each collection.</p>
+        </div>
         <div className="page-actions">
           <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
             + New Collection
@@ -374,6 +408,19 @@ export default function Collections() {
           <div className="table-results-count">
             Showing {filteredCollections.length} of {collections.length} collections
           </div>
+          <TablePagination
+            totalRecords={filteredCollections.length}
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            onRefresh={loadCollections}
+            disabled={loading}
+            pageSize={pageSize}
+            onPageSizeChange={(value) => {
+              setPageSize(value)
+              setPage(0)
+            }}
+          />
           <table className="table">
             <thead>
               <tr>
@@ -456,12 +503,12 @@ export default function Collections() {
               </tr>
             </thead>
             <tbody>
-              {filteredCollections.length === 0 ? (
+              {pagedCollections.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="empty-row">No collections match your filters.</td>
                 </tr>
               ) : (
-                filteredCollections.map((collection) => (
+                pagedCollections.map((collection) => (
                   <tr key={collection.id}>
                     <td>
                       <strong>{collection.name}</strong>
@@ -477,9 +524,11 @@ export default function Collections() {
                         items={[
                           { label: 'View Metadata', onClick: () => handleViewMetadata(collection) },
                           { label: 'View Documents', onClick: () => handleViewDocuments(collection.id) },
+                          { label: 'Add Document', onClick: () => handleAddDocument(collection.id) },
                           { label: 'Schema Constraints', onClick: () => handleViewConstraints(collection) },
                           { label: 'Indexing Config', onClick: () => handleViewIndexing(collection) },
                           { label: 'Rebuild Indexes', onClick: () => handleRebuildIndexes(collection) },
+                          { label: 'View JSON', onClick: () => handleViewJson(collection) },
                           { label: 'Delete Collection', onClick: () => handleDelete(collection.id), variant: 'danger' },
                         ]}
                       />
@@ -496,6 +545,7 @@ export default function Collections() {
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         title="New Collection"
+        subtitle="Create a collection to define where documents live and how schema enforcement and indexing should behave."
       >
         <div className="form-group">
           <label className="form-label">Name *</label>
@@ -724,6 +774,7 @@ export default function Collections() {
           setSelectedCollection(null)
         }}
         title="Collection Metadata"
+        subtitle="Review identifiers and collection-level metadata before drilling further into constraints, indexing, or documents."
       >
         {selectedCollection && (
           <>
@@ -1111,6 +1162,15 @@ export default function Collections() {
           </>
         )}
       </Modal>
+
+      <JsonViewerModal
+        isOpen={jsonViewer.open}
+        onClose={() => setJsonViewer({ open: false, title: '', subtitle: '', identifier: '', value: null })}
+        title={jsonViewer.title}
+        subtitle={jsonViewer.subtitle}
+        identifier={jsonViewer.identifier}
+        value={jsonViewer.value}
+      />
     </div>
   )
 }
