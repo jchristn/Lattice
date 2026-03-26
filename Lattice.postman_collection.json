@@ -485,6 +485,46 @@
 						"description": "Delete a document from a collection.\n\n**Warning:** This action is irreversible.\n\n**Path Parameters:**\n- `collectionId`: The unique identifier of the collection\n- `documentId`: The unique identifier of the document\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"data\": {\n    \"message\": \"Document deleted successfully\",\n    \"documentId\": \"doc_xyz789\"\n  }\n}\n```"
 					},
 					"response": []
+				},
+				{
+					"name": "Batch Ingest Documents",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.data && jsonData.data.length > 0) {",
+									"        pm.collectionVariables.set(\"documentId\", jsonData.data[0].id);",
+									"        console.log(\"Set documentId to first batch document: \" + jsonData.data[0].id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"documents\": [\n    {\n      \"name\": \"batch_doc_001.json\",\n      \"content\": {\n        \"Person\": {\n          \"First\": \"Joel\",\n          \"Last\": \"Christner\"\n        },\n        \"Active\": true\n      },\n      \"labels\": [\"batch\", \"customer\"],\n      \"tags\": {\n        \"priority\": \"high\"\n      }\n    },\n    {\n      \"name\": \"batch_doc_002.json\",\n      \"content\": {\n        \"Person\": {\n          \"First\": \"Alice\",\n          \"Last\": \"Smith\"\n        },\n        \"Active\": false\n      },\n      \"labels\": [\"batch\", \"prospect\"],\n      \"tags\": {\n        \"priority\": \"low\"\n      }\n    },\n    {\n      \"name\": \"batch_doc_003.json\",\n      \"content\": {\n        \"Person\": {\n          \"First\": \"Bob\",\n          \"Last\": \"Jones\"\n        },\n        \"Active\": true\n      },\n      \"labels\": [\"batch\", \"customer\"],\n      \"tags\": {\n        \"priority\": \"medium\"\n      }\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/collections/{{collectionId}}/documents/batch",
+							"host": ["{{baseUrl}}"],
+							"path": ["v1.0", "collections", "{{collectionId}}", "documents", "batch"]
+						},
+						"description": "Ingest multiple JSON documents into a collection in a single batch operation.\n\nThis is more efficient than making individual ingest calls when you need to add many documents at once.\n\n**Request Body:**\n| Field | Type | Required | Description |\n|-------|------|----------|-------------|\n| documents | array | Yes | Array of document objects to ingest |\n\n**Each document object:**\n| Field | Type | Required | Description |\n|-------|------|----------|-------------|\n| content | object | Yes | The JSON document content |\n| name | string | No | Document name/filename |\n| labels | string[] | No | Labels for categorization |\n| tags | object | No | Key-value tags for metadata |\n\n**Response:** Returns an array of created document metadata objects.\n\n```json\n{\n  \"success\": true,\n  \"statusCode\": 201,\n  \"data\": [\n    {\n      \"id\": \"doc_abc123\",\n      \"collectionId\": \"col_xyz789\",\n      \"name\": \"batch_doc_001.json\",\n      \"labels\": [\"batch\", \"customer\"],\n      \"tags\": {\"priority\": \"high\"}\n    },\n    ...\n  ]\n}\n```"
+					},
+					"response": []
 				}
 			]
 		},

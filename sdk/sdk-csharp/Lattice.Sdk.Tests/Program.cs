@@ -528,6 +528,61 @@ namespace Lattice.Sdk.Tests
                     if (exists) return TestOutcome.Fail("Document still exists after delete");
                     return TestOutcome.Pass();
                 });
+
+                await RunTest("IngestBatch: basic batch", async () =>
+                {
+                    List<Document>? results = await _client.Document.IngestBatchAsync(
+                        collection.Id,
+                        new List<BatchIngestDocument>
+                        {
+                            new BatchIngestDocument(new { name = "Batch1" }),
+                            new BatchIngestDocument(new { name = "Batch2" }),
+                            new BatchIngestDocument(new { name = "Batch3" })
+                        });
+                    if (results == null) return TestOutcome.Fail("IngestBatch returned null");
+                    if (results.Count != 3) return TestOutcome.Fail($"Expected 3 documents, got {results.Count}");
+                    return TestOutcome.Pass();
+                });
+
+                await RunTest("IngestBatch: with names and metadata", async () =>
+                {
+                    List<Document>? results = await _client.Document.IngestBatchAsync(
+                        collection.Id,
+                        new List<BatchIngestDocument>
+                        {
+                            new BatchIngestDocument(
+                                new { value = 1 },
+                                name: "batch_named_1",
+                                labels: new List<string> { "batch", "first" },
+                                tags: new Dictionary<string, string> { ["order"] = "1" }),
+                            new BatchIngestDocument(
+                                new { value = 2 },
+                                name: "batch_named_2",
+                                labels: new List<string> { "batch", "second" },
+                                tags: new Dictionary<string, string> { ["order"] = "2" })
+                        });
+                    if (results == null) return TestOutcome.Fail("IngestBatch returned null");
+                    if (results.Count != 2) return TestOutcome.Fail($"Expected 2 documents, got {results.Count}");
+                    if (results[0].Name != "batch_named_1") return TestOutcome.Fail($"Name mismatch: {results[0].Name}");
+                    if (results[1].Name != "batch_named_2") return TestOutcome.Fail($"Name mismatch: {results[1].Name}");
+                    return TestOutcome.Pass();
+                });
+
+                await RunTest("IngestBatch: verify documents retrievable", async () =>
+                {
+                    List<Document>? results = await _client.Document.IngestBatchAsync(
+                        collection.Id,
+                        new List<BatchIngestDocument>
+                        {
+                            new BatchIngestDocument(new { check = "retrievable" }, name: "batch_retrieve_test")
+                        });
+                    if (results == null || results.Count == 0) return TestOutcome.Fail("IngestBatch returned null or empty");
+
+                    Document? retrieved = await _client.Document.ReadByIdAsync(collection.Id, results[0].Id);
+                    if (retrieved == null) return TestOutcome.Fail("Could not retrieve batch-ingested document");
+                    if (retrieved.Name != "batch_retrieve_test") return TestOutcome.Fail($"Retrieved name mismatch: {retrieved.Name}");
+                    return TestOutcome.Pass();
+                });
             }
             finally
             {

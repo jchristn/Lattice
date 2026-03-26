@@ -518,6 +518,50 @@ class TestHarness {
                 if (exists) return failed("Document still exists after delete");
                 return passed();
             });
+
+            // IngestBatch: basic batch
+            await this.runTest("IngestBatch: basic batch", async () => {
+                const results = await this.client.document.ingestBatch(
+                    collection.id,
+                    [
+                        { content: { name: "Batch1" } },
+                        { content: { name: "Batch2" } },
+                        { content: { name: "Batch3" } }
+                    ]
+                );
+                if (!results) return failed("IngestBatch returned null");
+                if (results.length !== 3) return failed(`Expected 3 documents, got ${results.length}`);
+                return passed();
+            });
+
+            // IngestBatch: with names and metadata
+            await this.runTest("IngestBatch: with names and metadata", async () => {
+                const results = await this.client.document.ingestBatch(
+                    collection.id,
+                    [
+                        { content: { value: 1 }, name: "batch_named_1", labels: ["batch", "first"], tags: { order: "1" } },
+                        { content: { value: 2 }, name: "batch_named_2", labels: ["batch", "second"], tags: { order: "2" } }
+                    ]
+                );
+                if (!results) return failed("IngestBatch returned null");
+                if (results.length !== 2) return failed(`Expected 2 documents, got ${results.length}`);
+                if (results[0].name !== "batch_named_1") return failed(`Name mismatch: ${results[0].name}`);
+                if (results[1].name !== "batch_named_2") return failed(`Name mismatch: ${results[1].name}`);
+                return passed();
+            });
+
+            // IngestBatch: verify documents retrievable
+            await this.runTest("IngestBatch: verify documents retrievable", async () => {
+                const results = await this.client.document.ingestBatch(
+                    collection.id,
+                    [{ content: { check: "retrievable" }, name: "batch_retrieve_test" }]
+                );
+                if (!results || results.length === 0) return failed("IngestBatch returned null or empty");
+                const retrieved = await this.client.document.readById(collection.id, results[0].id);
+                if (!retrieved) return failed("Could not retrieve batch-ingested document");
+                if (retrieved.name !== "batch_retrieve_test") return failed(`Retrieved name mismatch: ${retrieved.name}`);
+                return passed();
+            });
         } finally {
             await this.client.collection.delete(collection.id);
         }

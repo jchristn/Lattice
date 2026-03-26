@@ -29,6 +29,18 @@ namespace Lattice.Core.Client.Interfaces
             CancellationToken token = default);
 
         /// <summary>
+        /// Ingest multiple JSON documents into a collection in a single batch operation.
+        /// </summary>
+        /// <param name="collectionId">Collection ID.</param>
+        /// <param name="documents">List of documents to ingest, each containing JSON content and optional metadata.</param>
+        /// <param name="token">Cancellation token.</param>
+        /// <returns>List of ingested documents.</returns>
+        Task<List<Document>> IngestBatch(
+            string collectionId,
+            List<BatchDocument> documents,
+            CancellationToken token = default);
+
+        /// <summary>
         /// Get a document by ID.
         /// </summary>
         /// <param name="id">Document ID.</param>

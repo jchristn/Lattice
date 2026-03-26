@@ -131,6 +131,26 @@ class Document:
 
 
 @dataclass
+class BatchIngestDocument:
+    """Represents a document entry for batch ingestion."""
+    content: Any = None
+    name: Optional[str] = None
+    labels: Optional[List[str]] = None
+    tags: Optional[Dict[str, str]] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to API request format."""
+        result = {"content": self.content}
+        if self.name:
+            result["name"] = self.name
+        if self.labels:
+            result["labels"] = self.labels
+        if self.tags:
+            result["tags"] = self.tags
+        return result
+
+
+@dataclass
 class Schema:
     """Represents a Lattice schema."""
     id: str = ""

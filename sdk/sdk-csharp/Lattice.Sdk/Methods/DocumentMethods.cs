@@ -52,6 +52,51 @@ namespace Lattice.Sdk.Methods
             return null;
         }
 
+        public async Task<List<Document>?> IngestBatchAsync(
+            string collectionId,
+            List<BatchIngestDocument> documents,
+            CancellationToken cancellationToken = default)
+        {
+            JsonSerializerOptions contentOptions = new JsonSerializerOptions
+            {
+                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+            };
+
+            List<object> docEntries = new List<object>();
+            foreach (var doc in documents)
+            {
+                string contentJson = JsonSerializer.Serialize(doc.Content, contentOptions);
+                using JsonDocument contentDocument = JsonDocument.Parse(contentJson);
+
+                Dictionary<string, object> entry = new Dictionary<string, object>
+                {
+                    ["content"] = contentDocument.RootElement.Clone()
+                };
+
+                if (!string.IsNullOrEmpty(doc.Name))
+                    entry["name"] = doc.Name;
+                if (doc.Labels != null && doc.Labels.Count > 0)
+                    entry["labels"] = doc.Labels;
+                if (doc.Tags != null && doc.Tags.Count > 0)
+                    entry["tags"] = doc.Tags;
+
+                docEntries.Add(entry);
+            }
+
+            Dictionary<string, object> data = new Dictionary<string, object>
+            {
+                ["documents"] = docEntries
+            };
+
+            ResponseContext response = await _client.RequestAsync("PUT", $"/v1.0/collections/{collectionId}/documents/batch", data, cancellationToken: cancellationToken);
+
+            if (response.Success && response.Data.HasValue)
+            {
+                return JsonSerializer.Deserialize<List<Document>>(response.Data.Value.GetRawText(), _client.JsonOptions);
+            }
+            return null;
+        }
+
         public async Task<List<Document>> ReadAllInCollectionAsync(
             string collectionId,
             bool includeContent = false,

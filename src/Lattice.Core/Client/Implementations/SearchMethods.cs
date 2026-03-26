@@ -60,135 +60,114 @@ namespace Lattice.Core.Client.Implementations
 
             try
             {
-                // Find matching document IDs from filters
-                HashSet<string> candidateDocIds = null;
+                bool hasFilters = query.Filters.Count > 0 || query.Labels.Count > 0 || query.Tags.Count > 0;
 
-                foreach (SearchFilter filter in query.Filters)
+                if (!hasFilters && !string.IsNullOrWhiteSpace(query.CollectionId))
                 {
-                    IndexTableMapping? mapping = await _Repo.Indexes.GetMappingByKey(filter.Field, token);
-                    if (mapping == null) continue;
+                    // --- Fast path: no filters, pure collection pagination ---
+                    // Use database-level COUNT and LIMIT/OFFSET instead of loading all IDs into memory.
 
-                    HashSet<string> matchingIds = new HashSet<string>();
-                    await foreach (string docId in _Repo.Indexes.Search(mapping.TableName, filter, token))
-                    {
-                        matchingIds.Add(docId);
-                    }
+                    result.TotalRecords = await _Repo.Documents.CountInCollection(query.CollectionId, token);
 
-                    if (candidateDocIds == null)
+                    if (result.TotalRecords > 0 && query.Skip < result.TotalRecords)
                     {
-                        candidateDocIds = matchingIds;
-                    }
-                    else
-                    {
-                        candidateDocIds.IntersectWith(matchingIds);
-                    }
-                }
-
-                // Apply label filters using JOIN queries for efficient first-pass filtering
-                if (query.Labels.Count > 0)
-                {
-                    HashSet<string> labelDocIds = await _Repo.Labels.FindDocumentIdsByLabels(query.Labels.ToList(), token);
-
-                    if (candidateDocIds == null)
-                    {
-                        candidateDocIds = labelDocIds;
-                    }
-                    else
-                    {
-                        candidateDocIds.IntersectWith(labelDocIds);
-                    }
-                }
-
-                // Apply tag filters using JOIN queries for efficient first-pass filtering
-                if (query.Tags.Count > 0)
-                {
-                    HashSet<string> tagDocIds = await _Repo.Tags.FindDocumentIdsByTags(query.Tags, token);
-
-                    if (candidateDocIds == null)
-                    {
-                        candidateDocIds = tagDocIds;
-                    }
-                    else
-                    {
-                        candidateDocIds.IntersectWith(tagDocIds);
-                    }
-                }
-
-                // If no filters, get all documents in collection
-                if (candidateDocIds == null)
-                {
-                    candidateDocIds = new HashSet<string>();
-                    if (!string.IsNullOrWhiteSpace(query.CollectionId))
-                    {
-                        await foreach (Document doc in _Repo.Documents.ReadAllInCollection(query.CollectionId, query.Ordering, token: token))
+                        // ReadAllInCollection uses SQL LIMIT/OFFSET — only fetches the page we need
+                        List<string> pagedIds = new List<string>();
+                        int taken = 0;
+                        await foreach (Document doc in _Repo.Documents.ReadAllInCollection(
+                            query.CollectionId, query.Ordering, query.Skip, token))
                         {
-                            candidateDocIds.Add(doc.Id);
+                            pagedIds.Add(doc.Id);
+                            taken++;
+                            if (taken >= query.MaxResults) break;
+                        }
+
+                        if (pagedIds.Count > 0)
+                        {
+                            await LoadDocumentsIntoResult(result, pagedIds, query, token);
                         }
                     }
                 }
-
-                // Filter by collection if specified
-                if (!string.IsNullOrWhiteSpace(query.CollectionId) && candidateDocIds.Count > 0)
+                else
                 {
-                    HashSet<string> collectionDocIds = new HashSet<string>();
-                    await foreach (Document doc in _Repo.Documents.ReadAllInCollection(query.CollectionId, token: token))
-                    {
-                        collectionDocIds.Add(doc.Id);
-                    }
-                    candidateDocIds.IntersectWith(collectionDocIds);
-                }
+                    // --- Filter path: collect candidate IDs from filters, labels, tags ---
 
-                result.TotalRecords = candidateDocIds.Count;
+                    HashSet<string> candidateDocIds = null;
 
-                // Apply pagination
-                List<string> pagedIds = candidateDocIds.Skip(query.Skip).Take(query.MaxResults).ToList();
+                    foreach (SearchFilter filter in query.Filters)
+                    {
+                        IndexTableMapping? mapping = await _Repo.Indexes.GetMappingByKey(filter.Field, token);
+                        if (mapping == null) continue;
 
-                // Load full documents using optimized single JOIN query
-                if (pagedIds.Count > 0)
-                {
-                    // Use optimized batch query with JOINs for documents, labels, and tags
-                    Dictionary<string, Document> documentsById;
-                    if (query.IncludeLabels || query.IncludeTags)
-                    {
-                        documentsById = await _Repo.Documents.ReadByIdsWithLabelsAndTags(pagedIds, query.IncludeLabels, query.IncludeTags, token);
-                    }
-                    else
-                    {
-                        documentsById = await _Repo.Documents.ReadByIds(pagedIds, token);
-                    }
-
-                    // Get collection for content loading if needed
-                    Collection? collection = null;
-                    if (query.IncludeContent && !string.IsNullOrWhiteSpace(query.CollectionId))
-                    {
-                        collection = await _Repo.Collections.ReadById(query.CollectionId, token);
-                    }
-
-                    // Assemble documents in original order
-                    foreach (string docId in pagedIds)
-                    {
-                        if (documentsById.TryGetValue(docId, out Document doc))
+                        HashSet<string> matchingIds = new HashSet<string>();
+                        await foreach (string docId in _Repo.Indexes.Search(mapping.TableName, filter, token))
                         {
-                            // Load content if requested
-                            if (query.IncludeContent)
-                            {
-                                Collection? docCollection = collection;
-                                if (docCollection == null || docCollection.Id != doc.CollectionId)
-                                {
-                                    docCollection = await _Repo.Collections.ReadById(doc.CollectionId, token);
-                                }
-                                if (docCollection != null)
-                                {
-                                    string documentPath = Path.Combine(docCollection.DocumentsDirectory, $"{doc.Id}.json");
-                                    if (File.Exists(documentPath))
-                                    {
-                                        doc.Content = await File.ReadAllTextAsync(documentPath, token);
-                                    }
-                                }
-                            }
-
-                            result.Documents.Add(doc);
+                            matchingIds.Add(docId);
                         }
+
+                        if (candidateDocIds == null)
+                        {
+                            candidateDocIds = matchingIds;
+                        }
+                        else
+                        {
+                            candidateDocIds.IntersectWith(matchingIds);
+                        }
+                    }
+
+                    // Apply label filters
+                    if (query.Labels.Count > 0)
+                    {
+                        HashSet<string> labelDocIds = await _Repo.Labels.FindDocumentIdsByLabels(query.Labels.ToList(), token);
+
+                        if (candidateDocIds == null)
+                        {
+                            candidateDocIds = labelDocIds;
+                        }
+                        else
+                        {
+                            candidateDocIds.IntersectWith(labelDocIds);
+                        }
+                    }
+
+                    // Apply tag filters
+                    if (query.Tags.Count > 0)
+                    {
+                        HashSet<string> tagDocIds = await _Repo.Tags.FindDocumentIdsByTags(query.Tags, token);
+
+                        if (candidateDocIds == null)
+                        {
+                            candidateDocIds = tagDocIds;
+                        }
+                        else
+                        {
+                            candidateDocIds.IntersectWith(tagDocIds);
+                        }
+                    }
+
+                    if (candidateDocIds == null)
+                        candidateDocIds = new HashSet<string>();
+
+                    // Scope filter results to the target collection efficiently:
+                    // Instead of loading all collection IDs, load the candidate documents
+                    // and check collectionId in memory (candidates are already a reduced set).
+                    if (!string.IsNullOrWhiteSpace(query.CollectionId) && candidateDocIds.Count > 0)
+                    {
+                        Dictionary<string, Document> candidateDocs = await _Repo.Documents.ReadByIds(candidateDocIds.ToList(), token);
+                        candidateDocIds = new HashSet<string>(
+                            candidateDocs.Values
+                                .Where(d => d.CollectionId == query.CollectionId)
+                                .Select(d => d.Id));
+                    }
+
+                    result.TotalRecords = candidateDocIds.Count;
+
+                    // Apply pagination in memory over the filtered candidate set
+                    List<string> pagedIds = candidateDocIds.Skip(query.Skip).Take(query.MaxResults).ToList();
+
+                    if (pagedIds.Count > 0)
+                    {
+                        await LoadDocumentsIntoResult(result, pagedIds, query, token);
                     }
                 }
 
@@ -204,6 +183,57 @@ namespace Lattice.Core.Client.Implementations
 
             result.Timestamp.End = DateTime.UtcNow;
             return result;
+        }
+
+        /// <summary>
+        /// Load documents by IDs and populate the search result.
+        /// </summary>
+        private async Task LoadDocumentsIntoResult(
+            SearchResult result,
+            List<string> pagedIds,
+            SearchQuery query,
+            CancellationToken token)
+        {
+            Dictionary<string, Document> documentsById;
+            if (query.IncludeLabels || query.IncludeTags)
+            {
+                documentsById = await _Repo.Documents.ReadByIdsWithLabelsAndTags(pagedIds, query.IncludeLabels, query.IncludeTags, token);
+            }
+            else
+            {
+                documentsById = await _Repo.Documents.ReadByIds(pagedIds, token);
+            }
+
+            Collection? collection = null;
+            if (query.IncludeContent && !string.IsNullOrWhiteSpace(query.CollectionId))
+            {
+                collection = await _Repo.Collections.ReadById(query.CollectionId, token);
+            }
+
+            foreach (string docId in pagedIds)
+            {
+                if (documentsById.TryGetValue(docId, out Document doc))
+                {
+                    if (query.IncludeContent)
+                    {
+                        Collection? docCollection = collection;
+                        if (docCollection == null || docCollection.Id != doc.CollectionId)
+                        {
+                            docCollection = await _Repo.Collections.ReadById(doc.CollectionId, token);
+                        }
+                        if (docCollection != null)
+                        {
+                            string documentPath = Path.Combine(docCollection.DocumentsDirectory, $"{doc.Id}.json");
+                            if (File.Exists(documentPath))
+                            {
+                                doc.Content = await File.ReadAllTextAsync(documentPath, token);
+                            }
+                        }
+                    }
+
+                    result.Documents.Add(doc);
+                }
+            }
         }
 
         /// <inheritdoc />

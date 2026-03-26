@@ -365,6 +365,41 @@ namespace Lattice.Server.API.REST
                     .WithResponse(404, OpenApiResponseMetadata.NotFound()));
 
             _Webserver.Routes.PreAuthentication.Parameter.Add(
+                HttpMethod.PUT, "/v1.0/collections/{collectionId}/documents/batch", PutDocumentBatchRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Batch ingest documents", "Documents")
+                    .WithDescription("Ingests multiple documents into a collection in a single batch operation")
+                    .WithParameter(OpenApiParameterMetadata.Path("collectionId", "The unique identifier of the collection", OpenApiSchemaMetadata.String()))
+                    .WithRequestBody(OpenApiRequestBodyMetadata.Json(
+                        new OpenApiSchemaMetadata
+                        {
+                            Type = "object",
+                            Required = new List<string> { "documents" },
+                            Properties = new Dictionary<string, OpenApiSchemaMetadata>
+                            {
+                                ["documents"] = new OpenApiSchemaMetadata
+                                {
+                                    Type = "array",
+                                    Description = "Array of documents to ingest",
+                                    Items = new OpenApiSchemaMetadata
+                                    {
+                                        Type = "object",
+                                        Required = new List<string> { "content" },
+                                        Properties = new Dictionary<string, OpenApiSchemaMetadata>
+                                        {
+                                            ["content"] = new OpenApiSchemaMetadata { Type = "object", Description = "The JSON document content" },
+                                            ["name"] = new OpenApiSchemaMetadata { Type = "string", Description = "Optional document name" },
+                                            ["labels"] = new OpenApiSchemaMetadata { Type = "array", Items = OpenApiSchemaMetadata.String(), Description = "Labels for categorization" },
+                                            ["tags"] = new OpenApiSchemaMetadata { Type = "object", Description = "Key-value metadata tags" }
+                                        }
+                                    }
+                                }
+                            }
+                        }, "Batch document ingestion request", true))
+                    .WithResponse(201, OpenApiResponseMetadata.Create("Documents created successfully"))
+                    .WithResponse(400, OpenApiResponseMetadata.BadRequest())
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
+
+            _Webserver.Routes.PreAuthentication.Parameter.Add(
                 HttpMethod.GET, "/v1.0/collections/{collectionId}/documents/{documentId}", GetDocumentRoute, ExceptionRoute,
                 openApiMetadata: OpenApiRouteMetadata.Create("Get a document", "Documents")
                     .WithDescription("Retrieves a specific document by its ID. Use includeContent=true to get raw JSON content.")
@@ -1115,6 +1150,73 @@ namespace Lattice.Server.API.REST
                     Success = true,
                     StatusCode = 201,
                     Data = document
+                };
+            });
+        }
+
+        private async Task PutDocumentBatchRoute(HttpContextBase ctx)
+        {
+            await WrappedRequestHandler(ctx, RequestTypeEnum.Document, async (reqCtx) =>
+            {
+                string? collectionId = ctx.Request.Url.Parameters["collectionId"];
+                if (String.IsNullOrEmpty(collectionId))
+                {
+                    return new ResponseContext(false, 400, "Collection ID is required");
+                }
+
+                bool collectionExists = await _Client.Collection.Exists(collectionId, CancellationToken.None);
+                if (!collectionExists)
+                {
+                    return new ResponseContext(false, 404, "Collection not found");
+                }
+
+                string body = await GetRequestBody(ctx);
+                if (String.IsNullOrEmpty(body))
+                {
+                    return new ResponseContext(false, 400, "Request body is required");
+                }
+
+                BatchIngestRequest? request = JsonSerializer.Deserialize<BatchIngestRequest>(body, _JsonOptions);
+                if (request == null)
+                {
+                    return new ResponseContext(false, 400, "Invalid JSON in request body");
+                }
+
+                if (!request.Validate(out string errorMessage))
+                {
+                    return new ResponseContext(false, 400, errorMessage);
+                }
+
+                List<Lattice.Core.Models.BatchDocument> batchDocs = new List<Lattice.Core.Models.BatchDocument>();
+                foreach (BatchIngestDocumentEntry entry in request.Documents)
+                {
+                    string jsonContent;
+                    if (entry.Content is JsonElement element)
+                    {
+                        jsonContent = element.GetRawText();
+                    }
+                    else
+                    {
+                        jsonContent = JsonSerializer.Serialize(entry.Content);
+                    }
+
+                    batchDocs.Add(new Lattice.Core.Models.BatchDocument(
+                        jsonContent,
+                        entry.Name,
+                        entry.Labels,
+                        entry.Tags));
+                }
+
+                List<Document> documents = await _Client.Document.IngestBatch(
+                    collectionId,
+                    batchDocs,
+                    CancellationToken.None);
+
+                return new ResponseContext
+                {
+                    Success = true,
+                    StatusCode = 201,
+                    Data = documents
                 };
             });
         }

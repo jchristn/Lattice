@@ -343,54 +343,61 @@ await client.Collection.DeleteAsync("products");
 ### Documents
 
 ```csharp
-// Create a document
-Document doc = await client.Document.CreateAsync("products", new
-{
-    name = "Widget",
-    price = 29.99,
-    tags = new[] { "hardware", "tools" }
-});
+// Ingest a document
+Collection col = await client.Collection.Create("products");
+Document doc = await client.Document.Ingest(
+    col.Id,
+    @"{""name"":""Widget"",""price"":29.99}",
+    name: "widget.json",
+    labels: new List<string> { "hardware" },
+    tags: new Dictionary<string, string> { ["category"] = "tools" });
+
+// Batch ingest multiple documents
+List<Document> docs = await client.Document.IngestBatch(
+    col.Id,
+    new List<BatchDocument>
+    {
+        new BatchDocument(@"{""name"":""Widget A"",""price"":19.99}", name: "a.json"),
+        new BatchDocument(@"{""name"":""Widget B"",""price"":29.99}", name: "b.json"),
+        new BatchDocument(@"{""name"":""Widget C"",""price"":39.99}", name: "c.json")
+    });
 
 // Read a document
-Document doc = await client.Document.ReadAsync("products", documentId);
+Document doc = await client.Document.ReadById(documentId, includeContent: true);
 
-// Update a document
-await client.Document.UpdateAsync("products", documentId, new
-{
-    name = "Widget Pro",
-    price = 39.99
-});
+// Check existence
+bool exists = await client.Document.Exists(documentId);
 
 // Delete a document
-await client.Document.DeleteAsync("products", documentId);
+await client.Document.Delete(documentId);
 ```
 
 ### Searching
 
 ```csharp
-// Simple query
-SearchQuery query = new SearchQuery
+// Structured filter query
+SearchResult result = await client.Search.Search(new SearchQuery
 {
-    CollectionGuid = collectionGuid,
-    Conditions = "name = 'Widget'"
-};
-SearchResult result = await client.Search.SearchAsync(query);
+    CollectionId = col.Id,
+    Filters = new List<SearchFilter>
+    {
+        new SearchFilter("name", SearchConditionEnum.Equals, "Widget")
+    }
+});
 
-// Complex query with multiple conditions
-SearchQuery query = new SearchQuery
-{
-    CollectionGuid = collectionGuid,
-    Conditions = "price > 20 AND price < 50 AND category = 'electronics'"
-};
+// SQL-like query
+SearchResult result = await client.Search.SearchBySql(
+    col.Id,
+    "SELECT * FROM documents WHERE price > 20 AND price < 50 ORDER BY price ASC LIMIT 100");
 
-// Query with pagination
-SearchQuery query = new SearchQuery
+// Paginated query
+SearchResult result = await client.Search.Search(new SearchQuery
 {
-    CollectionGuid = collectionGuid,
-    Conditions = "status = 'active'",
+    CollectionId = col.Id,
     MaxResults = 100,
-    StartIndex = 0
-};
+    Skip = 0,
+    Ordering = EnumerationOrderEnum.CreatedDescending
+});
 ```
 
 ### Supported Query Operators
@@ -409,7 +416,7 @@ SearchQuery query = new SearchQuery
 
 ```
 src/
-├── Lattice.Core/           # Core SDK library
+├── Lattice.Core/           # Core library (NuGet: Lattice)
 │   ├── Client/             # Client-facing API
 │   ├── Models/             # Data models
 │   ├── Repositories/       # Database implementations
@@ -422,6 +429,10 @@ src/
 ├── Lattice.Server/         # REST API server
 ├── Test.Automated/         # Integration tests
 └── Test.Throughput/        # Performance tests
+sdk/
+├── sdk-csharp/             # C# REST SDK (NuGet: Lattice.Sdk)
+├── sdk-js/                 # JavaScript/TypeScript SDK (npm: lattice-sdk)
+└── sdk-python/             # Python SDK (pip: lattice-sdk)
 ```
 
 ## Building and Testing

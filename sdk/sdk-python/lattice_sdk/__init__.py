@@ -8,6 +8,7 @@ from .client import LatticeClient
 from .models import (
     Collection,
     Document,
+    BatchIngestDocument,
     Schema,
     SchemaElement,
     FieldConstraint,
@@ -33,6 +34,7 @@ __all__ = [
     "LatticeClient",
     "Collection",
     "Document",
+    "BatchIngestDocument",
     "Schema",
     "SchemaElement",
     "FieldConstraint",

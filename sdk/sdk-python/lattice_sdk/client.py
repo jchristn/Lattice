@@ -24,7 +24,8 @@ from .models import (
     IndexTableMapping,
     SchemaEnforcementMode,
     IndexingMode,
-    EnumerationOrder
+    EnumerationOrder,
+    BatchIngestDocument
 )
 from .exceptions import (
     LatticeException,
@@ -424,6 +425,33 @@ class DocumentMethods:
 
         if response.success and response.data:
             return Document.from_dict(response.data)
+        return None
+
+    def ingest_batch(
+        self,
+        collection_id: str,
+        documents: List['BatchIngestDocument']
+    ) -> Optional[List[Document]]:
+        """
+        Ingest multiple documents into a collection in a single batch operation.
+
+        Args:
+            collection_id: The collection ID
+            documents: List of BatchIngestDocument objects to ingest
+
+        Returns:
+            List of created Documents, or None if ingestion failed
+        """
+        data = {
+            "documents": [doc.to_dict() for doc in documents]
+        }
+
+        response = self._client._request(
+            "PUT", f"/v1.0/collections/{collection_id}/documents/batch", data=data
+        )
+
+        if response.success and response.data:
+            return [Document.from_dict(d) for d in response.data]
         return None
 
     def read_all_in_collection(

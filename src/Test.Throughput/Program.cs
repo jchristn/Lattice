@@ -106,9 +106,9 @@ public class Program
             Console.WriteLine();
 
             List<Document> ingestedDocs = new List<Document>();
-            await RunTest($"TIER-{docCount}", $"Ingest {docCount} documents", async () =>
+            await RunTest($"TIER-{docCount}", $"IngestBatch {docCount} documents", async () =>
             {
-                Stopwatch sw = Stopwatch.StartNew();
+                List<BatchDocument> batch = new List<BatchDocument>();
                 for (int i = 0; i < docCount; i++)
                 {
                     List<string> labels = new List<string> { $"group_{i % 10}", $"batch_{i / 100}" };
@@ -120,17 +120,21 @@ public class Program
                         ["category"] = $"cat_{i % 10}"
                     };
 
-                    Document doc = await client.Document.Ingest(
-                        collection.Id,
+                    batch.Add(new BatchDocument(
                         GenerateJsonDocument(i),
                         name: $"Doc_{i}",
                         labels: labels,
-                        tags: tags);
-
-                    if (doc == null) return TestOutcome.Fail($"Failed to ingest document {i}");
-                    ingestedDocs.Add(doc);
+                        tags: tags));
                 }
+
+                Stopwatch sw = Stopwatch.StartNew();
+                List<Document> results = await client.Document.IngestBatch(collection.Id, batch);
                 sw.Stop();
+
+                if (results == null || results.Count != docCount)
+                    return TestOutcome.Fail($"Expected {docCount} documents, got {results?.Count ?? 0}");
+
+                ingestedDocs.AddRange(results);
 
                 double docsPerSecond = docCount / sw.Elapsed.TotalSeconds;
                 Console.Write($"({docsPerSecond:F1} docs/sec) ");

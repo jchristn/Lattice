@@ -598,6 +598,75 @@ class TestHarness:
 
             self.run_test("DeleteDocument: removes document", test_delete_doc)
 
+            # IngestBatch: basic batch
+            def test_ingest_batch_basic():
+                from lattice_sdk.models import BatchIngestDocument
+                results = self.client.document.ingest_batch(
+                    collection.id,
+                    [
+                        BatchIngestDocument(content={"name": "Batch1"}),
+                        BatchIngestDocument(content={"name": "Batch2"}),
+                        BatchIngestDocument(content={"name": "Batch3"})
+                    ]
+                )
+                if results is None:
+                    return TestOutcome.failed("IngestBatch returned None")
+                if len(results) != 3:
+                    return TestOutcome.failed(f"Expected 3 documents, got {len(results)}")
+                return TestOutcome.passed()
+
+            self.run_test("IngestBatch: basic batch", test_ingest_batch_basic)
+
+            # IngestBatch: with names and metadata
+            def test_ingest_batch_with_metadata():
+                from lattice_sdk.models import BatchIngestDocument
+                results = self.client.document.ingest_batch(
+                    collection.id,
+                    [
+                        BatchIngestDocument(
+                            content={"value": 1},
+                            name="batch_named_1",
+                            labels=["batch", "first"],
+                            tags={"order": "1"}
+                        ),
+                        BatchIngestDocument(
+                            content={"value": 2},
+                            name="batch_named_2",
+                            labels=["batch", "second"],
+                            tags={"order": "2"}
+                        )
+                    ]
+                )
+                if results is None:
+                    return TestOutcome.failed("IngestBatch returned None")
+                if len(results) != 2:
+                    return TestOutcome.failed(f"Expected 2 documents, got {len(results)}")
+                if results[0].name != "batch_named_1":
+                    return TestOutcome.failed(f"Name mismatch: {results[0].name}")
+                if results[1].name != "batch_named_2":
+                    return TestOutcome.failed(f"Name mismatch: {results[1].name}")
+                return TestOutcome.passed()
+
+            self.run_test("IngestBatch: with names and metadata", test_ingest_batch_with_metadata)
+
+            # IngestBatch: verify documents retrievable
+            def test_ingest_batch_retrievable():
+                from lattice_sdk.models import BatchIngestDocument
+                results = self.client.document.ingest_batch(
+                    collection.id,
+                    [BatchIngestDocument(content={"check": "retrievable"}, name="batch_retrieve_test")]
+                )
+                if results is None or len(results) == 0:
+                    return TestOutcome.failed("IngestBatch returned None or empty")
+                retrieved = self.client.document.read_by_id(collection.id, results[0].id)
+                if retrieved is None:
+                    return TestOutcome.failed("Could not retrieve batch-ingested document")
+                if retrieved.name != "batch_retrieve_test":
+                    return TestOutcome.failed(f"Retrieved name mismatch: {retrieved.name}")
+                return TestOutcome.passed()
+
+            self.run_test("IngestBatch: verify documents retrievable", test_ingest_batch_retrievable)
+
         finally:
             # Cleanup
             self.client.collection.delete(collection.id)

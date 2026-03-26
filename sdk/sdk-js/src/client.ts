@@ -20,6 +20,7 @@ import {
     IndexingMode,
     CreateCollectionOptions,
     IngestDocumentOptions,
+    BatchIngestDocumentEntry,
     parseCollection,
     parseDocument,
     parseSchema,
@@ -391,6 +392,33 @@ class DocumentMethods {
 
         if (response.success && response.data) {
             return parseDocument(response.data);
+        }
+        return null;
+    }
+
+    /**
+     * Ingest multiple documents into a collection in a single batch operation.
+     */
+    async ingestBatch(
+        collectionId: string,
+        documents: BatchIngestDocumentEntry[]
+    ): Promise<Document[] | null> {
+        const response = await this.client.request({
+            method: "PUT",
+            path: `/v1.0/collections/${collectionId}/documents/batch`,
+            data: {
+                documents: documents.map(doc => {
+                    const entry: any = { content: doc.content };
+                    if (doc.name) entry.name = doc.name;
+                    if (doc.labels) entry.labels = doc.labels;
+                    if (doc.tags) entry.tags = doc.tags;
+                    return entry;
+                })
+            }
+        });
+
+        if (response.success && response.data) {
+            return response.data.map((d: any) => parseDocument(d)).filter((d: any) => d !== null);
         }
         return null;
     }

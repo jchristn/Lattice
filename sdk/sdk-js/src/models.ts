@@ -257,6 +257,16 @@ export interface IngestDocumentOptions {
 }
 
 /**
+ * Options for batch ingesting documents.
+ */
+export interface BatchIngestDocumentEntry {
+    content: any;
+    name?: string;
+    labels?: string[];
+    tags?: Record<string, string>;
+}
+
+/**
  * Parse a date from API response.
  */
 export function parseDate(value: any): Date | undefined {

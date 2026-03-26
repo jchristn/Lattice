@@ -328,6 +328,339 @@ namespace Lattice.Core.Client.Implementations
         }
 
         /// <inheritdoc />
+        public async Task<List<Document>> IngestBatch(
+            string collectionId,
+            List<BatchDocument> documents,
+            CancellationToken token = default)
+        {
+            if (string.IsNullOrWhiteSpace(collectionId))
+                throw new ArgumentNullException(nameof(collectionId));
+            if (documents == null || documents.Count == 0)
+                throw new ArgumentException("Documents list cannot be null or empty", nameof(documents));
+
+            foreach (BatchDocument batchDoc in documents)
+            {
+                if (string.IsNullOrWhiteSpace(batchDoc.Json))
+                    throw new ArgumentException("Each document in the batch must have non-empty JSON content");
+            }
+
+            // Acquire locks for all documents if locking is enabled
+            List<string> acquiredLockIds = new List<string>();
+
+            if (_Settings.EnableObjectLocking)
+            {
+                foreach (BatchDocument batchDoc in documents)
+                {
+                    string documentNameForLock = batchDoc.Name ?? Guid.NewGuid().ToString();
+
+                    ObjectLock existingLock = await _Repo.ObjectLocks.ReadByCollectionAndDocument(collectionId, documentNameForLock, token);
+                    if (existingLock != null)
+                    {
+                        DateTime expirationTime = existingLock.CreatedUtc.AddSeconds(_Settings.ObjectLockExpirationSeconds);
+                        if (DateTime.UtcNow > expirationTime)
+                        {
+                            await _Repo.ObjectLocks.ReleaseLock(existingLock.Id, token);
+                        }
+                        else
+                        {
+                            // Release any locks we already acquired before throwing
+                            foreach (string lockId in acquiredLockIds)
+                                await _Repo.ObjectLocks.ReleaseLock(lockId, token);
+
+                            throw new DocumentLockedException(
+                                collectionId,
+                                documentNameForLock,
+                                existingLock.Hostname,
+                                existingLock.CreatedUtc);
+                        }
+                    }
+
+                    LockAcquisitionResult lockResult = await _Repo.ObjectLocks.TryAcquireLock(
+                        collectionId,
+                        documentNameForLock,
+                        _Settings.Hostname,
+                        token);
+
+                    if (!lockResult.Success)
+                    {
+                        foreach (string lockId in acquiredLockIds)
+                            await _Repo.ObjectLocks.ReleaseLock(lockId, token);
+
+                        throw new DocumentLockedException(
+                            collectionId,
+                            documentNameForLock,
+                            lockResult.Lock.Hostname,
+                            lockResult.Lock.CreatedUtc);
+                    }
+
+                    acquiredLockIds.Add(lockResult.Lock.Id);
+                }
+            }
+
+            try
+            {
+                // --- Single lookups shared across the entire batch ---
+
+                Collection? collection = await _Repo.Collections.ReadById(collectionId, token);
+                if (collection == null)
+                    throw new ArgumentException($"Collection {collectionId} not found", nameof(collectionId));
+
+                List<FieldConstraint> fieldConstraints = null;
+                if (collection.SchemaEnforcementMode != SchemaEnforcementMode.None)
+                {
+                    fieldConstraints = await _Repo.FieldConstraints.ReadByCollectionId(collectionId, token);
+                }
+
+                HashSet<string> indexedFieldPaths = null;
+                if (collection.IndexingMode == IndexingMode.Selective)
+                {
+                    List<IndexedField> indexedFieldsList = await _Repo.IndexedFields.ReadByCollectionId(collectionId, token);
+                    indexedFieldPaths = new HashSet<string>(indexedFieldsList.Select(f => f.FieldPath), StringComparer.OrdinalIgnoreCase);
+                }
+
+                // --- Phase 1: Validate all documents before writing anything ---
+
+                if (fieldConstraints != null)
+                {
+                    for (int i = 0; i < documents.Count; i++)
+                    {
+                        ValidationResult validationResult = _SchemaValidator.Validate(
+                            documents[i].Json, collection.SchemaEnforcementMode, fieldConstraints);
+                        if (!validationResult.IsValid)
+                        {
+                            throw new SchemaValidationException(collectionId, validationResult.Errors);
+                        }
+                    }
+                }
+
+                // --- Phase 2: Process each document with cached lookups, per-document coherency ---
+
+                // Caches shared across documents to avoid redundant DB lookups
+                Dictionary<string, Models.Schema> schemaCache = new Dictionary<string, Models.Schema>();
+                Dictionary<string, IndexTableMapping> mappingCache = new Dictionary<string, IndexTableMapping>();
+                Dictionary<string, SchemaElement> schemaElementCache = new Dictionary<string, SchemaElement>();
+
+                List<Document> results = new List<Document>();
+
+                foreach (BatchDocument batchDoc in documents)
+                {
+                    string json = batchDoc.Json;
+
+                    // Schema resolution (cached across batch)
+                    List<SchemaElement> schemaElements = _SchemaGenerator.ExtractElements(json);
+                    string schemaHash = _SchemaGenerator.ComputeSchemaHash(schemaElements);
+                    Models.Schema schema;
+
+                    if (schemaCache.TryGetValue(schemaHash, out Models.Schema cachedSchema))
+                    {
+                        schema = cachedSchema;
+                    }
+                    else
+                    {
+                        Models.Schema? existingSchema = await _Repo.Schemas.ReadByHash(schemaHash, token);
+                        if (existingSchema != null)
+                        {
+                            schema = existingSchema;
+                        }
+                        else
+                        {
+                            schema = new Models.Schema
+                            {
+                                Id = IdGenerator.NewSchemaId(),
+                                Hash = schemaHash
+                            };
+                            schema = await _Repo.Schemas.Create(schema, token);
+
+                            foreach (SchemaElement element in schemaElements)
+                            {
+                                element.Id = IdGenerator.NewSchemaElementId();
+                                element.SchemaId = schema.Id;
+                            }
+                            await _Repo.SchemaElements.CreateMany(schemaElements, token);
+
+                            // Cache schema elements we just created
+                            foreach (SchemaElement element in schemaElements)
+                            {
+                                schemaElementCache[$"{schema.Id}:{element.Key}"] = element;
+                            }
+
+                            // Create index tables for new keys (if indexing is enabled)
+                            if (collection.IndexingMode != IndexingMode.None)
+                            {
+                                foreach (SchemaElement element in schemaElements)
+                                {
+                                    if (!mappingCache.ContainsKey(element.Key))
+                                    {
+                                        IndexTableMapping? mapping = await _Repo.Indexes.GetMappingByKey(element.Key, token);
+                                        if (mapping == null)
+                                        {
+                                            string tableName = HashHelper.GenerateIndexTableName(element.Key);
+                                            mapping = new IndexTableMapping
+                                            {
+                                                Id = IdGenerator.NewIndexTableMappingId(),
+                                                Key = element.Key,
+                                                TableName = tableName
+                                            };
+                                            await _Repo.Indexes.CreateMapping(mapping, token);
+                                            await _Repo.Indexes.CreateIndexTable(tableName, token);
+                                        }
+                                        mappingCache[element.Key] = mapping;
+                                    }
+                                }
+                            }
+                        }
+
+                        schemaCache[schemaHash] = schema;
+                    }
+
+                    // Compute content hash
+                    byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
+                    long contentLength = jsonBytes.Length;
+                    string sha256Hash;
+                    using (SHA256 sha256Alg = SHA256.Create())
+                    {
+                        byte[] hashBytes = sha256Alg.ComputeHash(jsonBytes);
+                        sha256Hash = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
+                    }
+
+                    // Create document record
+                    List<string> docLabels = batchDoc.Labels ?? new List<string>();
+                    Dictionary<string, string> docTags = batchDoc.Tags ?? new Dictionary<string, string>();
+
+                    Document document = new Document
+                    {
+                        Id = IdGenerator.NewDocumentId(),
+                        CollectionId = collectionId,
+                        SchemaId = schema.Id,
+                        Name = batchDoc.Name,
+                        ContentLength = contentLength,
+                        Sha256Hash = sha256Hash,
+                        Labels = docLabels,
+                        Tags = docTags
+                    };
+
+                    List<string> preservedLabels = document.Labels;
+                    Dictionary<string, string> preservedTags = document.Tags;
+
+                    document = await _Repo.Documents.Create(document, token);
+
+                    document.Labels = preservedLabels;
+                    document.Tags = preservedTags;
+
+                    // Write labels for this document
+                    if (docLabels.Count > 0)
+                    {
+                        List<Label> labelEntities = docLabels.Select(l => new Label
+                        {
+                            Id = IdGenerator.NewLabelId(),
+                            CollectionId = collectionId,
+                            DocumentId = document.Id,
+                            LabelValue = l
+                        }).ToList();
+                        await _Repo.Labels.CreateMany(labelEntities, token);
+                    }
+
+                    // Write tags for this document
+                    if (docTags.Count > 0)
+                    {
+                        List<Tag> tagEntities = docTags.Select(t => new Tag
+                        {
+                            Id = IdGenerator.NewTagId(),
+                            CollectionId = collectionId,
+                            DocumentId = document.Id,
+                            Key = t.Key,
+                            Value = t.Value
+                        }).ToList();
+                        await _Repo.Tags.CreateMany(tagEntities, token);
+                    }
+
+                    // Write index values for this document
+                    if (collection.IndexingMode != IndexingMode.None)
+                    {
+                        List<FlattenedValue> flattenedValues = _JsonFlattener.Flatten(json);
+                        IEnumerable<IGrouping<string, FlattenedValue>> valuesByKey = flattenedValues.GroupBy(v => v.Key);
+
+                        if (collection.IndexingMode == IndexingMode.Selective && indexedFieldPaths != null)
+                        {
+                            valuesByKey = valuesByKey.Where(g => indexedFieldPaths.Contains(g.Key));
+                        }
+
+                        Dictionary<string, List<DocumentValue>> valuesByTable = new Dictionary<string, List<DocumentValue>>();
+
+                        foreach (IGrouping<string, FlattenedValue> group in valuesByKey)
+                        {
+                            // Use cached mapping or fetch once
+                            if (!mappingCache.TryGetValue(group.Key, out IndexTableMapping mapping))
+                            {
+                                IndexTableMapping? fetchedMapping = await _Repo.Indexes.GetMappingByKey(group.Key, token);
+                                if (fetchedMapping != null)
+                                {
+                                    mapping = fetchedMapping;
+                                    mappingCache[group.Key] = mapping;
+                                }
+                            }
+
+                            if (mapping != null)
+                            {
+                                // Use cached schema element or fetch once
+                                string seCacheKey = $"{schema.Id}:{group.Key}";
+                                if (!schemaElementCache.TryGetValue(seCacheKey, out SchemaElement schemaElement))
+                                {
+                                    SchemaElement? fetched = await _Repo.SchemaElements.ReadBySchemaIdAndKey(schema.Id, group.Key, token);
+                                    if (fetched != null)
+                                    {
+                                        schemaElement = fetched;
+                                        schemaElementCache[seCacheKey] = schemaElement;
+                                    }
+                                }
+
+                                List<DocumentValue> values = group.Select(v => new DocumentValue
+                                {
+                                    Id = IdGenerator.NewValueId(),
+                                    DocumentId = document.Id,
+                                    SchemaId = schema.Id,
+                                    SchemaElementId = schemaElement?.Id,
+                                    Position = v.Position,
+                                    Value = v.Value
+                                }).ToList();
+
+                                if (!valuesByTable.ContainsKey(mapping.TableName))
+                                {
+                                    valuesByTable[mapping.TableName] = new List<DocumentValue>();
+                                }
+                                valuesByTable[mapping.TableName].AddRange(values);
+                            }
+                        }
+
+                        if (valuesByTable.Count > 0)
+                        {
+                            await _Repo.Indexes.InsertValuesMultiTable(valuesByTable, token);
+                        }
+                    }
+
+                    // Write file to disk
+                    string documentPath = Path.Combine(collection.DocumentsDirectory, $"{document.Id}.json");
+                    await File.WriteAllTextAsync(documentPath, json, token);
+
+                    results.Add(document);
+                }
+
+                return results;
+            }
+            finally
+            {
+                // Release all acquired locks
+                if (_Settings.EnableObjectLocking)
+                {
+                    foreach (string lockId in acquiredLockIds)
+                    {
+                        await _Repo.ObjectLocks.ReleaseLock(lockId, token);
+                    }
+                }
+            }
+        }
+
+        /// <inheritdoc />
         public async Task<Document> ReadById(
             string id,
             bool includeContent = false,

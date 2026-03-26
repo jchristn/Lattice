@@ -103,6 +103,12 @@ namespace Test.Automated
                     await RunTest("DocumentExists: false when not exists", TestDocumentExistsFalse);
                     await RunTest("DeleteDocument: removes document", TestDeleteDocument);
                     await RunTest("DeleteDocument: file removed from disk", TestDeleteDocumentFileRemoved);
+                    await RunTest("IngestBatch: basic batch", TestIngestBatchBasic);
+                    await RunTest("IngestBatch: with names", TestIngestBatchWithNames);
+                    await RunTest("IngestBatch: with labels and tags", TestIngestBatchWithLabelsAndTags);
+                    await RunTest("IngestBatch: verify document count", TestIngestBatchDocumentCount);
+                    await RunTest("IngestBatch: verify properties", TestIngestBatchProperties);
+                    await RunTest("IngestBatch: documents searchable", TestIngestBatchSearchable);
                 });
 
                 // ===== SEARCH API TESTS =====
@@ -4319,6 +4325,183 @@ namespace Test.Automated
             }
             finally { CleanupTestDir(testDir); }
         }
+
+        #region Batch-Ingestion-Tests
+
+        private static async Task<TestOutcome> TestIngestBatchBasic()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using LatticeClient client = CreateClient(testDir);
+                Collection collection = await client.Collection.Create("TestCollection");
+
+                List<BatchDocument> batch = new List<BatchDocument>
+                {
+                    new BatchDocument(@"{""Name"":""Doc1""}"),
+                    new BatchDocument(@"{""Name"":""Doc2""}"),
+                    new BatchDocument(@"{""Name"":""Doc3""}")
+                };
+
+                List<Document> results = await client.Document.IngestBatch(collection.Id, batch);
+
+                if (results == null) return TestOutcome.Fail("Results is null");
+                if (results.Count != 3) return TestOutcome.Fail($"Expected 3 documents, got {results.Count}");
+
+                return TestOutcome.Pass();
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<TestOutcome> TestIngestBatchWithNames()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using LatticeClient client = CreateClient(testDir);
+                Collection collection = await client.Collection.Create("TestCollection");
+
+                List<BatchDocument> batch = new List<BatchDocument>
+                {
+                    new BatchDocument(@"{""Value"":1}", name: "First"),
+                    new BatchDocument(@"{""Value"":2}", name: "Second"),
+                    new BatchDocument(@"{""Value"":3}", name: "Third")
+                };
+
+                List<Document> results = await client.Document.IngestBatch(collection.Id, batch);
+
+                if (results[0].Name != "First") return TestOutcome.Fail($"First name mismatch: {results[0].Name}");
+                if (results[1].Name != "Second") return TestOutcome.Fail($"Second name mismatch: {results[1].Name}");
+                if (results[2].Name != "Third") return TestOutcome.Fail($"Third name mismatch: {results[2].Name}");
+
+                return TestOutcome.Pass();
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<TestOutcome> TestIngestBatchWithLabelsAndTags()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using LatticeClient client = CreateClient(testDir);
+                Collection collection = await client.Collection.Create("TestCollection");
+
+                List<BatchDocument> batch = new List<BatchDocument>
+                {
+                    new BatchDocument(
+                        @"{""Data"":""A""}",
+                        labels: new List<string> { "alpha", "batch" },
+                        tags: new Dictionary<string, string> { { "priority", "high" } }),
+                    new BatchDocument(
+                        @"{""Data"":""B""}",
+                        labels: new List<string> { "beta", "batch" },
+                        tags: new Dictionary<string, string> { { "priority", "low" } })
+                };
+
+                List<Document> results = await client.Document.IngestBatch(collection.Id, batch);
+
+                if (results[0].Labels.Count != 2) return TestOutcome.Fail($"Expected 2 labels on doc 0, got {results[0].Labels.Count}");
+                if (!results[0].Labels.Contains("alpha")) return TestOutcome.Fail("Missing 'alpha' label");
+                if (!results[0].Tags.ContainsKey("priority")) return TestOutcome.Fail("Missing 'priority' tag on doc 0");
+                if (results[0].Tags["priority"] != "high") return TestOutcome.Fail($"Expected 'high' tag, got '{results[0].Tags["priority"]}'");
+
+                if (results[1].Labels.Count != 2) return TestOutcome.Fail($"Expected 2 labels on doc 1, got {results[1].Labels.Count}");
+                if (!results[1].Labels.Contains("beta")) return TestOutcome.Fail("Missing 'beta' label");
+                if (results[1].Tags["priority"] != "low") return TestOutcome.Fail($"Expected 'low' tag, got '{results[1].Tags["priority"]}'");
+
+                return TestOutcome.Pass();
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<TestOutcome> TestIngestBatchDocumentCount()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using LatticeClient client = CreateClient(testDir);
+                Collection collection = await client.Collection.Create("TestCollection");
+
+                List<BatchDocument> batch = new List<BatchDocument>();
+                for (int i = 0; i < 20; i++)
+                {
+                    batch.Add(new BatchDocument($@"{{""Index"":{i},""Value"":""item_{i}""}}"));
+                }
+
+                List<Document> results = await client.Document.IngestBatch(collection.Id, batch);
+
+                if (results.Count != 20) return TestOutcome.Fail($"Expected 20 results, got {results.Count}");
+
+                List<Document> allDocs = await client.Document.ReadAllInCollection(collection.Id);
+                if (allDocs.Count != 20) return TestOutcome.Fail($"Expected 20 in collection, got {allDocs.Count}");
+
+                return TestOutcome.Pass();
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<TestOutcome> TestIngestBatchProperties()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using LatticeClient client = CreateClient(testDir);
+                Collection collection = await client.Collection.Create("TestCollection");
+
+                List<BatchDocument> batch = new List<BatchDocument>
+                {
+                    new BatchDocument(@"{""Name"":""Joel""}", name: "prop_test")
+                };
+
+                List<Document> results = await client.Document.IngestBatch(collection.Id, batch);
+
+                Document doc = results[0];
+                if (string.IsNullOrEmpty(doc.Id)) return TestOutcome.Fail("Document Id is empty");
+                if (!doc.Id.StartsWith("doc_")) return TestOutcome.Fail($"Invalid document Id format: {doc.Id}");
+                if (doc.CollectionId != collection.Id) return TestOutcome.Fail($"CollectionId mismatch: {doc.CollectionId}");
+                if (string.IsNullOrEmpty(doc.SchemaId)) return TestOutcome.Fail("SchemaId is empty");
+                if (doc.Name != "prop_test") return TestOutcome.Fail($"Name mismatch: {doc.Name}");
+                if (doc.ContentLength <= 0) return TestOutcome.Fail($"ContentLength invalid: {doc.ContentLength}");
+                if (string.IsNullOrEmpty(doc.Sha256Hash)) return TestOutcome.Fail("Sha256Hash is empty");
+
+                return TestOutcome.Pass();
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        private static async Task<TestOutcome> TestIngestBatchSearchable()
+        {
+            string testDir = CreateTestDir();
+            try
+            {
+                using LatticeClient client = CreateClient(testDir);
+                Collection collection = await client.Collection.Create("TestCollection");
+
+                List<BatchDocument> batch = new List<BatchDocument>
+                {
+                    new BatchDocument(@"{""Category"":""A"",""Value"":10}"),
+                    new BatchDocument(@"{""Category"":""B"",""Value"":20}"),
+                    new BatchDocument(@"{""Category"":""A"",""Value"":30}")
+                };
+
+                await client.Document.IngestBatch(collection.Id, batch);
+
+                SearchResult result = await client.Search.Search(new SearchQuery
+                {
+                    CollectionId = collection.Id,
+                    Filters = new List<SearchFilter> { new SearchFilter("Category", SearchConditionEnum.Equals, "A") }
+                });
+
+                if (result.Documents.Count != 2)
+                    return TestOutcome.Fail($"Expected 2 documents matching Category=A, got {result.Documents.Count}");
+
+                return TestOutcome.Pass();
+            }
+            finally { CleanupTestDir(testDir); }
+        }
+
+        #endregion
 
         #endregion
     }

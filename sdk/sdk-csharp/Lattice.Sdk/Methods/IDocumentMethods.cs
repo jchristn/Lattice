@@ -19,6 +19,14 @@ namespace Lattice.Sdk.Methods
             CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Ingest multiple documents into a collection in a single batch operation.
+        /// </summary>
+        Task<List<Document>?> IngestBatchAsync(
+            string collectionId,
+            List<BatchIngestDocument> documents,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Get all documents in a collection.
         /// </summary>
         Task<List<Document>> ReadAllInCollectionAsync(

@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageId>Lattice.Sdk</PackageId>
-    <Version>1.0.0</Version>
+    <Version>0.1.3</Version>
     <Description>A comprehensive REST SDK for consuming a Lattice server</Description>
     <Authors>Lattice</Authors>
   </PropertyGroup>
