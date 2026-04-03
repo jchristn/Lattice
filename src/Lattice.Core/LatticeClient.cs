@@ -5,7 +5,10 @@ namespace Lattice.Core
     using Lattice.Core.Client.Interfaces;
     using Lattice.Core.Flattening;
     using Lattice.Core.Repositories;
+    using Lattice.Core.Repositories.Mysql;
+    using Lattice.Core.Repositories.Postgresql;
     using Lattice.Core.Repositories.Sqlite;
+    using Lattice.Core.Repositories.SqlServer;
     using Lattice.Core.Schema;
     using Lattice.Core.Search;
     using Lattice.Core.Validation;
@@ -47,6 +50,11 @@ namespace Lattice.Core
         /// </summary>
         public IIndexMethods Index { get; }
 
+        /// <summary>
+        /// Request history methods.
+        /// </summary>
+        public Repositories.Interfaces.IRequestHistoryMethods RequestHistory { get; }
+
         #endregion
 
         #region Private-Members
@@ -66,7 +74,28 @@ namespace Lattice.Core
         {
             Settings = settings ?? new LatticeSettings();
 
-            _Repo = new SqliteRepository(Settings.Database.Filename, Settings.InMemory);
+            _Repo = Settings.Database.Type switch
+            {
+                DatabaseTypeEnum.Sqlite => new SqliteRepository(Settings.Database.Filename, Settings.InMemory),
+                DatabaseTypeEnum.Mysql => new MysqlRepository(
+                    Settings.Database.Hostname,
+                    Settings.Database.DatabaseName,
+                    Settings.Database.Username,
+                    Settings.Database.Password,
+                    Settings.Database.Port > 0 ? Settings.Database.Port : 3306),
+                DatabaseTypeEnum.Postgres => new PostgresqlRepository(
+                    Settings.Database.Hostname,
+                    Settings.Database.DatabaseName,
+                    Settings.Database.Username,
+                    Settings.Database.Password,
+                    Settings.Database.Port > 0 ? Settings.Database.Port : 5432),
+                DatabaseTypeEnum.SqlServer => new SqlServerRepository(
+                    Settings.Database.Hostname,
+                    Settings.Database.DatabaseName,
+                    Settings.Database.Username,
+                    Settings.Database.Password),
+                _ => throw new ArgumentOutOfRangeException(nameof(Settings.Database.Type), "Unsupported database type.")
+            };
             _Repo.InitializeRepository();
 
             ISchemaGenerator schemaGenerator = new SchemaGenerator();
@@ -80,6 +109,7 @@ namespace Lattice.Core
             Search = new SearchMethods(this, _Repo, sqlParser);
             Schema = new SchemaMethods(this, _Repo);
             Index = new IndexMethods(this, _Repo);
+            RequestHistory = _Repo.RequestHistory;
         }
 
         /// <summary>
@@ -103,6 +133,7 @@ namespace Lattice.Core
             Search = new SearchMethods(this, _Repo, sqlParser);
             Schema = new SchemaMethods(this, _Repo);
             Index = new IndexMethods(this, _Repo);
+            RequestHistory = _Repo.RequestHistory;
         }
 
         #endregion

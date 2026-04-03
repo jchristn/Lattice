@@ -1,7 +1,13 @@
 import { useState } from 'react'
 import './KeyValueEditor.css'
 
-export default function KeyValueEditor({ value = {}, onChange, keyPlaceholder = 'Key', valuePlaceholder = 'Value' }) {
+export default function KeyValueEditor({
+  value = {},
+  onChange,
+  keyPlaceholder = 'Key',
+  valuePlaceholder = 'Value',
+  hint = 'Add key-value pairs for custom metadata',
+}) {
   const [newKey, setNewKey] = useState('')
   const [newValue, setNewValue] = useState('')
 
@@ -77,7 +83,7 @@ export default function KeyValueEditor({ value = {}, onChange, keyPlaceholder = 
           Add
         </button>
       </div>
-      <span className="kv-hint">Add key-value pairs for custom metadata</span>
+      <span className="kv-hint">{hint}</span>
     </div>
   )
 }

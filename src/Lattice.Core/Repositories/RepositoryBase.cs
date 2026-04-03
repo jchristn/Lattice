@@ -65,6 +65,11 @@ namespace Lattice.Core.Repositories
         /// </summary>
         public abstract IObjectLockMethods ObjectLocks { get; }
 
+        /// <summary>
+        /// Request history methods.
+        /// </summary>
+        public abstract IRequestHistoryMethods RequestHistory { get; }
+
         #endregion
 
         #region Public-Methods

@@ -50,6 +50,9 @@ namespace Lattice.Core.Repositories.Sqlite
         /// <inheritdoc />
         public override IObjectLockMethods ObjectLocks { get; }
 
+        /// <inheritdoc />
+        public override IRequestHistoryMethods RequestHistory { get; }
+
         /// <summary>
         /// The number of connections in the pool.
         /// </summary>
@@ -120,6 +123,7 @@ namespace Lattice.Core.Repositories.Sqlite
             FieldConstraints = new FieldConstraintMethods(this);
             IndexedFields = new IndexedFieldMethods(this);
             ObjectLocks = new ObjectLockMethods(this);
+            RequestHistory = new RequestHistoryMethods(this);
         }
 
         #endregion

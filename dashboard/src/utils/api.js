@@ -6,22 +6,95 @@ export class LatticeApi {
     this.baseUrl = baseUrl.replace(/\/$/, '')
   }
 
-  async request(method, path, body = null) {
-    const url = `${this.baseUrl}${path}`
-    const options = {
+  buildUrl(path, query = null) {
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`
+    const url = new URL(`${this.baseUrl}${normalizedPath}`)
+
+    if (query) {
+      Object.entries(query).forEach(([key, value]) => {
+        if (value === null || value === undefined || value === '') return
+        if (Array.isArray(value)) {
+          value.forEach((entry) => {
+            if (entry !== null && entry !== undefined && entry !== '') {
+              url.searchParams.append(key, String(entry))
+            }
+          })
+          return
+        }
+
+        url.searchParams.set(key, String(value))
+      })
+    }
+
+    return url.toString()
+  }
+
+  async requestRaw(method, path, options = {}) {
+    const {
+      body = null,
+      headers = {},
+      query = null,
+      signal = null,
+      contentType = 'application/json',
+    } = options
+
+    const url = this.buildUrl(path, query)
+    const requestHeaders = { ...headers }
+    const fetchOptions = {
       method,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: requestHeaders,
+      signal,
     }
 
-    if (body) {
-      options.body = JSON.stringify(body)
+    if (body !== null && body !== undefined && body !== '') {
+      if (!Object.keys(requestHeaders).some((key) => key.toLowerCase() === 'content-type') && contentType) {
+        requestHeaders['Content-Type'] = contentType
+      }
+
+      if (typeof body === 'string') {
+        fetchOptions.body = body
+      } else if ((requestHeaders['Content-Type'] || requestHeaders['content-type'] || '').includes('application/json')) {
+        fetchOptions.body = JSON.stringify(body)
+      } else {
+        fetchOptions.body = body
+      }
     }
 
-    const response = await fetch(url, options)
+    const startedAt = performance.now()
+    const response = await fetch(url, fetchOptions)
+    const durationMs = performance.now() - startedAt
 
-    // For HEAD requests or 204 No Content
+    let text = ''
+    if (response.status !== 204 && method !== 'HEAD') {
+      text = await response.text()
+    }
+
+    let json = null
+    if (text) {
+      try {
+        json = JSON.parse(text)
+      } catch {
+        json = null
+      }
+    }
+
+    return {
+      ok: response.ok,
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries()),
+      requestId: response.headers.get('x-lattice-request-id'),
+      contentType: response.headers.get('content-type') || '',
+      text,
+      json,
+      durationMs,
+      url,
+    }
+  }
+
+  async request(method, path, body = null, options = {}) {
+    const response = await this.requestRaw(method, path, { ...options, body })
+
     if (response.status === 204 || method === 'HEAD') {
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`)
@@ -29,7 +102,7 @@ export class LatticeApi {
       return null
     }
 
-    const responseData = await response.json()
+    const responseData = response.json
 
     // Handle WatsonWebserver ResponseContext wrapper
     if (responseData && typeof responseData === 'object' && 'success' in responseData) {
@@ -40,10 +113,14 @@ export class LatticeApi {
     }
 
     if (!response.ok) {
-      throw new Error(responseData.error || `HTTP ${response.status}`)
+      throw new Error(responseData?.error || response.text || `HTTP ${response.status}`)
     }
 
-    return responseData
+    if (responseData !== null) {
+      return responseData
+    }
+
+    return response.text
   }
 
   // Collections
@@ -86,7 +163,9 @@ export class LatticeApi {
   }
 
   async getDocumentContent(collectionId, id) {
-    return this.request('GET', `/v1.0/collections/${collectionId}/documents/${id}?includeContent=true`)
+    return this.request('GET', `/v1.0/collections/${collectionId}/documents/${id}`, null, {
+      query: { includeContent: true },
+    })
   }
 
   async deleteDocument(collectionId, id) {
@@ -117,7 +196,9 @@ export class LatticeApi {
   }
 
   async getTableEntries(tableName, skip = 0, limit = 100) {
-    return this.request('GET', `/v1.0/tables/${encodeURIComponent(tableName)}/entries?skip=${skip}&limit=${limit}`)
+    return this.request('GET', `/v1.0/tables/${encodeURIComponent(tableName)}/entries`, null, {
+      query: { skip, limit },
+    })
   }
 
   // Schema Constraints
@@ -141,6 +222,39 @@ export class LatticeApi {
   // Index Rebuild
   async rebuildIndexes(collectionId, options = {}) {
     return this.request('POST', `/v1.0/collections/${collectionId}/indexes/rebuild`, options)
+  }
+
+  // Diagnostics / OpenAPI
+  async getOpenApiSpec() {
+    const response = await this.requestRaw('GET', '/openapi.json')
+    if (!response.ok || !response.json) {
+      throw new Error(response.text || `HTTP ${response.status}`)
+    }
+    return response.json
+  }
+
+  async searchRequestHistory(params = {}) {
+    return this.request('GET', '/v1.0/requesthistory', null, { query: params })
+  }
+
+  async getRequestHistoryEntry(requestId) {
+    return this.request('GET', `/v1.0/requesthistory/${requestId}`)
+  }
+
+  async getRequestHistoryDetail(requestId) {
+    return this.request('GET', `/v1.0/requesthistory/${requestId}/detail`)
+  }
+
+  async getRequestHistorySummary(params = {}) {
+    return this.request('GET', '/v1.0/requesthistory/summary', null, { query: params })
+  }
+
+  async deleteRequestHistoryEntry(requestId) {
+    return this.request('DELETE', `/v1.0/requesthistory/${requestId}`)
+  }
+
+  async bulkDeleteRequestHistory(filter = {}) {
+    return this.request('DELETE', '/v1.0/requesthistory/bulk', filter)
   }
 }
 

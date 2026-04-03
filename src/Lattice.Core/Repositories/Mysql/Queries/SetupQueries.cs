@@ -203,6 +203,47 @@ namespace Lattice.Core.Repositories.Mysql.Queries
 
                 CREATE INDEX IF NOT EXISTS `idx_objectlocks_createdutc` ON `objectlocks`(`createdutc`);
                 CREATE INDEX IF NOT EXISTS `idx_objectlocks_hostname` ON `objectlocks`(`hostname`);
+
+                -- Request history table
+                CREATE TABLE IF NOT EXISTS `requesthistory` (
+                    `id` VARCHAR(64) NOT NULL,
+                    `createdutc` DATETIME(6) NOT NULL,
+                    `completedutc` DATETIME(6) NOT NULL,
+                    `requesttype` VARCHAR(64) NOT NULL,
+                    `method` VARCHAR(16) NOT NULL,
+                    `path` TEXT NOT NULL,
+                    `url` MEDIUMTEXT NOT NULL,
+                    `sourceip` VARCHAR(128) NOT NULL,
+                    `collectionid` VARCHAR(64),
+                    `documentid` VARCHAR(64),
+                    `schemaid` VARCHAR(64),
+                    `tablename` VARCHAR(256),
+                    `statuscode` INT NOT NULL,
+                    `success` TINYINT NOT NULL,
+                    `processingtimems` DOUBLE NOT NULL DEFAULT 0,
+                    `requestbodylength` BIGINT NOT NULL DEFAULT 0,
+                    `responsebodylength` BIGINT NOT NULL DEFAULT 0,
+                    `requestbodytruncated` TINYINT NOT NULL DEFAULT 0,
+                    `responsebodytruncated` TINYINT NOT NULL DEFAULT 0,
+                    `requestcontenttype` VARCHAR(256),
+                    `responsecontenttype` VARCHAR(256),
+                    `requestheadersjson` MEDIUMTEXT,
+                    `requestbody` MEDIUMTEXT,
+                    `responseheadersjson` MEDIUMTEXT,
+                    `responsebody` MEDIUMTEXT,
+                    PRIMARY KEY (`id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE INDEX IF NOT EXISTS `idx_requesthistory_createdutc` ON `requesthistory`(`createdutc`);
+                CREATE INDEX IF NOT EXISTS `idx_requesthistory_requesttype_createdutc` ON `requesthistory`(`requesttype`, `createdutc`);
+                CREATE INDEX IF NOT EXISTS `idx_requesthistory_method_createdutc` ON `requesthistory`(`method`, `createdutc`);
+                CREATE INDEX IF NOT EXISTS `idx_requesthistory_statuscode_createdutc` ON `requesthistory`(`statuscode`, `createdutc`);
+                CREATE INDEX IF NOT EXISTS `idx_requesthistory_success_createdutc` ON `requesthistory`(`success`, `createdutc`);
+                CREATE INDEX IF NOT EXISTS `idx_requesthistory_collectionid_createdutc` ON `requesthistory`(`collectionid`, `createdutc`);
+                CREATE INDEX IF NOT EXISTS `idx_requesthistory_documentid_createdutc` ON `requesthistory`(`documentid`, `createdutc`);
+                CREATE INDEX IF NOT EXISTS `idx_requesthistory_schemaid_createdutc` ON `requesthistory`(`schemaid`, `createdutc`);
+                CREATE INDEX IF NOT EXISTS `idx_requesthistory_tablename_createdutc` ON `requesthistory`(`tablename`, `createdutc`);
+                CREATE INDEX IF NOT EXISTS `idx_requesthistory_sourceip_createdutc` ON `requesthistory`(`sourceip`, `createdutc`);
             ";
         }
 

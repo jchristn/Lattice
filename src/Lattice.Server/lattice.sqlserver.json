@@ -11,6 +11,13 @@
     "SslCertificateFile": null,
     "SslCertificatePassword": null
   },
+  "RequestHistory": {
+    "Enabled": true,
+    "MaxRequestBodyBytes": 65536,
+    "MaxResponseBodyBytes": 65536,
+    "RetentionDays": 30,
+    "PruneIntervalMinutes": 60
+  },
   "Lattice": {
     "Database": {
       "Type": "SqlServer",

@@ -3,6 +3,7 @@ namespace Lattice.Server.Classes
     using System;
     using System.IO;
     using System.Text.Json;
+    using System.Text.Json.Serialization;
     using Lattice.Core;
 
     /// <summary>
@@ -65,6 +66,22 @@ namespace Lattice.Server.Classes
             }
         }
 
+        /// <summary>
+        /// Request history settings.
+        /// </summary>
+        public RequestHistorySettings RequestHistory
+        {
+            get
+            {
+                return _RequestHistory;
+            }
+            set
+            {
+                if (value == null) _RequestHistory = new RequestHistorySettings();
+                else _RequestHistory = value;
+            }
+        }
+
         #endregion
 
         #region Private-Members
@@ -72,6 +89,7 @@ namespace Lattice.Server.Classes
         private LoggingSettings _Logging = new LoggingSettings();
         private RestSettings _Rest = new RestSettings();
         private LatticeSettings _Lattice = new LatticeSettings();
+        private RequestHistorySettings _RequestHistory = new RequestHistorySettings();
 
         #endregion
 
@@ -135,7 +153,11 @@ namespace Lattice.Server.Classes
             return new JsonSerializerOptions
             {
                 WriteIndented = true,
-                PropertyNamingPolicy = null
+                PropertyNamingPolicy = null,
+                Converters =
+                {
+                    new JsonStringEnumConverter()
+                }
             };
         }
 

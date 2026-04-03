@@ -9,6 +9,8 @@ import Schemas from './views/Schemas'
 import SchemaElements from './views/SchemaElements'
 import Tables from './views/Tables'
 import IndexEntries from './views/IndexEntries'
+import ApiExplorer from './views/ApiExplorer'
+import RequestHistory from './views/RequestHistory'
 
 function App() {
   const { serverUrl } = useApp()
@@ -30,6 +32,8 @@ function App() {
         <Route path="tables" element={<Tables />} />
         <Route path="entries" element={<IndexEntries />} />
         <Route path="search" element={<Search />} />
+        <Route path="api-explorer" element={<ApiExplorer />} />
+        <Route path="request-history" element={<RequestHistory />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

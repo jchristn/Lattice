@@ -184,6 +184,45 @@ namespace Lattice.Core.Repositories.Sqlite.Queries
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_objectlocks_collectionid_documentname ON objectlocks(collectionid, documentname);
                 CREATE INDEX IF NOT EXISTS idx_objectlocks_createdutc ON objectlocks(createdutc);
                 CREATE INDEX IF NOT EXISTS idx_objectlocks_hostname ON objectlocks(hostname);
+
+                -- Request history table
+                CREATE TABLE IF NOT EXISTS requesthistory (
+                    id TEXT PRIMARY KEY,
+                    createdutc TEXT NOT NULL,
+                    completedutc TEXT NOT NULL,
+                    requesttype TEXT NOT NULL,
+                    method TEXT NOT NULL,
+                    path TEXT NOT NULL,
+                    url TEXT NOT NULL,
+                    sourceip TEXT NOT NULL,
+                    collectionid TEXT,
+                    documentid TEXT,
+                    schemaid TEXT,
+                    tablename TEXT,
+                    statuscode INTEGER NOT NULL,
+                    success INTEGER NOT NULL,
+                    processingtimems REAL NOT NULL DEFAULT 0,
+                    requestbodylength INTEGER NOT NULL DEFAULT 0,
+                    responsebodylength INTEGER NOT NULL DEFAULT 0,
+                    requestbodytruncated INTEGER NOT NULL DEFAULT 0,
+                    responsebodytruncated INTEGER NOT NULL DEFAULT 0,
+                    requestcontenttype TEXT,
+                    responsecontenttype TEXT,
+                    requestheadersjson TEXT,
+                    requestbody TEXT,
+                    responseheadersjson TEXT,
+                    responsebody TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_requesthistory_createdutc ON requesthistory(createdutc);
+                CREATE INDEX IF NOT EXISTS idx_requesthistory_requesttype_createdutc ON requesthistory(requesttype, createdutc);
+                CREATE INDEX IF NOT EXISTS idx_requesthistory_method_createdutc ON requesthistory(method, createdutc);
+                CREATE INDEX IF NOT EXISTS idx_requesthistory_statuscode_createdutc ON requesthistory(statuscode, createdutc);
+                CREATE INDEX IF NOT EXISTS idx_requesthistory_success_createdutc ON requesthistory(success, createdutc);
+                CREATE INDEX IF NOT EXISTS idx_requesthistory_collectionid_createdutc ON requesthistory(collectionid, createdutc);
+                CREATE INDEX IF NOT EXISTS idx_requesthistory_documentid_createdutc ON requesthistory(documentid, createdutc);
+                CREATE INDEX IF NOT EXISTS idx_requesthistory_schemaid_createdutc ON requesthistory(schemaid, createdutc);
+                CREATE INDEX IF NOT EXISTS idx_requesthistory_tablename_createdutc ON requesthistory(tablename, createdutc);
+                CREATE INDEX IF NOT EXISTS idx_requesthistory_sourceip_createdutc ON requesthistory(sourceip, createdutc);
             ";
         }
 

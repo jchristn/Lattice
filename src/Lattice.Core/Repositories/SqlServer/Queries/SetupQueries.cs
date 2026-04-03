@@ -215,6 +215,66 @@ namespace Lattice.Core.Repositories.SqlServer.Queries
 
                 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_objectlocks_hostname')
                 CREATE INDEX [idx_objectlocks_hostname] ON [objectlocks]([hostname]);
+
+                -- Request history table
+                IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'requesthistory')
+                CREATE TABLE [requesthistory] (
+                    [id] NVARCHAR(64) NOT NULL PRIMARY KEY,
+                    [createdutc] DATETIME2 NOT NULL,
+                    [completedutc] DATETIME2 NOT NULL,
+                    [requesttype] NVARCHAR(64) NOT NULL,
+                    [method] NVARCHAR(16) NOT NULL,
+                    [path] NVARCHAR(MAX) NOT NULL,
+                    [url] NVARCHAR(MAX) NOT NULL,
+                    [sourceip] NVARCHAR(128) NOT NULL,
+                    [collectionid] NVARCHAR(64),
+                    [documentid] NVARCHAR(64),
+                    [schemaid] NVARCHAR(64),
+                    [tablename] NVARCHAR(256),
+                    [statuscode] INT NOT NULL,
+                    [success] BIT NOT NULL,
+                    [processingtimems] FLOAT NOT NULL DEFAULT 0,
+                    [requestbodylength] BIGINT NOT NULL DEFAULT 0,
+                    [responsebodylength] BIGINT NOT NULL DEFAULT 0,
+                    [requestbodytruncated] BIT NOT NULL DEFAULT 0,
+                    [responsebodytruncated] BIT NOT NULL DEFAULT 0,
+                    [requestcontenttype] NVARCHAR(256),
+                    [responsecontenttype] NVARCHAR(256),
+                    [requestheadersjson] NVARCHAR(MAX),
+                    [requestbody] NVARCHAR(MAX),
+                    [responseheadersjson] NVARCHAR(MAX),
+                    [responsebody] NVARCHAR(MAX)
+                );
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_requesthistory_createdutc')
+                CREATE INDEX [idx_requesthistory_createdutc] ON [requesthistory]([createdutc]);
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_requesthistory_requesttype_createdutc')
+                CREATE INDEX [idx_requesthistory_requesttype_createdutc] ON [requesthistory]([requesttype], [createdutc]);
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_requesthistory_method_createdutc')
+                CREATE INDEX [idx_requesthistory_method_createdutc] ON [requesthistory]([method], [createdutc]);
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_requesthistory_statuscode_createdutc')
+                CREATE INDEX [idx_requesthistory_statuscode_createdutc] ON [requesthistory]([statuscode], [createdutc]);
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_requesthistory_success_createdutc')
+                CREATE INDEX [idx_requesthistory_success_createdutc] ON [requesthistory]([success], [createdutc]);
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_requesthistory_collectionid_createdutc')
+                CREATE INDEX [idx_requesthistory_collectionid_createdutc] ON [requesthistory]([collectionid], [createdutc]);
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_requesthistory_documentid_createdutc')
+                CREATE INDEX [idx_requesthistory_documentid_createdutc] ON [requesthistory]([documentid], [createdutc]);
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_requesthistory_schemaid_createdutc')
+                CREATE INDEX [idx_requesthistory_schemaid_createdutc] ON [requesthistory]([schemaid], [createdutc]);
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_requesthistory_tablename_createdutc')
+                CREATE INDEX [idx_requesthistory_tablename_createdutc] ON [requesthistory]([tablename], [createdutc]);
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_requesthistory_sourceip_createdutc')
+                CREATE INDEX [idx_requesthistory_sourceip_createdutc] ON [requesthistory]([sourceip], [createdutc]);
             ";
         }
 

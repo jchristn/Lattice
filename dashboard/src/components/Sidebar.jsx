@@ -4,10 +4,12 @@ import {
   BracketsIcon,
   FileIcon,
   FolderIcon,
+  HistoryIcon,
   ListIcon,
   SchemaIcon,
   SearchIcon,
   TableIcon,
+  TerminalIcon,
 } from './Icons'
 import './Sidebar.css'
 
@@ -74,6 +76,22 @@ export default function Sidebar() {
         >
           <span className="sidebar-icon"><SearchIcon size={16} /></span>
           Search
+        </NavLink>
+
+        <NavLink
+          to="/api-explorer"
+          className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+        >
+          <span className="sidebar-icon"><TerminalIcon size={16} /></span>
+          API Explorer
+        </NavLink>
+
+        <NavLink
+          to="/request-history"
+          className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+        >
+          <span className="sidebar-icon"><HistoryIcon size={16} /></span>
+          Request History
         </NavLink>
       </nav>
 

@@ -262,5 +262,93 @@ namespace Lattice.Core.Repositories.Sqlite
                 CreatedUtc = DateTime.Parse(row["createdutc"].ToString())
             };
         }
+
+        internal static RequestHistoryEntry RequestHistoryEntryFromDataRow(DataRow row)
+        {
+            if (row == null) return null;
+
+            return new RequestHistoryEntry
+            {
+                Id = row["id"]?.ToString(),
+                CreatedUtc = DateTime.SpecifyKind(DateTime.Parse(row["createdutc"].ToString()), DateTimeKind.Utc),
+                CompletedUtc = DateTime.SpecifyKind(DateTime.Parse(row["completedutc"].ToString()), DateTimeKind.Utc),
+                RequestType = row["requesttype"]?.ToString() ?? "unknown",
+                Method = row["method"]?.ToString() ?? "GET",
+                Path = row["path"]?.ToString() ?? "/",
+                Url = row["url"]?.ToString() ?? "/",
+                SourceIp = row["sourceip"]?.ToString() ?? "unknown",
+                CollectionId = row["collectionid"] != DBNull.Value ? row["collectionid"]?.ToString() : null,
+                DocumentId = row["documentid"] != DBNull.Value ? row["documentid"]?.ToString() : null,
+                SchemaId = row["schemaid"] != DBNull.Value ? row["schemaid"]?.ToString() : null,
+                TableName = row["tablename"] != DBNull.Value ? row["tablename"]?.ToString() : null,
+                StatusCode = Convert.ToInt32(row["statuscode"]),
+                Success = Convert.ToInt32(row["success"]) == 1,
+                ProcessingTimeMs = Convert.ToDouble(row["processingtimems"]),
+                RequestBodyLength = Convert.ToInt64(row["requestbodylength"]),
+                ResponseBodyLength = Convert.ToInt64(row["responsebodylength"]),
+                RequestBodyTruncated = Convert.ToInt32(row["requestbodytruncated"]) == 1,
+                ResponseBodyTruncated = Convert.ToInt32(row["responsebodytruncated"]) == 1,
+                RequestContentType = row["requestcontenttype"] != DBNull.Value ? row["requestcontenttype"]?.ToString() : null,
+                ResponseContentType = row["responsecontenttype"] != DBNull.Value ? row["responsecontenttype"]?.ToString() : null
+            };
+        }
+
+        internal static RequestHistoryDetail RequestHistoryDetailFromDataRow(DataRow row)
+        {
+            RequestHistoryEntry entry = RequestHistoryEntryFromDataRow(row);
+            if (entry == null) return null;
+
+            return new RequestHistoryDetail
+            {
+                Id = entry.Id,
+                CreatedUtc = entry.CreatedUtc,
+                CompletedUtc = entry.CompletedUtc,
+                RequestType = entry.RequestType,
+                Method = entry.Method,
+                Path = entry.Path,
+                Url = entry.Url,
+                SourceIp = entry.SourceIp,
+                CollectionId = entry.CollectionId,
+                DocumentId = entry.DocumentId,
+                SchemaId = entry.SchemaId,
+                TableName = entry.TableName,
+                StatusCode = entry.StatusCode,
+                Success = entry.Success,
+                ProcessingTimeMs = entry.ProcessingTimeMs,
+                RequestBodyLength = entry.RequestBodyLength,
+                ResponseBodyLength = entry.ResponseBodyLength,
+                RequestBodyTruncated = entry.RequestBodyTruncated,
+                ResponseBodyTruncated = entry.ResponseBodyTruncated,
+                RequestContentType = entry.RequestContentType,
+                ResponseContentType = entry.ResponseContentType,
+                RequestHeaders = DeserializeStringDictionary(row, "requestheadersjson"),
+                RequestBody = row.Table.Columns.Contains("requestbody") && row["requestbody"] != DBNull.Value ? row["requestbody"]?.ToString() : null,
+                ResponseHeaders = DeserializeStringDictionary(row, "responseheadersjson"),
+                ResponseBody = row.Table.Columns.Contains("responsebody") && row["responsebody"] != DBNull.Value ? row["responsebody"]?.ToString() : null
+            };
+        }
+
+        private static Dictionary<string, string> DeserializeStringDictionary(DataRow row, string columnName)
+        {
+            if (!row.Table.Columns.Contains(columnName) || row[columnName] == DBNull.Value)
+            {
+                return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            string json = row[columnName]?.ToString();
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            try
+            {
+                return JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            }
+        }
     }
 }

@@ -12,6 +12,11 @@ namespace Lattice.Server.Classes
         #region Public-Members
 
         /// <summary>
+        /// Request creation time in UTC.
+        /// </summary>
+        public DateTime CreatedUtc { get; set; } = DateTime.UtcNow;
+
+        /// <summary>
         /// Unique identifier for this request.
         /// </summary>
         public string Guid { get; set; } = System.Guid.NewGuid().ToString();
@@ -42,6 +47,11 @@ namespace Lattice.Server.Classes
         public string? Url { get; set; } = null;
 
         /// <summary>
+        /// Request path without the query string.
+        /// </summary>
+        public string? Path { get; set; } = null;
+
+        /// <summary>
         /// Query parameters.
         /// </summary>
         public NameValueCollection QueryParams { get; set; } = new NameValueCollection();
@@ -50,6 +60,31 @@ namespace Lattice.Server.Classes
         /// Request headers.
         /// </summary>
         public Dictionary<string, string> Headers { get; set; } = new Dictionary<string, string>();
+
+        /// <summary>
+        /// Request body text when present.
+        /// </summary>
+        public string? RequestBody { get; set; } = null;
+
+        /// <summary>
+        /// Collection identifier when present in the route.
+        /// </summary>
+        public string? CollectionId { get; set; } = null;
+
+        /// <summary>
+        /// Document identifier when present in the route.
+        /// </summary>
+        public string? DocumentId { get; set; } = null;
+
+        /// <summary>
+        /// Schema identifier when present in the route.
+        /// </summary>
+        public string? SchemaId { get; set; } = null;
+
+        /// <summary>
+        /// Table name when present in the route.
+        /// </summary>
+        public string? TableName { get; set; } = null;
 
         #endregion
 

@@ -49,6 +49,9 @@ namespace Lattice.Core.Repositories.Postgresql
         /// <inheritdoc />
         public override IObjectLockMethods ObjectLocks { get; }
 
+        /// <inheritdoc />
+        public override IRequestHistoryMethods RequestHistory { get; }
+
         #endregion
 
         #region Private-Members
@@ -87,6 +90,7 @@ namespace Lattice.Core.Repositories.Postgresql
             FieldConstraints = new FieldConstraintMethods(this);
             IndexedFields = new IndexedFieldMethods(this);
             ObjectLocks = new ObjectLockMethods(this);
+            RequestHistory = new RequestHistoryMethods(this);
         }
 
         /// <summary>
