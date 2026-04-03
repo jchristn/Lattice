@@ -39,7 +39,6 @@ namespace Lattice.Server.Services
             {
                 _RetentionCts = new CancellationTokenSource();
                 _RetentionTask = Task.Run(() => RunRetentionLoopAsync(_RetentionCts.Token));
-                _Logging?.Info(_Header + "initialized database-backed storage with " + _Settings.RetentionDays + "-day retention");
             }
             else
             {
