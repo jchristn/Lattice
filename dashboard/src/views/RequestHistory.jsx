@@ -676,7 +676,11 @@ export default function RequestHistory() {
               </tr>
             ) : (
               entries.map((entry) => (
-                <tr key={entry.id}>
+                <tr
+                  key={entry.id}
+                  className="request-history-row"
+                  onClick={() => loadDetail(entry)}
+                >
                   <td>{formatDate(entry.createdUtc)}</td>
                   <td><span className={`request-history-method request-history-method-${entry.method.toLowerCase()}`}>{entry.method}</span></td>
                   <td>
@@ -687,10 +691,10 @@ export default function RequestHistory() {
                   </td>
                   <td><span className={`request-history-status request-history-status-${entry.statusCode >= 400 ? 'error' : 'success'}`}>{entry.statusCode}</span></td>
                   <td>{formatRequestType(entry.requestType)}</td>
-                  <td>{entry.collectionId ? <CopyableId value={entry.collectionId} /> : '-'}</td>
+                  <td onClick={(e) => e.stopPropagation()}>{entry.collectionId ? <CopyableId value={entry.collectionId} /> : '-'}</td>
                   <td>{formatDuration(entry.processingTimeMs)}</td>
-                  <td><CopyableId value={entry.id} /></td>
-                  <td>
+                  <td onClick={(e) => e.stopPropagation()}><CopyableId value={entry.id} /></td>
+                  <td onClick={(e) => e.stopPropagation()}>
                     <ActionMenu
                       items={[
                         { label: 'View Detail', onClick: () => loadDetail(entry) },
@@ -714,7 +718,7 @@ export default function RequestHistory() {
         }}
         title="Request Detail"
         subtitle="Review the full server-side request and response capture, including headers, body snapshots, and timing."
-        wide
+        extraWide
       >
         {detailLoading ? (
           <div className="loading">Loading request detail...</div>
@@ -752,9 +756,9 @@ export default function RequestHistory() {
               <code>{detail.url}</code>
             </div>
 
-            <CollapsibleBlock title="Request Headers" value={detail.requestHeaders} defaultExpanded />
+            <CollapsibleBlock title="Request Headers" value={detail.requestHeaders} />
             <CollapsibleBlock title="Request Body" value={detail.requestBody || ''} />
-            <CollapsibleBlock title="Response Headers" value={detail.responseHeaders} defaultExpanded />
+            <CollapsibleBlock title="Response Headers" value={detail.responseHeaders} />
             <CollapsibleBlock title="Response Body" value={detail.responseBody || ''} />
           </div>
         ) : (

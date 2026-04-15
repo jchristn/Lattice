@@ -4,6 +4,14 @@
   gap: 20px;
 }
 
+.request-history-row {
+  cursor: pointer;
+}
+
+.request-history-row:hover {
+  background-color: var(--bg-hover, rgba(127, 127, 127, 0.08));
+}
+
 .request-history-summary-card,
 .request-history-filters-card {
   display: flex;
