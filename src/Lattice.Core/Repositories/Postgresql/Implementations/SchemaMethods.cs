@@ -56,7 +56,7 @@ namespace Lattice.Core.Repositories.Postgresql.Implementations
 
         public async Task<Schema> ReadByHash(string hash, CancellationToken token = default)
         {
-            if (string.IsNullOrWhiteSpace(hash)) throw new ArgumentNullException(nameof(hash));
+            if (hash == null) throw new ArgumentNullException(nameof(hash));
             token.ThrowIfCancellationRequested();
 
             string query = $"SELECT * FROM schemas WHERE hash = '{Sanitizer.Sanitize(hash)}';";
@@ -113,7 +113,7 @@ namespace Lattice.Core.Repositories.Postgresql.Implementations
 
         public async Task<bool> ExistsByHash(string hash, CancellationToken token = default)
         {
-            if (string.IsNullOrWhiteSpace(hash)) throw new ArgumentNullException(nameof(hash));
+            if (hash == null) throw new ArgumentNullException(nameof(hash));
             token.ThrowIfCancellationRequested();
 
             string query = $"SELECT COUNT(*) as cnt FROM schemas WHERE hash = '{Sanitizer.Sanitize(hash)}';";

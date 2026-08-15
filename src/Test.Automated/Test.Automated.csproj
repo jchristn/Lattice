@@ -1,7 +1,11 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\Lattice.Core\Lattice.Core.csproj" />
+    <ProjectReference Include="..\Test.Shared\Test.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Touchstone.Cli" Version="0.1.12" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -10,6 +14,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <NoWarn>$(NoWarn);CS8632</NoWarn>
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>
