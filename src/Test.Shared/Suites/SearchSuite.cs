@@ -332,6 +332,66 @@ namespace Test.Shared.Suites
                 TestAssert.Count(3, r.Documents);
             });
 
+            b.Add("SearchBySql: with label and tag filters", async client =>
+            {
+                Collection c = await client.Collection.Create("Test");
+                await client.Document.Ingest(c.Id, @"{""Name"":""Joel""}",
+                    labels: new List<string> { "important" }, tags: new Dictionary<string, string> { { "env", "prod" } });
+                await client.Document.Ingest(c.Id, @"{""Name"":""Joel""}",
+                    labels: new List<string> { "other" }, tags: new Dictionary<string, string> { { "env", "prod" } });
+                await client.Document.Ingest(c.Id, @"{""Name"":""John""}",
+                    labels: new List<string> { "important" }, tags: new Dictionary<string, string> { { "env", "prod" } });
+
+                // WHERE Name = 'Joel' matches docs 1 and 2; the "important" label narrows to doc 1;
+                // the env=prod tag is satisfied by all three, so the result is exactly doc 1.
+                SearchResult r = await client.Search.SearchBySql(
+                    c.Id,
+                    "SELECT * FROM documents WHERE Name = 'Joel'",
+                    new List<string> { "important" },
+                    new Dictionary<string, string> { { "env", "prod" } });
+                TestAssert.Count(1, r.Documents);
+            });
+
+            // ----- Like operator (SQL LIKE wildcards) -----
+
+            b.Add("Like: percent wildcard matches pattern", async client =>
+            {
+                Collection c = await client.Collection.Create("Test");
+                await client.Document.Ingest(c.Id, @"{""Word"":""apple""}");
+                await client.Document.Ingest(c.Id, @"{""Word"":""apricot""}");
+                await client.Document.Ingest(c.Id, @"{""Word"":""grape""}");
+                // "a%t" => starts with 'a', ends with 't' => only "apricot".
+                SearchResult r = await client.Search.Search(Query(c.Id, new SearchFilter("Word", SearchConditionEnum.Like, "a%t")));
+                TestAssert.Count(1, r.Documents);
+            });
+
+            b.Add("Like: underscore wildcard matches single character", async client =>
+            {
+                Collection c = await client.Collection.Create("Test");
+                await client.Document.Ingest(c.Id, @"{""Word"":""grape""}");
+                await client.Document.Ingest(c.Id, @"{""Word"":""gripe""}");
+                await client.Document.Ingest(c.Id, @"{""Word"":""grumble""}");
+                // "gr_pe" => 'gr' + exactly one char + 'pe' => "grape" and "gripe", but not "grumble".
+                SearchResult r = await client.Search.Search(Query(c.Id, new SearchFilter("Word", SearchConditionEnum.Like, "gr_pe")));
+                TestAssert.Count(2, r.Documents);
+            });
+
+            // ----- Negative: argument validation -----
+
+            b.Add("Search: null query throws", async client =>
+            {
+                await TestAssert.ThrowsAsync<System.ArgumentNullException>(() => client.Search.Search(null));
+            });
+
+            b.Add("SearchFilter: null field throws", async client =>
+            {
+                await TestAssert.ThrowsAsync<System.ArgumentNullException>(() =>
+                {
+                    _ = new SearchFilter(null, SearchConditionEnum.Equals, "x");
+                    return Task.CompletedTask;
+                });
+            });
+
             return b.Build();
         }
     }
