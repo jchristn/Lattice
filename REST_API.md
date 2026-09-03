@@ -7,7 +7,13 @@ Comprehensive reference for the Lattice Server REST API. Lattice is a JSON docum
 ## Table of Contents
 
 - [Base URL](#base-url)
-- [Authentication](#authentication)
+- [Authentication & Authorization](#authentication--authorization)
+  - [Authentication Methods](#authentication-methods)
+  - [Public (Unauthenticated) Routes](#public-unauthenticated-routes)
+  - [Multi-Tenancy](#multi-tenancy)
+  - [Authorization (RBAC)](#authorization-rbac)
+  - [First-Run Bootstrap](#first-run-bootstrap)
+  - [Login Flow (Example)](#login-flow-example)
 - [Response Format](#response-format)
 - [Enumeration & Pagination](#enumeration--pagination)
 - [Error Handling](#error-handling)
@@ -16,6 +22,35 @@ Comprehensive reference for the Lattice Server REST API. Lattice is a JSON docum
   - [Health](#health)
     - [GET / -- Root Health Check](#get----root-health-check)
     - [GET /v1.0/health -- Versioned Health Check](#get-v10health--versioned-health-check)
+  - [Authentication & Session](#authentication--session)
+    - [POST /v1.0/token -- Login](#post-v10token--login)
+    - [GET /v1.0/token -- Current Principal](#get-v10token--current-principal)
+    - [DELETE /v1.0/token -- Logout](#delete-v10token--logout)
+  - [Tenants](#tenants)
+    - [GET /v1.0/tenants -- List Tenants](#get-v10tenants--list-tenants)
+    - [PUT /v1.0/tenants -- Create Tenant](#put-v10tenants--create-tenant)
+    - [GET /v1.0/tenants/{tenantId} -- Get Tenant](#get-v10tenantstenantid--get-tenant)
+    - [DELETE /v1.0/tenants/{tenantId} -- Delete Tenant](#delete-v10tenantstenantid--delete-tenant)
+  - [Users](#users)
+    - [GET /v1.0/users -- List Users](#get-v10users--list-users)
+    - [PUT /v1.0/users -- Create User](#put-v10users--create-user)
+    - [GET /v1.0/users/{userId} -- Get User](#get-v10usersuserid--get-user)
+    - [DELETE /v1.0/users/{userId} -- Delete User](#delete-v10usersuserid--delete-user)
+  - [Credentials](#credentials)
+    - [GET /v1.0/credentials -- List Credentials](#get-v10credentials--list-credentials)
+    - [PUT /v1.0/credentials -- Create Credential](#put-v10credentials--create-credential)
+    - [GET /v1.0/credentials/{credentialId} -- Get Credential](#get-v10credentialscredentialid--get-credential)
+    - [DELETE /v1.0/credentials/{credentialId} -- Delete Credential](#delete-v10credentialscredentialid--delete-credential)
+  - [Roles](#roles)
+    - [GET /v1.0/roles -- List Roles](#get-v10roles--list-roles)
+  - [Assignments](#assignments)
+    - [GET /v1.0/assignments -- List Assignments](#get-v10assignments--list-assignments)
+    - [PUT /v1.0/assignments -- Create Assignment](#put-v10assignments--create-assignment)
+    - [DELETE /v1.0/assignments/{assignmentId} -- Delete Assignment](#delete-v10assignmentsassignmentid--delete-assignment)
+  - [Audit](#audit)
+    - [GET /v1.0/audit -- List Audit Entries](#get-v10audit--list-audit-entries)
+    - [GET /v1.0/audit/{auditId} -- Get Audit Entry](#get-v10auditauditid--get-audit-entry)
+    - [DELETE /v1.0/audit/{auditId} -- Delete Audit Entry](#delete-v10auditauditid--delete-audit-entry)
   - [Collections](#collections)
     - [PUT /v1.0/collections -- Create Collection](#put-v10collections--create-collection)
     - [GET /v1.0/collections -- List Collections](#get-v10collections--list-collections)
@@ -58,9 +93,150 @@ The hostname and port are configurable in the server settings. SSL/TLS is suppor
 
 ---
 
-## Authentication
+## Authentication & Authorization
 
-The Lattice API does not currently enforce authentication. All endpoints are accessible without credentials.
+As of **v0.3.0**, Lattice enforces authentication and role-based authorization. Authentication is **enabled by default**. When it is enabled, every route requires a valid credential except for the small set of [public routes](#public-unauthenticated-routes) listed below.
+
+Requests carry their credential in the standard `Authorization` header:
+
+```
+Authorization: Bearer <value>
+```
+
+The header `x-token: <value>` is accepted as an alias for `Authorization: Bearer <value>`.
+
+An unauthenticated request to a protected route is rejected with **HTTP 401**:
+
+```json
+{ "error": "Authentication required" }
+```
+
+An authenticated request that lacks the required permission is rejected with **HTTP 403**:
+
+```json
+{ "error": "Authorization denied: requires Collection:Create" }
+```
+
+The `<ResourceType>:<Operation>` in the 403 message names the permission that was required (see [Authorization (RBAC)](#authorization-rbac)).
+
+### Authentication Methods
+
+There are exactly **two** ways to authenticate, both presented as the `Authorization: Bearer <value>` header:
+
+1. **Session token.** Obtain a session token by posting an email, password, and tenant id to [`POST /v1.0/token`](#post-v10token--login). The `token` returned in the response is used as the bearer value. Session tokens expire (default **60 minutes**); after expiry, log in again. A session may be ended early with [`DELETE /v1.0/token`](#delete-v10token--logout).
+2. **Access key.** A credential's access key (format `access_...`) is presented **directly** as the bearer value. Access keys are long-lived and intended for machine-to-machine use. Create one with [`PUT /v1.0/credentials`](#put-v10credentials--create-credential); the raw access key is returned **once** at creation and cannot be retrieved again.
+
+> There is **no** `x-api-key` header, no separate secret key, and no request signing. A bearer value is either a session token or an access key; the server resolves which one it is.
+
+To inspect the identity a bearer value resolves to, call [`GET /v1.0/token`](#get-v10token--current-principal) (alias `GET /v1.0/whoami`).
+
+### Public (Unauthenticated) Routes
+
+When authentication is enabled, the following routes are reachable **without** a bearer value. Every other route requires authentication.
+
+| Route | Purpose |
+|-------|---------|
+| `GET /` | Root health check. |
+| `GET /v1.0/health` | Versioned health check. |
+| `POST /v1.0/token` | Login (exchange credentials for a session token). |
+| OpenAPI / Swagger specification | API description document. |
+
+### Multi-Tenancy
+
+Lattice is **single-tier multi-tenant**: every user, credential, and record belongs to exactly one tenant, and data and authorization decisions never cross tenants.
+
+The active tenant is **resolved from the principal** — from the session token or from the credential that authenticated the request. **There is no tenant id in any URL.**
+
+A **system administrator** (a principal whose `isAdmin` is `true`) may act on a tenant other than its own:
+
+- For **writes** (e.g. `PUT /v1.0/users`), by including an explicit `tenantId` in the request body.
+- For **list endpoints** (e.g. `GET /v1.0/users`), by passing a `tenantId` **query parameter**.
+
+Non-admin principals are always scoped to their own tenant; a `tenantId` they supply is ignored.
+
+### Authorization (RBAC)
+
+Authorization is **role-based** and evaluated **deny-over-permit**: an explicit deny always wins over any permit. A **system administrator** and a **tenant administrator** (within their own tenant) bypass RBAC evaluation entirely.
+
+A permission is a pair of **resource type** and **operation**, written `<ResourceType>:<Operation>`.
+
+**Resource types:**
+
+`All`, `Tenant`, `User`, `Credential`, `Session`, `Role`, `Permission`, `Assignment`, `Audit`, `Collection`, `Document`, `Schema`, `Index`, `RequestHistory`.
+
+**Operations:**
+
+| Operation | Meaning |
+|-----------|---------|
+| `All` | Every operation. |
+| `Create` | Create a resource. |
+| `Read` | Read or list a resource. |
+| `Write` | Expands to `Create` + `Update` + `Delete`. |
+| `Update` | Modify an existing resource. |
+| `Delete` | Remove a resource. |
+| `Execute` | Run an operation (e.g. search, rebuild). |
+| `Admin` | Administrative control over the resource type. |
+
+**Built-in roles:** `TenantAdmin`, `SecurityAdmin`, `Auditor`, `CollectionAdmin`, `Editor`, `Viewer`, `TenantMember`. Built-in roles are seeded at first boot, are global (not owned by a tenant), and are visible to every tenant. Roles are listed with [`GET /v1.0/roles`](#get-v10roles--list-roles) and bound to users with [`PUT /v1.0/assignments`](#put-v10assignments--create-assignment).
+
+### First-Run Bootstrap
+
+On its **first start**, the server seeds:
+
+- A default **tenant**.
+- A default **administrator** user — email `admin@lattice`, password `password`.
+- A default **access key** for that administrator.
+
+These bootstrap values (including the raw access key) are printed to the server console **once**, at first start. Change the default administrator password after the first login. Passwords are hashed with **SHA-256**; the server never stores or returns a plaintext password.
+
+### Login Flow (Example)
+
+**1. Exchange credentials for a session token.** `POST /v1.0/token` is public:
+
+```bash
+curl -X POST http://localhost:8000/v1.0/token \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@lattice",
+    "password": "password",
+    "tenantId": "ten_abcdef0123456789"
+  }'
+```
+
+```json
+{
+  "token": "sess_9f8e7d6c5b4a...",
+  "expiresUtc": "2026-09-03T13:00:00.000Z",
+  "tenantId": "ten_abcdef0123456789",
+  "userId": "usr_0123456789abcdef",
+  "email": "admin@lattice",
+  "isAdmin": true,
+  "isTenantAdmin": false
+}
+```
+
+**2. Use the session token** as the bearer on a protected route:
+
+```bash
+curl http://localhost:8000/v1.0/collections \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..."
+```
+
+**3. Or use an access key** directly as the bearer (no login step required):
+
+```bash
+curl http://localhost:8000/v1.0/collections \
+  -H "Authorization: Bearer access_1a2b3c4d5e6f..."
+```
+
+The `x-token` header may be used in place of `Authorization: Bearer` with either value:
+
+```bash
+curl http://localhost:8000/v1.0/collections \
+  -H "x-token: access_1a2b3c4d5e6f..."
+```
+
+> **MCP:** The MCP JSON-RPC endpoint at `POST /v1.0/mcp` uses the same bearer authentication described here and is documented separately in [`MCP_API.md`](MCP_API.md).
 
 ---
 
@@ -228,6 +404,8 @@ Clients should treat the HTTP status code as the source of truth: `2xx` means su
 | 200 | OK | Successful read, update, or delete operations. |
 | 201 | Created | Successful creation of a collection or document. |
 | 400 | Bad Request | Missing required fields, invalid JSON, validation errors. |
+| 401 | Unauthorized | Authentication required but no valid bearer value was presented. Body: `{ "error": "Authentication required" }`. See [Authentication & Authorization](#authentication--authorization). |
+| 403 | Forbidden | Authenticated but the principal lacks the required permission. Body: `{ "error": "Authorization denied: requires <ResourceType>:<Operation>" }`. |
 | 404 | Not Found | Collection, document, schema, or table not found. |
 | 409 | Conflict | Object lock held -- concurrent write to the same document name. |
 | 500 | Internal Server Error | Unexpected server-side failure. |
@@ -281,6 +459,848 @@ curl http://localhost:8000/v1.0/health
 ```
 
 **Response:** Same as `GET /`.
+
+---
+
+### Authentication & Session
+
+Routes for logging in, inspecting the current principal, and logging out. See [Authentication & Authorization](#authentication--authorization) for the overall model.
+
+#### POST /v1.0/token -- Login
+
+Exchanges an email, password, and tenant id for a session token. **This route is public** (no bearer required). The returned `token` is used as the bearer value on subsequent requests; it expires after the configured session lifetime (default 60 minutes).
+
+**cURL:**
+
+```bash
+curl -X POST http://localhost:8000/v1.0/token \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@lattice",
+    "password": "password",
+    "tenantId": "ten_abcdef0123456789"
+  }'
+```
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `email` | string | **Yes** | User email (unique within the tenant). |
+| `password` | string | **Yes** | User password. |
+| `tenantId` | string | **Yes** | Identifier of the tenant to authenticate against. |
+
+**Response (200 OK):**
+
+```json
+{
+  "token": "sess_9f8e7d6c5b4a...",
+  "expiresUtc": "2026-09-03T13:00:00.000Z",
+  "tenantId": "ten_abcdef0123456789",
+  "userId": "usr_0123456789abcdef",
+  "email": "admin@lattice",
+  "isAdmin": true,
+  "isTenantAdmin": false
+}
+```
+
+**Errors:**
+
+- `400 Bad Request` -- `email`, `password`, or `tenantId` missing. Body: `{ "error": "email, password, and tenantId are required" }`.
+- `401 Unauthorized` -- Credentials are invalid or the user/tenant is inactive. Body: `{ "error": "Invalid credentials" }`.
+
+---
+
+#### GET /v1.0/token -- Current Principal
+
+Returns the resolved principal for the bearer value on the request. Requires any authenticated principal. `GET /v1.0/whoami` and `GET /v1.0/token/details` are aliases that return the same payload.
+
+**cURL:**
+
+```bash
+curl http://localhost:8000/v1.0/token \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..."
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "isAuthenticated": true,
+  "principalType": "User",
+  "tenantId": "ten_abcdef0123456789",
+  "userId": "usr_0123456789abcdef",
+  "credentialId": null,
+  "email": "admin@lattice",
+  "isAdmin": true,
+  "isTenantAdmin": false
+}
+```
+
+`principalType` is `User` when authenticated with a session token, or `Credential` when authenticated with an access key (in which case `credentialId` is populated and `userId` refers to the credential's owning user).
+
+**Errors:**
+
+- `401 Unauthorized` -- No valid bearer value was presented. Body: `{ "error": "Authentication required" }`.
+
+---
+
+#### DELETE /v1.0/token -- Logout
+
+Revokes the current session (logout). Applies to session-token principals; the underlying session is marked revoked and can no longer authenticate. Requires any authenticated principal.
+
+**cURL:**
+
+```bash
+curl -X DELETE http://localhost:8000/v1.0/token \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..."
+```
+
+**Response (200 OK):** Empty body (zero length).
+
+---
+
+### Tenants
+
+Tenant management. These routes require `Tenant` permissions and in practice are used by a system administrator. See [Multi-Tenancy](#multi-tenancy).
+
+#### GET /v1.0/tenants -- List Tenants
+
+Lists tenants. Returns an [EnumerationResult](#enumeration--pagination) with `Tenant` items in `objects`.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Max | Description |
+|-----------|------|---------|-----|-------------|
+| `maxResults` | integer | 100 | 1000 | Page size (minimum 1). |
+| `skip` | integer | 0 | -- | Number of records to skip. |
+
+**cURL:**
+
+```bash
+curl "http://localhost:8000/v1.0/tenants?maxResults=100&skip=0" \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..."
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "timestamp": { "start": "2026-09-03T12:00:00.000Z", "end": "2026-09-03T12:00:00.001Z", "totalMs": 0.42 },
+  "maxResults": 100,
+  "skip": 0,
+  "iterationsRequired": 1,
+  "endOfResults": true,
+  "totalRecords": 1,
+  "recordsRemaining": 0,
+  "objects": [
+    {
+      "id": "ten_abcdef0123456789",
+      "name": "Default",
+      "active": true,
+      "isProtected": true,
+      "createdUtc": "2026-09-01T00:00:00.000Z",
+      "lastUpdateUtc": "2026-09-01T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+#### PUT /v1.0/tenants -- Create Tenant
+
+Creates a new tenant.
+
+**cURL:**
+
+```bash
+curl -X PUT http://localhost:8000/v1.0/tenants \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Acme, Inc.",
+    "region": "us-east"
+  }'
+```
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | **Yes** | Human-readable tenant name. |
+| `region` | string | No | Optional region label. |
+
+**Response (201 Created):**
+
+```json
+{
+  "id": "ten_0f1e2d3c4b5a6978",
+  "name": "Acme, Inc.",
+  "region": "us-east",
+  "active": true,
+  "isProtected": false,
+  "createdUtc": "2026-09-03T12:00:00.000Z",
+  "lastUpdateUtc": "2026-09-03T12:00:00.000Z"
+}
+```
+
+**Errors:**
+
+- `400 Bad Request` -- `name` is missing. Body: `{ "error": "name is required" }`.
+
+---
+
+#### GET /v1.0/tenants/{tenantId} -- Get Tenant
+
+Retrieves a tenant by id.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `tenantId` | string | The unique identifier of the tenant. |
+
+**cURL:**
+
+```bash
+curl http://localhost:8000/v1.0/tenants/ten_abcdef0123456789 \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..."
+```
+
+**Response (200 OK):** A `Tenant` object (see [Tenant](#tenant)).
+
+**Errors:**
+
+- `404 Not Found` -- Tenant does not exist. Body: `{ "error": "Tenant not found" }`.
+
+---
+
+#### DELETE /v1.0/tenants/{tenantId} -- Delete Tenant
+
+Deletes a tenant. Protected tenants (e.g. the seeded default tenant) cannot be deleted.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `tenantId` | string | The unique identifier of the tenant. |
+
+**cURL:**
+
+```bash
+curl -X DELETE http://localhost:8000/v1.0/tenants/ten_0f1e2d3c4b5a6978 \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..."
+```
+
+**Response (200 OK):** Empty body (zero length).
+
+**Errors:**
+
+- `404 Not Found` -- Tenant does not exist. Body: `{ "error": "Tenant not found" }`.
+- `409 Conflict` -- Tenant is protected. Body: `{ "error": "Tenant is protected" }`.
+
+---
+
+### Users
+
+User management within a tenant. Passwords are supplied at creation and stored only as a SHA-256 hash; the hash is **never** returned.
+
+#### GET /v1.0/users -- List Users
+
+Lists users in the caller's tenant. Returns an [EnumerationResult](#enumeration--pagination) with `User` items in `objects`. A system administrator may list another tenant's users with the `tenantId` query parameter.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Max | Description |
+|-----------|------|---------|-----|-------------|
+| `tenantId` | string | -- | -- | System administrators only: list users in this tenant instead of the caller's. |
+| `maxResults` | integer | 100 | 1000 | Page size (minimum 1). |
+| `skip` | integer | 0 | -- | Number of records to skip. |
+
+**cURL:**
+
+```bash
+curl "http://localhost:8000/v1.0/users?maxResults=100&skip=0" \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..."
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "timestamp": { "start": "2026-09-03T12:00:00.000Z", "end": "2026-09-03T12:00:00.001Z", "totalMs": 0.51 },
+  "maxResults": 100,
+  "skip": 0,
+  "iterationsRequired": 1,
+  "endOfResults": true,
+  "totalRecords": 1,
+  "recordsRemaining": 0,
+  "objects": [
+    {
+      "id": "usr_0123456789abcdef",
+      "tenantId": "ten_abcdef0123456789",
+      "firstName": "Default",
+      "lastName": "Administrator",
+      "email": "admin@lattice",
+      "isAdmin": true,
+      "isTenantAdmin": false,
+      "active": true,
+      "isProtected": true,
+      "createdUtc": "2026-09-01T00:00:00.000Z",
+      "lastUpdateUtc": "2026-09-01T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+#### PUT /v1.0/users -- Create User
+
+Creates a user. The `password` is hashed (SHA-256) server-side and never returned. `isAdmin` is honored only when the caller is itself a system administrator; otherwise it is forced to `false`.
+
+**cURL:**
+
+```bash
+curl -X PUT http://localhost:8000/v1.0/users \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "jane@acme.example",
+    "password": "s3cr3t!",
+    "firstName": "Jane",
+    "lastName": "Smith",
+    "isTenantAdmin": false
+  }'
+```
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `email` | string | **Yes** | User email (unique within the tenant). |
+| `password` | string | **Yes** | Plaintext password; stored only as a SHA-256 hash. |
+| `firstName` | string | No | First name. |
+| `lastName` | string | No | Last name. |
+| `isAdmin` | boolean | No | System administrator. Honored only when the caller is a system administrator. Default `false`. |
+| `isTenantAdmin` | boolean | No | Tenant administrator. Default `false`. |
+| `tenantId` | string | No | Target tenant. Honored only for system administrators acting cross-tenant. |
+
+**Response (201 Created):**
+
+```json
+{
+  "id": "usr_fedcba9876543210",
+  "tenantId": "ten_abcdef0123456789",
+  "firstName": "Jane",
+  "lastName": "Smith",
+  "email": "jane@acme.example",
+  "isAdmin": false,
+  "isTenantAdmin": false,
+  "active": true,
+  "isProtected": false,
+  "createdUtc": "2026-09-03T12:00:00.000Z",
+  "lastUpdateUtc": "2026-09-03T12:00:00.000Z"
+}
+```
+
+**Errors:**
+
+- `400 Bad Request` -- `email` or `password` is missing. Body: `{ "error": "email and password are required" }`.
+
+---
+
+#### GET /v1.0/users/{userId} -- Get User
+
+Retrieves a user by id. Non-admins may only read users in their own tenant.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `userId` | string | The unique identifier of the user. |
+
+**cURL:**
+
+```bash
+curl http://localhost:8000/v1.0/users/usr_fedcba9876543210 \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..."
+```
+
+**Response (200 OK):** A `User` object with `passwordSha256` omitted (see [User](#user)).
+
+**Errors:**
+
+- `404 Not Found` -- User does not exist or is not visible to the caller's tenant. Body: `{ "error": "User not found" }`.
+
+---
+
+#### DELETE /v1.0/users/{userId} -- Delete User
+
+Deletes a user. Protected users (e.g. the seeded default administrator) cannot be deleted.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `userId` | string | The unique identifier of the user. |
+
+**cURL:**
+
+```bash
+curl -X DELETE http://localhost:8000/v1.0/users/usr_fedcba9876543210 \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..."
+```
+
+**Response (200 OK):** Empty body (zero length).
+
+**Errors:**
+
+- `404 Not Found` -- User does not exist or is not visible. Body: `{ "error": "User not found" }`.
+- `409 Conflict` -- User is protected. Body: `{ "error": "User is protected" }`.
+
+---
+
+### Credentials
+
+Machine credentials (access keys) owned by a user within a tenant. The raw access key is returned **once**, at creation, and cannot be retrieved again.
+
+#### GET /v1.0/credentials -- List Credentials
+
+Lists credentials in the caller's tenant. Returns an [EnumerationResult](#enumeration--pagination) with `Credential` items in `objects`. A system administrator may list another tenant's credentials with the `tenantId` query parameter. The raw `accessKey` is never present in a list response.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Max | Description |
+|-----------|------|---------|-----|-------------|
+| `tenantId` | string | -- | -- | System administrators only: list credentials in this tenant instead of the caller's. |
+| `maxResults` | integer | 100 | 1000 | Page size (minimum 1). |
+| `skip` | integer | 0 | -- | Number of records to skip. |
+
+**cURL:**
+
+```bash
+curl "http://localhost:8000/v1.0/credentials?maxResults=100&skip=0" \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..."
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "timestamp": { "start": "2026-09-03T12:00:00.000Z", "end": "2026-09-03T12:00:00.001Z", "totalMs": 0.48 },
+  "maxResults": 100,
+  "skip": 0,
+  "iterationsRequired": 1,
+  "endOfResults": true,
+  "totalRecords": 1,
+  "recordsRemaining": 0,
+  "objects": [
+    {
+      "id": "crd_1122334455667788",
+      "tenantId": "ten_abcdef0123456789",
+      "userId": "usr_0123456789abcdef",
+      "name": "default",
+      "accessKeyLast4": "cd12",
+      "active": true,
+      "isProtected": true,
+      "createdUtc": "2026-09-01T00:00:00.000Z",
+      "lastUpdateUtc": "2026-09-01T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+#### PUT /v1.0/credentials -- Create Credential
+
+Creates a credential and generates its access key. The raw `accessKey` (format `access_...`) is included in the response **once** and cannot be retrieved later — store it securely. When `userId` is omitted, the credential is owned by the calling user.
+
+**cURL:**
+
+```bash
+curl -X PUT http://localhost:8000/v1.0/credentials \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "ci-pipeline"
+  }'
+```
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | No | Human-readable credential name. |
+| `userId` | string | No | Owning user id. Defaults to the calling user when omitted. |
+| `tenantId` | string | No | Target tenant. Honored only for system administrators acting cross-tenant. |
+
+**Response (201 Created):**
+
+```json
+{
+  "id": "crd_99aabbccddeeff00",
+  "tenantId": "ten_abcdef0123456789",
+  "userId": "usr_0123456789abcdef",
+  "name": "ci-pipeline",
+  "accessKey": "access_1a2b3c4d5e6f7a8b9c0d",
+  "accessKeyLast4": "0c0d",
+  "active": true,
+  "isProtected": false,
+  "createdUtc": "2026-09-03T12:00:00.000Z",
+  "lastUpdateUtc": "2026-09-03T12:00:00.000Z"
+}
+```
+
+> The `accessKey` field is present **only** in this creation response. Every subsequent read of the credential omits it.
+
+**Errors:**
+
+- `400 Bad Request` -- No `userId` supplied and none could be inferred from the caller. Body: `{ "error": "userId is required" }`.
+
+---
+
+#### GET /v1.0/credentials/{credentialId} -- Get Credential
+
+Retrieves a credential by id. Neither the raw `accessKey` nor the stored `accessKeySha256` hash is ever returned — only `accessKeyLast4` is included for display. Non-admins may only read credentials in their own tenant.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `credentialId` | string | The unique identifier of the credential. |
+
+**cURL:**
+
+```bash
+curl http://localhost:8000/v1.0/credentials/crd_99aabbccddeeff00 \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..."
+```
+
+**Response (200 OK):** A `Credential` object with `accessKey` omitted (see [Credential](#credential)).
+
+**Errors:**
+
+- `404 Not Found` -- Credential does not exist or is not visible. Body: `{ "error": "Credential not found" }`.
+
+---
+
+#### DELETE /v1.0/credentials/{credentialId} -- Delete Credential
+
+Deletes (revokes) a credential. Protected credentials (e.g. the seeded default credential) cannot be deleted.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `credentialId` | string | The unique identifier of the credential. |
+
+**cURL:**
+
+```bash
+curl -X DELETE http://localhost:8000/v1.0/credentials/crd_99aabbccddeeff00 \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..."
+```
+
+**Response (200 OK):** Empty body (zero length).
+
+**Errors:**
+
+- `404 Not Found` -- Credential does not exist or is not visible. Body: `{ "error": "Credential not found" }`.
+- `409 Conflict` -- Credential is protected. Body: `{ "error": "Credential is protected" }`.
+
+---
+
+### Roles
+
+Roles group permissions and are bound to users through [assignments](#assignments). Built-in roles are seeded at first boot and visible to every tenant. See [Authorization (RBAC)](#authorization-rbac).
+
+#### GET /v1.0/roles -- List Roles
+
+Lists the roles visible to the caller's tenant (built-in roles plus any custom roles owned by the tenant). Returns an [EnumerationResult](#enumeration--pagination) with `UserRole` items in `objects`.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Max | Description |
+|-----------|------|---------|-----|-------------|
+| `maxResults` | integer | 100 | 1000 | Page size (minimum 1). |
+| `skip` | integer | 0 | -- | Number of records to skip. |
+
+**cURL:**
+
+```bash
+curl http://localhost:8000/v1.0/roles \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..."
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "timestamp": { "start": "2026-09-03T12:00:00.000Z", "end": "2026-09-03T12:00:00.001Z", "totalMs": 0.39 },
+  "maxResults": 100,
+  "skip": 0,
+  "iterationsRequired": 1,
+  "endOfResults": true,
+  "totalRecords": 7,
+  "recordsRemaining": 0,
+  "objects": [
+    {
+      "id": "rol_00112233",
+      "name": "TenantAdmin",
+      "isBuiltIn": true,
+      "active": true,
+      "isProtected": true,
+      "createdUtc": "2026-09-01T00:00:00.000Z",
+      "lastUpdateUtc": "2026-09-01T00:00:00.000Z"
+    },
+    {
+      "id": "rol_44556677",
+      "name": "Viewer",
+      "isBuiltIn": true,
+      "active": true,
+      "isProtected": true,
+      "createdUtc": "2026-09-01T00:00:00.000Z",
+      "lastUpdateUtc": "2026-09-01T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+> A built-in role has a null `tenantId` (omitted from the response). A tenant-scoped custom role carries the owning `tenantId`.
+
+---
+
+### Assignments
+
+Assignments bind a role to a user, optionally scoped to a specific resource. See [Authorization (RBAC)](#authorization-rbac).
+
+#### GET /v1.0/assignments -- List Assignments
+
+Lists role assignments in the caller's tenant. Returns an [EnumerationResult](#enumeration--pagination) with `UserRoleAssignment` items in `objects`. A system administrator may list another tenant's assignments with the `tenantId` query parameter.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Max | Description |
+|-----------|------|---------|-----|-------------|
+| `tenantId` | string | -- | -- | System administrators only: list assignments in this tenant instead of the caller's. |
+| `maxResults` | integer | 100 | 1000 | Page size (minimum 1). |
+| `skip` | integer | 0 | -- | Number of records to skip. |
+
+**cURL:**
+
+```bash
+curl "http://localhost:8000/v1.0/assignments?maxResults=100&skip=0" \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..."
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "timestamp": { "start": "2026-09-03T12:00:00.000Z", "end": "2026-09-03T12:00:00.001Z", "totalMs": 0.44 },
+  "maxResults": 100,
+  "skip": 0,
+  "iterationsRequired": 1,
+  "endOfResults": true,
+  "totalRecords": 1,
+  "recordsRemaining": 0,
+  "objects": [
+    {
+      "id": "ura_a1b2c3d4",
+      "tenantId": "ten_abcdef0123456789",
+      "userId": "usr_fedcba9876543210",
+      "roleId": null,
+      "roleName": "Editor",
+      "resourceScope": "tenant",
+      "resourceId": null,
+      "inheritsToChildren": true,
+      "active": true,
+      "createdUtc": "2026-09-03T12:00:00.000Z",
+      "lastUpdateUtc": "2026-09-03T12:00:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+#### PUT /v1.0/assignments -- Create Assignment
+
+Assigns a role to a user. The request must include `userId` and **one of** `roleId` or `roleName`. A `roleName` resolves to a built-in role definition when no stored role record matches.
+
+**cURL:**
+
+```bash
+curl -X PUT http://localhost:8000/v1.0/assignments \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId": "usr_fedcba9876543210",
+    "roleName": "Editor"
+  }'
+```
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `userId` | string | **Yes** | User the assignment applies to. |
+| `roleId` | string | Cond. | Assigned role by id. Provide this **or** `roleName`. |
+| `roleName` | string | Cond. | Assigned role by name (e.g. `Editor`). Provide this **or** `roleId`. |
+| `resourceScope` | string | No | `tenant` (default) or `resource`. |
+| `resourceId` | string | No | Target resource id when `resourceScope` is `resource`. |
+| `tenantId` | string | No | Target tenant. Honored only for system administrators acting cross-tenant. |
+
+**Response (201 Created):** The created `UserRoleAssignment` (see [UserRoleAssignment](#userroleassignment)).
+
+**Errors:**
+
+- `400 Bad Request` -- `userId` is missing, or neither `roleId` nor `roleName` was supplied. Body: `{ "error": "userId and a roleId or roleName are required" }`.
+
+---
+
+#### DELETE /v1.0/assignments/{assignmentId} -- Delete Assignment
+
+Removes a role assignment.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `assignmentId` | string | The unique identifier of the assignment. |
+
+**cURL:**
+
+```bash
+curl -X DELETE http://localhost:8000/v1.0/assignments/ura_a1b2c3d4 \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..."
+```
+
+**Response (200 OK):** Empty body (zero length).
+
+**Errors:**
+
+- `404 Not Found` -- Assignment does not exist or is not visible. Body: `{ "error": "Assignment not found" }`.
+
+---
+
+### Audit
+
+The security audit log is an append-only record of authentication and authorization events. In particular, authentication failures are recorded as `AuthFailure` (with response code `401`) and authorization denials as `AuthzDenied` (with response code `403`); each entry captures the principal, the required permission, the verdict, the request path, and the response code.
+
+#### GET /v1.0/audit -- List Audit Entries
+
+Lists audit entries for the caller's tenant. Returns an [EnumerationResult](#enumeration--pagination) with `AuditEntry` items in `objects`. A system administrator may target another tenant with the `tenantId` query parameter.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Max | Description |
+|-----------|------|---------|-----|-------------|
+| `eventType` | string | -- | -- | Filter to a single event type (e.g. `AuthFailure`, `AuthzDenied`). |
+| `tenantId` | string | -- | -- | System administrators only: audit entries for this tenant instead of the caller's. |
+| `maxResults` | integer | 100 | 1000 | Page size (minimum 1). |
+| `skip` | integer | 0 | -- | Number of records to skip. |
+
+**cURL:**
+
+```bash
+curl "http://localhost:8000/v1.0/audit?eventType=AuthzDenied&maxResults=50&skip=0" \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..."
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "timestamp": { "start": "2026-09-03T12:00:00.000Z", "end": "2026-09-03T12:00:00.002Z", "totalMs": 1.10 },
+  "maxResults": 50,
+  "skip": 0,
+  "iterationsRequired": 1,
+  "endOfResults": true,
+  "totalRecords": 1,
+  "recordsRemaining": 0,
+  "objects": [
+    {
+      "id": "aud_5566778899",
+      "tenantId": "ten_abcdef0123456789",
+      "eventType": "AuthzDenied",
+      "requestId": "0c5a6f2e-1b3d-4a7c-9e8f-2b1c0d3e4f5a",
+      "principalType": "User",
+      "principalId": "usr_fedcba9876543210",
+      "userId": "usr_fedcba9876543210",
+      "resourceType": "Collection",
+      "requestType": "Collection",
+      "method": "PUT",
+      "path": "/v1.0/collections",
+      "sourceIp": "127.0.0.1",
+      "authzResult": "DeniedImplicit",
+      "denialReason": "no permit for Collection:Create",
+      "requiredPermission": "Collection:Create",
+      "responseCode": 403,
+      "createdUtc": "2026-09-03T12:00:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+#### GET /v1.0/audit/{auditId} -- Get Audit Entry
+
+Retrieves a single audit entry by id. Non-admins may only read entries in their own tenant.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `auditId` | string | The unique identifier of the audit entry. |
+
+**cURL:**
+
+```bash
+curl http://localhost:8000/v1.0/audit/aud_5566778899 \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..."
+```
+
+**Response (200 OK):** An `AuditEntry` object (see [AuditEntry](#auditentry)).
+
+**Errors:**
+
+- `404 Not Found` -- Audit entry does not exist or is not visible. Body: `{ "error": "Audit entry not found" }`.
+
+---
+
+#### DELETE /v1.0/audit/{auditId} -- Delete Audit Entry
+
+Deletes an audit entry.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `auditId` | string | The unique identifier of the audit entry. |
+
+**cURL:**
+
+```bash
+curl -X DELETE http://localhost:8000/v1.0/audit/aud_5566778899 \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..."
+```
+
+**Response (200 OK):** Empty body (zero length).
+
+**Errors:**
+
+- `404 Not Found` -- Audit entry does not exist or is not visible. Body: `{ "error": "Audit entry not found" }`.
 
 ---
 
@@ -1605,6 +2625,140 @@ Returned by all list/enumeration GET endpoints. See [Enumeration & Pagination](#
 | `durationMs` | number | Duration in milliseconds. |
 | `errors` | string[] | Array of error messages, if any. |
 | `success` | boolean | Whether the rebuild completed without errors. |
+
+### Tenant
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique identifier (`ten_...`). |
+| `name` | string | Human-readable tenant name. |
+| `region` | string or null | Optional region label. |
+| `active` | boolean | Whether the tenant is active. Inactive tenants cannot authenticate. |
+| `isProtected` | boolean | Whether the tenant is protected from deletion (e.g. the seeded default tenant). |
+| `createdUtc` | string (ISO 8601) | Creation timestamp. |
+| `lastUpdateUtc` | string (ISO 8601) | Last modification timestamp. |
+
+### User
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique identifier (`usr_...`). |
+| `tenantId` | string | Identifier of the owning tenant. |
+| `firstName` | string or null | First name. |
+| `lastName` | string or null | Last name. |
+| `email` | string | Email address. Unique within the tenant. |
+| `isAdmin` | boolean | Whether the user is a system administrator (full cross-tenant access). |
+| `isTenantAdmin` | boolean | Whether the user is a tenant administrator (bypasses RBAC within its own tenant). |
+| `active` | boolean | Whether the user is active. Inactive users cannot authenticate. |
+| `isProtected` | boolean | Whether the user is protected from deletion (e.g. the seeded default administrator). |
+| `createdUtc` | string (ISO 8601) | Creation timestamp. |
+| `lastUpdateUtc` | string (ISO 8601) | Last modification timestamp. |
+
+> The password hash (`passwordSha256`) is a stored field and is **never** included in any response.
+
+### Credential
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique identifier (`crd_...`). |
+| `tenantId` | string | Identifier of the owning tenant. |
+| `userId` | string | Identifier of the owning user. |
+| `name` | string or null | Human-readable credential name. |
+| `accessKey` | string | The raw access key (`access_...`). Present **only** in the creation response; omitted on every subsequent read. |
+| `accessKeySha256` | string | SHA-256 hash of the access key, stored server-side. **Never returned** in API responses. |
+| `accessKeyLast4` | string | Last four characters of the access key, retained for display. |
+| `expiresUtc` | string (ISO 8601) or null | Optional expiration; null means the credential does not expire. |
+| `lastUsedUtc` | string (ISO 8601) or null | When the credential was last used to authenticate, or null. |
+| `active` | boolean | Whether the credential is active. Inactive credentials cannot authenticate. |
+| `isProtected` | boolean | Whether the credential is protected from deletion (e.g. the seeded default credential). |
+| `createdUtc` | string (ISO 8601) | Creation timestamp. |
+| `lastUpdateUtc` | string (ISO 8601) | Last modification timestamp. |
+
+### UserRole
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique identifier (`rol_...`). |
+| `tenantId` | string or null | Owning tenant, or null for a global built-in role. |
+| `name` | string | Role name (e.g. `TenantAdmin`, `Editor`, `Viewer`). |
+| `isBuiltIn` | boolean | Whether this is a built-in role seeded by the platform. |
+| `active` | boolean | Whether the role is active. |
+| `isProtected` | boolean | Whether the role is protected from modification and deletion. |
+| `createdUtc` | string (ISO 8601) | Creation timestamp. |
+| `lastUpdateUtc` | string (ISO 8601) | Last modification timestamp. |
+
+### UserRoleAssignment
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique identifier (`ura_...`). |
+| `tenantId` | string | Identifier of the owning tenant. |
+| `userId` | string | User the assignment applies to. |
+| `roleId` | string or null | Assigned role by id, or null when referenced by name. |
+| `roleName` | string or null | Assigned role by name, used when referenced by name or as a fallback. |
+| `resourceScope` | string | `tenant` (tenant-wide) or `resource` (a specific resource). |
+| `resourceId` | string or null | Target resource id for a `resource`-scoped assignment, or null. |
+| `inheritsToChildren` | boolean | For a `tenant`-scoped assignment, whether it also satisfies checks on child resources. |
+| `active` | boolean | Whether the assignment is active. |
+| `createdUtc` | string (ISO 8601) | Creation timestamp. |
+| `lastUpdateUtc` | string (ISO 8601) | Last modification timestamp. |
+
+### AuditEntry
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique identifier (`aud_...`). |
+| `tenantId` | string or null | Tenant the event pertains to, or null for system-level events. |
+| `eventType` | string | Event kind (e.g. `AuthSuccess`, `AuthFailure`, `AuthzDenied`, `SessionRevoked`). |
+| `requestId` | string or null | Correlating request identifier. |
+| `correlationId` | string or null | Correlation identifier spanning related requests, or null. |
+| `traceId` | string or null | Trace identifier for telemetry correlation, or null. |
+| `principalType` | string or null | Principal kind (`User` or `Credential`), or null when unauthenticated. |
+| `principalId` | string or null | Identifier of the principal, or null. |
+| `userId` | string or null | Identifier of the user involved, or null. |
+| `credentialId` | string or null | Identifier of the credential involved, or null. |
+| `resourceType` | string or null | Resource type the request targeted, or null. |
+| `resourceId` | string or null | Identifier of the resource the request targeted, or null. |
+| `requestType` | string or null | The classified request type. |
+| `method` | string or null | HTTP method of the request. |
+| `path` | string or null | Request path. |
+| `sourceIp` | string or null | Source IP address. |
+| `authResult` | string or null | Authentication result (e.g. `Success`, `NotFound`, `Inactive`, `Invalid`), or null. |
+| `authzResult` | string or null | Authorization result (e.g. `Permitted`, `DeniedExplicit`, `DeniedImplicit`), or null. |
+| `denialReason` | string or null | Reason authorization was denied, or null. |
+| `bypassReason` | string or null | Reason an administrative bypass was applied, or null. |
+| `requiredPermission` | string or null | The permission the request required (`<ResourceType>:<Operation>`), or null. |
+| `responseCode` | integer | The HTTP response code returned. |
+| `createdUtc` | string (ISO 8601) | When the event occurred (UTC). |
+
+### AuthTokenResponse
+
+Returned by [`POST /v1.0/token`](#post-v10token--login).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `token` | string | The session token to present as a bearer value. |
+| `expiresUtc` | string (ISO 8601) | When the token expires (UTC). |
+| `tenantId` | string | Tenant identifier. |
+| `userId` | string | User identifier. |
+| `email` | string | User email. |
+| `isAdmin` | boolean | Whether the user is a system administrator. |
+| `isTenantAdmin` | boolean | Whether the user is a tenant administrator. |
+
+### WhoAmIResponse
+
+Returned by [`GET /v1.0/token`](#get-v10token--current-principal) and its aliases.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `isAuthenticated` | boolean | Whether the request is authenticated. |
+| `principalType` | string or null | The kind of principal (`User` or `Credential`). |
+| `tenantId` | string or null | Tenant identifier. |
+| `userId` | string or null | User identifier. |
+| `credentialId` | string or null | Credential identifier, when the principal is a credential. |
+| `email` | string or null | User email. |
+| `isAdmin` | boolean | Whether the principal is a system administrator. |
+| `isTenantAdmin` | boolean | Whether the principal is a tenant administrator. |
 
 ---
 

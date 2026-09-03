@@ -270,6 +270,7 @@ namespace Lattice.Server.API.REST
                 {
                     string tenantId = McpEffectiveTenant(caller, args.TenantId);
                     List<Credential> creds = await _Client.Credentials.ReadByTenant(tenantId, CancellationToken.None).ConfigureAwait(false);
+                    foreach (Credential c in creds) c.AccessKeySha256 = null;
                     toolResult = BuildEnumerationResult(creds, McpSkip(args), McpMax(args));
                     break;
                 }
@@ -293,7 +294,11 @@ namespace Lattice.Server.API.REST
                         LastUpdateUtc = DateTime.UtcNow
                     };
                     Credential created = await _Client.Credentials.Create(credential, CancellationToken.None).ConfigureAwait(false);
-                    if (created != null) created.AccessKey = rawAccessKey; // shown once
+                    if (created != null)
+                    {
+                        created.AccessKey = rawAccessKey; // shown once
+                        created.AccessKeySha256 = null;   // never expose the stored hash
+                    }
                     ServerTelemetry.RecordRbacMutation("credential", "create");
                     toolResult = created;
                     break;

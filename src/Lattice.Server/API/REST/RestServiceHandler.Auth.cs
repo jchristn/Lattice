@@ -311,6 +311,7 @@ namespace Lattice.Server.API.REST
             {
                 string tenantId = EffectiveTenant(reqCtx, ctx.Request.Query.Elements["tenantId"]);
                 List<Credential> creds = await _Client.Credentials.ReadByTenant(tenantId, CancellationToken.None).ConfigureAwait(false);
+                foreach (Credential c in creds) c.AccessKeySha256 = null;
                 return new ResponseContext { Success = true, StatusCode = 200, Data = BuildEnumerationResult(creds, reqCtx) };
             }).ConfigureAwait(false);
         }
@@ -337,7 +338,11 @@ namespace Lattice.Server.API.REST
                     LastUpdateUtc = DateTime.UtcNow
                 };
                 Credential created = await _Client.Credentials.Create(credential, CancellationToken.None).ConfigureAwait(false);
-                if (created != null) created.AccessKey = rawAccessKey; // shown once
+                if (created != null)
+                {
+                    created.AccessKey = rawAccessKey; // shown once
+                    created.AccessKeySha256 = null;   // never expose the stored hash
+                }
                 ServerTelemetry.RecordRbacMutation("credential", "create");
                 return new ResponseContext { Success = true, StatusCode = 201, Data = created };
             }).ConfigureAwait(false);
@@ -350,6 +355,7 @@ namespace Lattice.Server.API.REST
                 string credentialId = ctx.Request.Url.Parameters["credentialId"];
                 Credential credential = await _Client.Credentials.ReadById(credentialId, CancellationToken.None).ConfigureAwait(false);
                 if (credential == null || !TenantVisible(reqCtx, credential.TenantId)) return new ResponseContext(false, 404, "Credential not found");
+                credential.AccessKeySha256 = null;
                 return new ResponseContext { Success = true, StatusCode = 200, Data = credential };
             }).ConfigureAwait(false);
         }
