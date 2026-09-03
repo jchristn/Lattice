@@ -3,7 +3,7 @@
  *
  * Main client for interacting with the Lattice REST API.
  */
-import { Collection, Document, Schema, SchemaElement, FieldConstraint, IndexedField, SearchResult, IndexRebuildResult, ResponseContext, SearchQuery, IndexTableMapping, SchemaEnforcementMode, IndexingMode, CreateCollectionOptions, IngestDocumentOptions } from "./models";
+import { Collection, Document, Schema, SchemaElement, FieldConstraint, IndexedField, SearchResult, IndexRebuildResult, SearchQuery, IndexTableMapping, SchemaEnforcementMode, IndexingMode, CreateCollectionOptions, IngestDocumentOptions, BatchIngestDocumentEntry } from "./models";
 /**
  * HTTP request options.
  */
@@ -33,8 +33,19 @@ export declare class LatticeClient {
     constructor(baseUrl: string, timeout?: number);
     /**
      * Make an HTTP request to the Lattice API.
+     *
+     * On success (HTTP 2xx) the parsed response body is returned directly as the
+     * payload (an empty body resolves to `undefined`). On failure (non-2xx) a
+     * {@link LatticeApiError} is thrown, carrying the server's `error` message,
+     * the HTTP status code, any structured `detail`, and the request id from the
+     * `X-Lattice-Request-Id` response header.
      */
-    request<T = any>(options: RequestOptions): Promise<ResponseContext<T>>;
+    request<T = any>(options: RequestOptions): Promise<T>;
+    /**
+     * Issue a HEAD request and report whether the resource exists (2xx).
+     * Non-2xx responses (e.g. 404) resolve to `false` rather than throwing.
+     */
+    head(path: string): Promise<boolean>;
     /**
      * Check if the Lattice server is healthy.
      */
@@ -97,6 +108,10 @@ declare class DocumentMethods {
      * Ingest a new document into a collection.
      */
     ingest(options: IngestDocumentOptions): Promise<Document | null>;
+    /**
+     * Ingest multiple documents into a collection in a single batch operation.
+     */
+    ingestBatch(collectionId: string, documents: BatchIngestDocumentEntry[]): Promise<Document[] | null>;
     /**
      * Get all documents in a collection.
      */

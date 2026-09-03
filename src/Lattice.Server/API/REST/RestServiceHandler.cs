@@ -87,12 +87,13 @@ namespace Lattice.Server.API.REST
         }
 
         /// <summary>
-        /// Stop the webserver.
+        /// Stop the webserver and asynchronously dispose background services.
         /// </summary>
-        public void Stop()
+        /// <returns>A task that completes once the webserver has stopped and background services are disposed.</returns>
+        public async Task StopAsync()
         {
             _Webserver?.Stop();
-            _RequestHistory?.Dispose();
+            if (_RequestHistory != null) await _RequestHistory.DisposeAsync().ConfigureAwait(false);
             _Logging?.Info(_Header + "stopped");
         }
 
@@ -850,7 +851,28 @@ namespace Lattice.Server.API.REST
             ctx.Response.ContentType = "application/json";
             EnsureStandardResponseHeaders(response.Headers, response.Guid, "application/json");
 
-            string json = JsonSerializer.Serialize(response, _JsonOptions);
+            if (response.ProcessingTimeMs > 0)
+            {
+                response.Headers["X-Lattice-Processing-Time-Ms"] =
+                    response.ProcessingTimeMs.ToString("F4", CultureInfo.InvariantCulture);
+            }
+
+            // The response body is the payload directly (no envelope). Errors return { error, detail? }.
+            string json;
+            if (response.Success)
+            {
+                json = response.Data != null ? JsonSerializer.Serialize(response.Data, _JsonOptions) : String.Empty;
+            }
+            else
+            {
+                ErrorResponse error = new ErrorResponse
+                {
+                    Error = String.IsNullOrEmpty(response.ErrorMessage) ? "An error occurred." : response.ErrorMessage,
+                    Detail = response.Data
+                };
+                json = JsonSerializer.Serialize(error, _JsonOptions);
+            }
+
             ApplyHeaders(ctx, response.Headers);
             await ctx.Response.Send(json);
             return json;

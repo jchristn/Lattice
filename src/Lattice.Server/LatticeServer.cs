@@ -1,14 +1,17 @@
 namespace Lattice.Server
 {
     using System;
+    using System.Collections.Generic;
     using System.Threading;
-    using SyslogLogging;
-    using Radiant;
+    using System.Threading.Tasks;
     using Lattice.Core;
+    using Lattice.Core.Models;
     using Lattice.Core.Telemetry;
     using Lattice.Server.API.REST;
     using Lattice.Server.Classes;
     using Lattice.Server.Telemetry;
+    using Radiant;
+    using SyslogLogging;
 
     /// <summary>
     /// Main program entry point.
@@ -21,13 +24,15 @@ namespace Lattice.Server
         private static RestServiceHandler _Rest = null!;
         private static RadiantHost _Telemetry = null;
         private static readonly string _Header = "[LatticeServer] ";
-        private static readonly ManualResetEvent _ExitEvent = new ManualResetEvent(false);
+        private static readonly TaskCompletionSource<bool> _ExitTcs =
+            new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         /// <summary>
         /// Main entry point.
         /// </summary>
         /// <param name="args">Command line arguments.</param>
-        public static void Main(string[] args)
+        /// <returns>A task that completes when the server shuts down.</returns>
+        public static async Task Main(string[] args)
         {
             Welcome();
 
@@ -85,6 +90,9 @@ namespace Lattice.Server
             _Client = new LatticeClient(_Settings.Lattice);
             _Logging.Info(_Header + "Lattice client initialized");
 
+            // Ensure a default collection exists on first run
+            await EnsureDefaultCollectionAsync().ConfigureAwait(false);
+
             // Initialize REST service
             _Rest = new RestServiceHandler(_Settings, _Client, _Logging);
             _Rest.Start();
@@ -94,29 +102,29 @@ namespace Lattice.Server
             {
                 e.Cancel = true;
                 _Logging.Info(_Header + "shutdown requested");
-                _ExitEvent.Set();
+                _ExitTcs.TrySetResult(true);
             };
 
             AppDomain.CurrentDomain.ProcessExit += (sender, e) =>
             {
                 _Logging.Info(_Header + "process exit");
-                _ExitEvent.Set();
+                _ExitTcs.TrySetResult(true);
             };
 
             Console.WriteLine(_Header + "server running, press CTRL+C to exit");
 
             // Wait for exit signal
-            _ExitEvent.WaitOne();
+            await _ExitTcs.Task.ConfigureAwait(false);
 
             // Cleanup
-            _Rest.Stop();
+            await _Rest.StopAsync().ConfigureAwait(false);
 
             if (_Telemetry != null)
             {
                 try
                 {
                     _Telemetry.ForceFlush(5000);
-                    _Telemetry.Dispose();
+                    await _Telemetry.DisposeAsync().ConfigureAwait(false);
                     _Logging.Info(_Header + "telemetry stopped");
                 }
                 catch (Exception e)
@@ -126,6 +134,25 @@ namespace Lattice.Server
             }
 
             _Logging.Info(_Header + "server stopped");
+        }
+
+        private static async Task EnsureDefaultCollectionAsync(CancellationToken token = default)
+        {
+            try
+            {
+                List<Collection> existing = await _Client.Collection.ReadAll(token).ConfigureAwait(false);
+
+                if (existing == null || existing.Count == 0)
+                {
+                    await _Client.Collection.Create("default", "Default collection created on first run", token: token)
+                        .ConfigureAwait(false);
+                    _Logging.Info(_Header + "created default collection");
+                }
+            }
+            catch (Exception e)
+            {
+                _Logging.Warn(_Header + "failed to ensure default collection: " + e.Message);
+            }
         }
 
         private static string ResolveDatabaseSystem(Settings settings)
@@ -150,7 +177,7 @@ namespace Lattice.Server
         private static void Welcome()
         {
             Console.WriteLine(
-                Constants.Logo + 
+                Constants.Logo +
                 Environment.NewLine +
                 Constants.Copyright +
                 Environment.NewLine);

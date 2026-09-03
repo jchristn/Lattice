@@ -35,11 +35,15 @@ export class LatticeConnectionError extends LatticeError {
  */
 export class LatticeApiError extends LatticeError {
     public errorMessage?: string;
+    public detail?: any;
+    public requestId?: string;
 
-    constructor(message: string, statusCode: number, errorMessage?: string) {
+    constructor(message: string, statusCode: number, detail?: any, requestId?: string) {
         super(message, statusCode);
         this.name = "LatticeApiError";
-        this.errorMessage = errorMessage || message;
+        this.errorMessage = message;
+        this.detail = detail;
+        this.requestId = requestId;
     }
 }
 

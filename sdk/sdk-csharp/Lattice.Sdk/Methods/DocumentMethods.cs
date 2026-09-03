@@ -43,13 +43,7 @@ namespace Lattice.Sdk.Methods
             if (tags != null && tags.Count > 0)
                 data["tags"] = tags;
 
-            ResponseContext response = await _client.RequestAsync("PUT", $"/v1.0/collections/{collectionId}/documents", data, cancellationToken: cancellationToken);
-
-            if (response.Success && response.Data.HasValue)
-            {
-                return JsonSerializer.Deserialize<Document>(response.Data.Value.GetRawText(), _client.JsonOptions);
-            }
-            return null;
+            return await _client.RequestJsonAsync<Document>("PUT", $"/v1.0/collections/{collectionId}/documents", data, cancellationToken: cancellationToken);
         }
 
         public async Task<List<Document>?> IngestBatchAsync(
@@ -63,7 +57,7 @@ namespace Lattice.Sdk.Methods
             };
 
             List<object> docEntries = new List<object>();
-            foreach (var doc in documents)
+            foreach (BatchIngestDocument doc in documents)
             {
                 string contentJson = JsonSerializer.Serialize(doc.Content, contentOptions);
                 using JsonDocument contentDocument = JsonDocument.Parse(contentJson);
@@ -88,13 +82,7 @@ namespace Lattice.Sdk.Methods
                 ["documents"] = docEntries
             };
 
-            ResponseContext response = await _client.RequestAsync("PUT", $"/v1.0/collections/{collectionId}/documents/batch", data, cancellationToken: cancellationToken);
-
-            if (response.Success && response.Data.HasValue)
-            {
-                return JsonSerializer.Deserialize<List<Document>>(response.Data.Value.GetRawText(), _client.JsonOptions);
-            }
-            return null;
+            return await _client.RequestJsonAsync<List<Document>>("PUT", $"/v1.0/collections/{collectionId}/documents/batch", data, cancellationToken: cancellationToken);
         }
 
         public async Task<List<Document>> ReadAllInCollectionAsync(
@@ -111,14 +99,8 @@ namespace Lattice.Sdk.Methods
                 ["includeTags"] = includeTags.ToString().ToLower()
             };
 
-            ResponseContext response = await _client.RequestAsync("GET", $"/v1.0/collections/{collectionId}/documents", queryParams: queryParams, cancellationToken: cancellationToken);
-
-            if (response.Success && response.Data.HasValue)
-            {
-                List<Document>? documents = JsonSerializer.Deserialize<List<Document>>(response.Data.Value.GetRawText(), _client.JsonOptions);
-                return documents ?? new List<Document>();
-            }
-            return new List<Document>();
+            List<Document>? documents = await _client.RequestJsonAsync<List<Document>>("GET", $"/v1.0/collections/{collectionId}/documents", queryParams: queryParams, cancellationToken: cancellationToken);
+            return documents ?? new List<Document>();
         }
 
         public async Task<Document?> ReadByIdAsync(
@@ -137,17 +119,15 @@ namespace Lattice.Sdk.Methods
                 ["includeTags"] = includeTags.ToString().ToLower()
             };
 
-            ResponseContext response = await _client.RequestAsync("GET", $"/v1.0/collections/{collectionId}/documents/{documentId}", queryParams: queryParams, cancellationToken: cancellationToken);
+            Document? document = await _client.RequestJsonAsync<Document>("GET", $"/v1.0/collections/{collectionId}/documents/{documentId}", queryParams: queryParams, nullOnNotFound: true, cancellationToken: cancellationToken);
 
-            if (!response.Success || !response.Data.HasValue)
+            if (document == null)
             {
                 return null;
             }
 
-            Document? document = JsonSerializer.Deserialize<Document>(response.Data.Value.GetRawText(), _client.JsonOptions);
-
             // If content is requested, make a separate call to get the raw content
-            if (includeContent && document != null)
+            if (includeContent)
             {
                 JsonElement? content = await _client.RequestRawContentAsync("GET", $"/v1.0/collections/{collectionId}/documents/{documentId}?includeContent=true", cancellationToken);
                 if (content.HasValue)
@@ -161,14 +141,12 @@ namespace Lattice.Sdk.Methods
 
         public async Task<bool> ExistsAsync(string collectionId, string documentId, CancellationToken cancellationToken = default)
         {
-            ResponseContext response = await _client.RequestAsync("HEAD", $"/v1.0/collections/{collectionId}/documents/{documentId}", cancellationToken: cancellationToken);
-            return response.Success;
+            return await _client.RequestStatusAsync("HEAD", $"/v1.0/collections/{collectionId}/documents/{documentId}", throwOnError: false, cancellationToken: cancellationToken);
         }
 
         public async Task<bool> DeleteAsync(string collectionId, string documentId, CancellationToken cancellationToken = default)
         {
-            ResponseContext response = await _client.RequestAsync("DELETE", $"/v1.0/collections/{collectionId}/documents/{documentId}", cancellationToken: cancellationToken);
-            return response.Success;
+            return await _client.RequestStatusAsync("DELETE", $"/v1.0/collections/{collectionId}/documents/{documentId}", cancellationToken: cancellationToken);
         }
     }
 }

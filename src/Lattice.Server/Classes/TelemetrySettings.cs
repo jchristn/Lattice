@@ -12,13 +12,13 @@ namespace Lattice.Server.Classes
     public class TelemetrySettings
     {
         /// <summary>
-        /// Master switch for telemetry export. Default true. When false, no telemetry host is started
-        /// and instrumentation stays an inert no-op (near-zero overhead).
+        /// Master switch for telemetry export. Default is true. When false, no telemetry host is
+        /// started and instrumentation stays an inert no-op (near-zero overhead).
         /// </summary>
         public bool Enable { get; set; } = true;
 
         /// <summary>
-        /// The logical service name stamped as the <c>service.name</c> resource attribute. Default
+        /// The logical service name stamped as the <c>service.name</c> resource attribute. Default is
         /// <c>lattice-server</c>.
         /// </summary>
         public string ServiceName { get; set; } = "lattice-server";
@@ -30,127 +30,64 @@ namespace Lattice.Server.Classes
         public string ServiceInstanceId { get; set; } = null;
 
         /// <summary>
-        /// OTLP push exporter settings.
+        /// OTLP push exporter settings. Never null.
         /// </summary>
-        public OtlpSettings Otlp { get; set; } = new OtlpSettings();
-
-        /// <summary>
-        /// Metrics pillar settings.
-        /// </summary>
-        public MetricsExportSettings Metrics { get; set; } = new MetricsExportSettings();
-
-        /// <summary>
-        /// Traces pillar settings.
-        /// </summary>
-        public TracesExportSettings Traces { get; set; } = new TracesExportSettings();
-
-        /// <summary>
-        /// Logs pillar settings.
-        /// </summary>
-        public LogsExportSettings Logs { get; set; } = new LogsExportSettings();
-
-        /// <summary>
-        /// In-process Prometheus scrape endpoint settings.
-        /// </summary>
-        public PrometheusScrapeExportSettings Prometheus { get; set; } = new PrometheusScrapeExportSettings();
-
-        /// <summary>
-        /// Direct Loki log export settings.
-        /// </summary>
-        public LokiExportSettings Loki { get; set; } = new LokiExportSettings();
-
-        /// <summary>
-        /// OTLP push exporter settings.
-        /// </summary>
-        public class OtlpSettings
+        public TelemetryOtlpSettings Otlp
         {
-            /// <summary>Whether the OTLP push exporter is enabled. Default true.</summary>
-            public bool Enable { get; set; } = true;
-
-            /// <summary>Collector endpoint. Default <c>http://localhost:4317</c> (gRPC).</summary>
-            public string Endpoint { get; set; } = "http://localhost:4317";
-
-            /// <summary>Wire protocol: <c>Grpc</c> or <c>HttpProtobuf</c>. Default <c>Grpc</c>.</summary>
-            public string Protocol { get; set; } = "Grpc";
-
-            /// <summary>Per-export timeout in milliseconds. Default 10000.</summary>
-            public int TimeoutMs { get; set; } = 10000;
+            get => _Otlp;
+            set => _Otlp = value ?? new TelemetryOtlpSettings();
         }
 
         /// <summary>
-        /// Metrics pillar settings.
+        /// Metrics pillar settings. Never null.
         /// </summary>
-        public class MetricsExportSettings
+        public TelemetryMetricsSettings Metrics
         {
-            /// <summary>Whether the metrics pillar is enabled. Default true.</summary>
-            public bool Enable { get; set; } = true;
-
-            /// <summary>Metric export interval in milliseconds for OTLP. Default 15000.</summary>
-            public int ExportIntervalMs { get; set; } = 15000;
-
-            /// <summary>Include .NET runtime instrumentation (GC, heap, threads, JIT). Default true.</summary>
-            public bool IncludeRuntime { get; set; } = true;
-
-            /// <summary>Include baseline process metrics (working set, uptime, threads). Default true.</summary>
-            public bool IncludeProcess { get; set; } = true;
+            get => _Metrics;
+            set => _Metrics = value ?? new TelemetryMetricsSettings();
         }
 
         /// <summary>
-        /// Traces pillar settings.
+        /// Traces pillar settings. Never null.
         /// </summary>
-        public class TracesExportSettings
+        public TelemetryTracesSettings Traces
         {
-            /// <summary>Whether the traces pillar is enabled. Default true.</summary>
-            public bool Enable { get; set; } = true;
-
-            /// <summary>Head-based sampling ratio, 0.0 to 1.0. Default 1.0.</summary>
-            public double SamplingRatio { get; set; } = 1.0;
+            get => _Traces;
+            set => _Traces = value ?? new TelemetryTracesSettings();
         }
 
         /// <summary>
-        /// Logs pillar settings.
+        /// Logs pillar settings. Never null.
         /// </summary>
-        public class LogsExportSettings
+        public TelemetryLogsSettings Logs
         {
-            /// <summary>Whether the logs pillar is enabled. Default true.</summary>
-            public bool Enable { get; set; } = true;
-
-            /// <summary>Minimum severity 0..7 (0 Trace .. 7 None). Default 2 (Information and above).</summary>
-            public int MinimumSeverity { get; set; } = 2;
+            get => _Logs;
+            set => _Logs = value ?? new TelemetryLogsSettings();
         }
 
         /// <summary>
-        /// In-process Prometheus scrape endpoint settings.
+        /// In-process Prometheus scrape endpoint settings. Never null.
         /// </summary>
-        public class PrometheusScrapeExportSettings
+        public TelemetryPrometheusSettings Prometheus
         {
-            /// <summary>Whether the in-process scrape endpoint is enabled. Default true.</summary>
-            public bool Enable { get; set; } = true;
-
-            /// <summary>Hostname to bind. Default <c>localhost</c>.</summary>
-            public string Hostname { get; set; } = "localhost";
-
-            /// <summary>TCP port to bind. Default 9464.</summary>
-            public int Port { get; set; } = 9464;
-
-            /// <summary>Scrape path. Default <c>/metrics</c>.</summary>
-            public string Path { get; set; } = "/metrics";
+            get => _Prometheus;
+            set => _Prometheus = value ?? new TelemetryPrometheusSettings();
         }
 
         /// <summary>
-        /// Direct Loki log export settings (OTLP-HTTP to Loki). When disabled logs still reach Loki via
-        /// the OTLP collector if the logs pillar and OTLP export are enabled.
+        /// Direct Loki log export settings. Never null.
         /// </summary>
-        public class LokiExportSettings
+        public TelemetryLokiSettings Loki
         {
-            /// <summary>Whether direct Loki export is enabled. Default false.</summary>
-            public bool Enable { get; set; } = false;
-
-            /// <summary>Loki OTLP base endpoint. Default <c>http://localhost:3100/otlp</c>.</summary>
-            public string Endpoint { get; set; } = "http://localhost:3100/otlp";
-
-            /// <summary>Loki tenant id sent as <c>X-Scope-OrgID</c>, or null for single-tenant.</summary>
-            public string TenantId { get; set; } = null;
+            get => _Loki;
+            set => _Loki = value ?? new TelemetryLokiSettings();
         }
+
+        private TelemetryOtlpSettings _Otlp = new TelemetryOtlpSettings();
+        private TelemetryMetricsSettings _Metrics = new TelemetryMetricsSettings();
+        private TelemetryTracesSettings _Traces = new TelemetryTracesSettings();
+        private TelemetryLogsSettings _Logs = new TelemetryLogsSettings();
+        private TelemetryPrometheusSettings _Prometheus = new TelemetryPrometheusSettings();
+        private TelemetryLokiSettings _Loki = new TelemetryLokiSettings();
     }
 }

@@ -1,8 +1,8 @@
 namespace Lattice.Server.Telemetry
 {
     using System;
-    using Radiant;
     using Lattice.Server.Classes;
+    using Radiant;
 
     /// <summary>
     /// Builds and starts a Radiant telemetry host from <see cref="TelemetrySettings"/>. This is the one

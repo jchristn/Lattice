@@ -22,7 +22,9 @@ export declare class LatticeConnectionError extends LatticeError {
  */
 export declare class LatticeApiError extends LatticeError {
     errorMessage?: string;
-    constructor(message: string, statusCode: number, errorMessage?: string);
+    detail?: any;
+    requestId?: string;
+    constructor(message: string, statusCode: number, detail?: any, requestId?: string);
 }
 /**
  * Raised when request validation fails.

@@ -95,32 +95,34 @@ export class LatticeApi {
   async request(method, path, body = null, options = {}) {
     const response = await this.requestRaw(method, path, { ...options, body })
 
-    if (response.status === 204 || method === 'HEAD') {
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
-      }
-      return null
-    }
-
-    const responseData = response.json
-
-    // Handle WatsonWebserver ResponseContext wrapper
-    if (responseData && typeof responseData === 'object' && 'success' in responseData) {
-      if (!responseData.success) {
-        throw new Error(responseData.errorMessage || `HTTP ${response.status}`)
-      }
-      return responseData.data
-    }
-
+    // Error (non-2xx): body is { error, detail? }. Fall back to status text
+    // if the body isn't JSON. Surface status/detail/requestId on the error.
     if (!response.ok) {
-      throw new Error(responseData?.error || response.text || `HTTP ${response.status}`)
+      const errorBody = response.json
+      const message =
+        (errorBody && typeof errorBody === 'object' && errorBody.error) ||
+        response.statusText ||
+        `HTTP ${response.status}`
+      const error = new Error(message)
+      error.status = response.status
+      error.requestId = response.requestId
+      if (errorBody && typeof errorBody === 'object' && errorBody.detail !== undefined) {
+        error.detail = errorBody.detail
+      }
+      throw error
     }
 
-    if (responseData !== null) {
-      return responseData
+    // Success (2xx): the body IS the payload directly (no more `.data` unwrap).
+    // Empty body (e.g. HEAD, 204, some DELETEs) → null; never JSON.parse('').
+    if (response.json !== null && response.json !== undefined) {
+      return response.json
     }
 
-    return response.text
+    if (response.text) {
+      return response.text
+    }
+
+    return null
   }
 
   // Collections

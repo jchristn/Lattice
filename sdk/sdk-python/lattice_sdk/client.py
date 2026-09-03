@@ -18,7 +18,6 @@ from .models import (
     IndexedField,
     SearchResult,
     IndexRebuildResult,
-    ResponseContext,
     SearchQuery,
     SearchFilter,
     IndexTableMapping,
@@ -56,6 +55,10 @@ class LatticeClient:
         self.timeout = timeout
         self._session = requests.Session()
 
+        # Request/response correlation id from the most recent response's
+        # X-Lattice-Request-Id header (replaces the old envelope `guid`).
+        self.last_request_id: Optional[str] = None
+
         # Initialize method groups
         self.collection = CollectionMethods(self)
         self.document = DocumentMethods(self)
@@ -69,9 +72,19 @@ class LatticeClient:
         path: str,
         data: Optional[Dict[str, Any]] = None,
         params: Optional[Dict[str, Any]] = None
-    ) -> ResponseContext:
+    ) -> Any:
         """
         Make an HTTP request to the Lattice API.
+
+        The Lattice REST API returns raw payloads (no response envelope):
+
+        - HEAD requests: no body. Returns ``True`` for a 2xx status, else
+          ``False`` (used for existence checks).
+        - Success (HTTP 2xx): the response body IS the payload. Returns the
+          parsed JSON body directly, or ``None`` when the body is empty.
+        - Error (non-2xx): the body is ``{ "error": ..., "detail"?: ... }``.
+          Raises :class:`LatticeApiError` with that message (falling back to
+          the HTTP reason phrase), the status code, and any structured detail.
 
         Args:
             method: HTTP method (GET, POST, PUT, DELETE, HEAD)
@@ -80,7 +93,8 @@ class LatticeClient:
             params: Query parameters
 
         Returns:
-            ResponseContext with the API response
+            The parsed payload (dict/list/str), ``None`` for an empty body,
+            or a ``bool`` for HEAD requests.
         """
         url = f"{self.base_url}{path}"
 
@@ -92,40 +106,64 @@ class LatticeClient:
                 params=params,
                 timeout=self.timeout
             )
-
-            # For HEAD requests, we don't have a body
-            if method.upper() == "HEAD":
-                return ResponseContext(
-                    success=response.status_code == 200,
-                    status_code=response.status_code,
-                    headers=dict(response.headers)
-                )
-
-            # Parse the response
-            if response.content:
-                try:
-                    response_data = response.json()
-                    return ResponseContext.from_dict(response_data)
-                except json.JSONDecodeError:
-                    return ResponseContext(
-                        success=response.status_code < 400,
-                        status_code=response.status_code,
-                        data=response.text,
-                        headers=dict(response.headers)
-                    )
-            else:
-                return ResponseContext(
-                    success=response.status_code < 400,
-                    status_code=response.status_code,
-                    headers=dict(response.headers)
-                )
-
         except requests.ConnectionError as e:
             raise LatticeConnectionError(f"Failed to connect to {url}", e)
         except requests.Timeout as e:
             raise LatticeConnectionError(f"Request to {url} timed out", e)
         except requests.RequestException as e:
             raise LatticeException(f"Request failed: {str(e)}")
+
+        # Correlation id now travels in a response header (was body `guid`).
+        self.last_request_id = response.headers.get("X-Lattice-Request-Id")
+
+        is_success = 200 <= response.status_code < 300
+
+        # HEAD requests carry no body; the status code is the answer.
+        if method.upper() == "HEAD":
+            return is_success
+
+        if not is_success:
+            self._raise_for_error(response)
+
+        # Success: the body IS the payload. Empty body => None (don't call
+        # json() on an empty body).
+        if not response.content:
+            return None
+        try:
+            return response.json()
+        except json.JSONDecodeError:
+            return response.text
+
+    def _raise_for_error(self, response: requests.Response) -> None:
+        """Raise a LatticeApiError from a non-2xx response.
+
+        Parses the ``{ "error", "detail"? }`` error body. Falls back to the
+        raw text or HTTP reason phrase when the body is missing or not JSON.
+        """
+        error_message: Optional[str] = None
+        detail: Any = None
+
+        if response.content:
+            try:
+                body = response.json()
+                if isinstance(body, dict):
+                    error_message = body.get("error")
+                    detail = body.get("detail")
+                else:
+                    error_message = str(body)
+            except json.JSONDecodeError:
+                error_message = response.text or None
+
+        if not error_message:
+            error_message = response.reason or f"HTTP {response.status_code}"
+
+        raise LatticeApiError(
+            error_message,
+            response.status_code,
+            error_message=error_message,
+            detail=detail,
+            request_id=self.last_request_id,
+        )
 
     def health_check(self) -> bool:
         """
@@ -135,8 +173,8 @@ class LatticeClient:
             True if the server is healthy, False otherwise
         """
         try:
-            response = self._request("GET", "/v1.0/health")
-            return response.success
+            self._request("GET", "/v1.0/health")
+            return True
         except LatticeException:
             return False
 
@@ -195,10 +233,10 @@ class CollectionMethods:
         if indexed_fields:
             data["indexedFields"] = indexed_fields
 
-        response = self._client._request("PUT", "/v1.0/collections", data=data)
+        payload = self._client._request("PUT", "/v1.0/collections", data=data)
 
-        if response.success and response.data:
-            return Collection.from_dict(response.data)
+        if payload:
+            return Collection.from_dict(payload)
         return None
 
     def read_all(self) -> List[Collection]:
@@ -208,10 +246,10 @@ class CollectionMethods:
         Returns:
             List of all collections
         """
-        response = self._client._request("GET", "/v1.0/collections")
+        payload = self._client._request("GET", "/v1.0/collections")
 
-        if response.success and response.data:
-            return [Collection.from_dict(c) for c in response.data]
+        if payload:
+            return [Collection.from_dict(c) for c in payload]
         return []
 
     def read_by_id(self, collection_id: str) -> Optional[Collection]:
@@ -224,10 +262,15 @@ class CollectionMethods:
         Returns:
             The Collection, or None if not found
         """
-        response = self._client._request("GET", f"/v1.0/collections/{collection_id}")
+        try:
+            payload = self._client._request("GET", f"/v1.0/collections/{collection_id}")
+        except LatticeApiError as e:
+            if e.status_code == 404:
+                return None
+            raise
 
-        if response.success and response.data:
-            return Collection.from_dict(response.data)
+        if payload:
+            return Collection.from_dict(payload)
         return None
 
     def exists(self, collection_id: str) -> bool:
@@ -240,8 +283,7 @@ class CollectionMethods:
         Returns:
             True if the collection exists
         """
-        response = self._client._request("HEAD", f"/v1.0/collections/{collection_id}")
-        return response.success
+        return self._client._request("HEAD", f"/v1.0/collections/{collection_id}")
 
     def delete(self, collection_id: str) -> bool:
         """
@@ -253,8 +295,11 @@ class CollectionMethods:
         Returns:
             True if the collection was deleted
         """
-        response = self._client._request("DELETE", f"/v1.0/collections/{collection_id}")
-        return response.success
+        try:
+            self._client._request("DELETE", f"/v1.0/collections/{collection_id}")
+            return True
+        except LatticeApiError:
+            return False
 
     def get_constraints(self, collection_id: str) -> List[FieldConstraint]:
         """
@@ -266,12 +311,12 @@ class CollectionMethods:
         Returns:
             List of field constraints
         """
-        response = self._client._request(
+        payload = self._client._request(
             "GET", f"/v1.0/collections/{collection_id}/constraints"
         )
 
-        if response.success and response.data:
-            field_constraints = response.data.get("fieldConstraints", [])
+        if payload:
+            field_constraints = payload.get("fieldConstraints", [])
             if field_constraints:
                 return [FieldConstraint.from_dict(c) for c in field_constraints]
         return []
@@ -299,10 +344,10 @@ class CollectionMethods:
         if field_constraints:
             data["fieldConstraints"] = [c.to_dict() for c in field_constraints]
 
-        response = self._client._request(
+        self._client._request(
             "PUT", f"/v1.0/collections/{collection_id}/constraints", data=data
         )
-        return response.success
+        return True
 
     def get_indexed_fields(self, collection_id: str) -> List[IndexedField]:
         """
@@ -314,12 +359,12 @@ class CollectionMethods:
         Returns:
             List of indexed fields
         """
-        response = self._client._request(
+        payload = self._client._request(
             "GET", f"/v1.0/collections/{collection_id}/indexing"
         )
 
-        if response.success and response.data:
-            indexed_fields = response.data.get("indexedFields", [])
+        if payload:
+            indexed_fields = payload.get("indexedFields", [])
             if indexed_fields:
                 return [IndexedField.from_dict(f) for f in indexed_fields]
         return []
@@ -350,10 +395,10 @@ class CollectionMethods:
         if indexed_fields:
             data["indexedFields"] = indexed_fields
 
-        response = self._client._request(
+        self._client._request(
             "PUT", f"/v1.0/collections/{collection_id}/indexing", data=data
         )
-        return response.success
+        return True
 
     def rebuild_indexes(
         self,
@@ -374,12 +419,12 @@ class CollectionMethods:
         """
         data = {"dropUnusedIndexes": drop_unused_indexes}
 
-        response = self._client._request(
+        payload = self._client._request(
             "POST", f"/v1.0/collections/{collection_id}/indexes/rebuild", data=data
         )
 
-        if response.success and response.data:
-            return IndexRebuildResult.from_dict(response.data)
+        if payload:
+            return IndexRebuildResult.from_dict(payload)
         return None
 
 
@@ -419,12 +464,12 @@ class DocumentMethods:
         if tags:
             data["tags"] = tags
 
-        response = self._client._request(
+        payload = self._client._request(
             "PUT", f"/v1.0/collections/{collection_id}/documents", data=data
         )
 
-        if response.success and response.data:
-            return Document.from_dict(response.data)
+        if payload:
+            return Document.from_dict(payload)
         return None
 
     def ingest_batch(
@@ -446,12 +491,12 @@ class DocumentMethods:
             "documents": [doc.to_dict() for doc in documents]
         }
 
-        response = self._client._request(
+        payload = self._client._request(
             "PUT", f"/v1.0/collections/{collection_id}/documents/batch", data=data
         )
 
-        if response.success and response.data:
-            return [Document.from_dict(d) for d in response.data]
+        if payload:
+            return [Document.from_dict(d) for d in payload]
         return None
 
     def read_all_in_collection(
@@ -479,12 +524,12 @@ class DocumentMethods:
             "includeTags": str(include_tags).lower()
         }
 
-        response = self._client._request(
+        payload = self._client._request(
             "GET", f"/v1.0/collections/{collection_id}/documents", params=params
         )
 
-        if response.success and response.data:
-            return [Document.from_dict(d) for d in response.data]
+        if payload:
+            return [Document.from_dict(d) for d in payload]
         return []
 
     def read_by_id(
@@ -515,14 +560,19 @@ class DocumentMethods:
             "includeTags": str(include_tags).lower()
         }
 
-        response = self._client._request(
-            "GET", f"/v1.0/collections/{collection_id}/documents/{document_id}", params=params
-        )
+        try:
+            payload = self._client._request(
+                "GET", f"/v1.0/collections/{collection_id}/documents/{document_id}", params=params
+            )
+        except LatticeApiError as e:
+            if e.status_code == 404:
+                return None
+            raise
 
-        if not response.success or not response.data:
+        if not payload:
             return None
 
-        document = Document.from_dict(response.data)
+        document = Document.from_dict(payload)
 
         # If content is requested, make a separate call to get the raw content
         # The server returns raw JSON when includeContent=true
@@ -551,8 +601,7 @@ class DocumentMethods:
         Returns:
             True if the document exists
         """
-        response = self._client._request("HEAD", f"/v1.0/collections/{collection_id}/documents/{document_id}")
-        return response.success
+        return self._client._request("HEAD", f"/v1.0/collections/{collection_id}/documents/{document_id}")
 
     def delete(self, collection_id: str, document_id: str) -> bool:
         """
@@ -565,8 +614,11 @@ class DocumentMethods:
         Returns:
             True if the document was deleted
         """
-        response = self._client._request("DELETE", f"/v1.0/collections/{collection_id}/documents/{document_id}")
-        return response.success
+        try:
+            self._client._request("DELETE", f"/v1.0/collections/{collection_id}/documents/{document_id}")
+            return True
+        except LatticeApiError:
+            return False
 
 
 class SearchMethods:
@@ -585,14 +637,14 @@ class SearchMethods:
         Returns:
             SearchResult with matching documents
         """
-        response = self._client._request(
+        payload = self._client._request(
             "POST",
             f"/v1.0/collections/{query.collection_id}/documents/search",
             data=query.to_dict()
         )
 
-        if response.success and response.data:
-            return SearchResult.from_dict(response.data)
+        if payload:
+            return SearchResult.from_dict(payload)
         return None
 
     def search_by_sql(
@@ -612,14 +664,14 @@ class SearchMethods:
         """
         data = {"sqlExpression": sql_expression}
 
-        response = self._client._request(
+        payload = self._client._request(
             "POST",
             f"/v1.0/collections/{collection_id}/documents/search",
             data=data
         )
 
-        if response.success and response.data:
-            return SearchResult.from_dict(response.data)
+        if payload:
+            return SearchResult.from_dict(payload)
         return None
 
     def enumerate(self, query: SearchQuery) -> Optional[SearchResult]:
@@ -649,10 +701,10 @@ class SchemaMethods:
         Returns:
             List of all schemas
         """
-        response = self._client._request("GET", "/v1.0/schemas")
+        payload = self._client._request("GET", "/v1.0/schemas")
 
-        if response.success and response.data:
-            return [Schema.from_dict(s) for s in response.data]
+        if payload:
+            return [Schema.from_dict(s) for s in payload]
         return []
 
     def read_by_id(self, schema_id: str) -> Optional[Schema]:
@@ -665,10 +717,15 @@ class SchemaMethods:
         Returns:
             The Schema, or None if not found
         """
-        response = self._client._request("GET", f"/v1.0/schemas/{schema_id}")
+        try:
+            payload = self._client._request("GET", f"/v1.0/schemas/{schema_id}")
+        except LatticeApiError as e:
+            if e.status_code == 404:
+                return None
+            raise
 
-        if response.success and response.data:
-            return Schema.from_dict(response.data)
+        if payload:
+            return Schema.from_dict(payload)
         return None
 
     def get_elements(self, schema_id: str) -> List[SchemaElement]:
@@ -681,10 +738,10 @@ class SchemaMethods:
         Returns:
             List of schema elements
         """
-        response = self._client._request("GET", f"/v1.0/schemas/{schema_id}/elements")
+        payload = self._client._request("GET", f"/v1.0/schemas/{schema_id}/elements")
 
-        if response.success and response.data:
-            return [SchemaElement.from_dict(e) for e in response.data]
+        if payload:
+            return [SchemaElement.from_dict(e) for e in payload]
         return []
 
 
@@ -701,8 +758,8 @@ class IndexMethods:
         Returns:
             List of index table mappings
         """
-        response = self._client._request("GET", "/v1.0/tables")
+        payload = self._client._request("GET", "/v1.0/tables")
 
-        if response.success and response.data:
-            return [IndexTableMapping.from_dict(m) for m in response.data]
+        if payload:
+            return [IndexTableMapping.from_dict(m) for m in payload]
         return []

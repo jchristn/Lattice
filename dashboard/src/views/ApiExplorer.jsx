@@ -72,10 +72,7 @@ function prettyPrint(value) {
 
 function getResponsePreview(response) {
   if (!response) return '(no response yet)'
-  if (response.json && typeof response.json === 'object') {
-    if ('success' in response.json) {
-      return response.json.data ?? response.json
-    }
+  if (response.json !== null && response.json !== undefined) {
     return response.json
   }
   return response.text || '(empty)'

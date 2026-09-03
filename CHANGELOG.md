@@ -25,6 +25,25 @@
 - **Dashboard**: new "Observability" page (+ sidebar entry) with cards linking out to Grafana, Prometheus,
   Tempo, Loki, and the OTel Collector, each showing the service name, default credentials, and URL.
 - `TELEMETRY.md`: full telemetry reference for developers and devops teams.
+- **Configurable CORS** (`Rest.Cors` in `lattice.json`): permissive by default, with a Watson preflight
+  route (OPTIONS → 204) and centralized header stamping. Fixes browser access to the API from the
+  dashboard's origin.
+- **Default collection** (`default`) is created automatically on first server run when no collections exist.
+- Helper scripts: `build-all.bat` (builds both images with a tag) and `docker/update.bat`
+  (`compose pull` → `down` → `up -d` → `ps -a`).
+
+### Changed
+- **BREAKING — REST response envelope removed.** Responses are now the raw payload on success (2xx) and
+  `{ "error": "...", "detail"?: ... }` on failure (4xx/5xx); status is conveyed by the HTTP status code.
+  Request id and processing time moved to the `X-Lattice-Request-Id` and `X-Lattice-Processing-Time-Ms`
+  response headers. All consumers updated to match: dashboard, C#/JavaScript/Python SDKs, the Postman
+  collection, `REST_API.md`, and `README.md`.
+- **Docker**: dashboard `LATTICE_SERVER_URL` defaults to `http://localhost:8000` (the published host port)
+  so the browser can reach the API; `docker/compose.yaml` images pinned to `v0.2.1`.
+- **Code quality**: eliminated sync-over-async (`.GetAwaiter().GetResult()`) — `LatticeServer.Main` is now
+  `async`, `RequestHistoryService` is `IAsyncDisposable`, and shutdown is fully awaited; server responses
+  and SDK error parsing use named types instead of `System.Text.Json` DOM types; one-class-per-file and
+  using-order cleanups per the code style guide.
 
 ### Version bumps
 - `Lattice.Core`: 0.2.0 -> 0.2.1

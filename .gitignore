@@ -107,3 +107,7 @@ dashboard/.env.production.local
 *.p12
 credentials.json
 secrets.json
+
+# Python bytecode
+__pycache__/
+*.pyc

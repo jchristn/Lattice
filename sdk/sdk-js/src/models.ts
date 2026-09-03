@@ -209,20 +209,6 @@ export interface IndexRebuildResult {
 }
 
 /**
- * Represents the standard API response wrapper.
- */
-export interface ResponseContext<T = any> {
-    success: boolean;
-    statusCode: number;
-    errorMessage?: string;
-    data?: T;
-    headers: Record<string, string>;
-    processingTimeMs: number;
-    guid?: string;
-    timestampUtc?: Date;
-}
-
-/**
  * Represents an index table mapping.
  */
 export interface IndexTableMapping {

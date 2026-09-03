@@ -70,14 +70,18 @@ namespace Lattice.Sdk
         }
 
         /// <summary>
+        /// The response header carrying the request/correlation id (replaces the old envelope "guid").
+        /// </summary>
+        internal const string RequestIdHeader = "X-Lattice-Request-Id";
+
+        /// <summary>
         /// Check if the Lattice server is healthy.
         /// </summary>
         public async Task<bool> HealthCheckAsync(CancellationToken cancellationToken = default)
         {
             try
             {
-                ResponseContext response = await RequestAsync("GET", "/v1.0/health", cancellationToken: cancellationToken);
-                return response.Success;
+                return await RequestStatusAsync("GET", "/v1.0/health", throwOnError: false, cancellationToken: cancellationToken);
             }
             catch
             {
@@ -86,14 +90,83 @@ namespace Lattice.Sdk
         }
 
         /// <summary>
-        /// Make an HTTP request to the Lattice API.
+        /// Send an HTTP request and deserialize the raw 2xx response body directly into <typeparamref name="T"/>.
         /// </summary>
-        internal async Task<ResponseContext> RequestAsync(
+        /// <remarks>
+        /// On a 2xx response the body IS the payload (no envelope). An empty body maps to <c>default(T)</c>.
+        /// On a non-2xx response the body <c>{ "error": "...", "detail"?: ... }</c> is read and thrown as a
+        /// <see cref="LatticeApiException"/>. When <paramref name="nullOnNotFound"/> is set, a 404 returns
+        /// <c>default(T)</c> instead of throwing (used by "read by id" style lookups).
+        /// </remarks>
+        internal async Task<T?> RequestJsonAsync<T>(
             string method,
             string path,
             object? data = null,
             Dictionary<string, string>? queryParams = null,
+            bool nullOnNotFound = false,
             CancellationToken cancellationToken = default)
+        {
+            using HttpResponseMessage response = await SendCoreAsync(method, path, data, queryParams, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                if (nullOnNotFound && response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    return default;
+                }
+
+                await ThrowApiExceptionAsync(response, cancellationToken);
+            }
+
+            string body = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                return default;
+            }
+
+            return JsonSerializer.Deserialize<T>(body, _jsonOptions);
+        }
+
+        /// <summary>
+        /// Send an HTTP request that has no payload of interest and report whether it succeeded.
+        /// </summary>
+        /// <remarks>
+        /// Returns <c>true</c> for a 2xx response. For a non-2xx response it throws a
+        /// <see cref="LatticeApiException"/> when <paramref name="throwOnError"/> is <c>true</c> (the default),
+        /// otherwise it returns <c>false</c> (used by HEAD existence checks and the health probe).
+        /// </remarks>
+        internal async Task<bool> RequestStatusAsync(
+            string method,
+            string path,
+            object? data = null,
+            Dictionary<string, string>? queryParams = null,
+            bool throwOnError = true,
+            CancellationToken cancellationToken = default)
+        {
+            using HttpResponseMessage response = await SendCoreAsync(method, path, data, queryParams, cancellationToken);
+
+            if (response.IsSuccessStatusCode)
+            {
+                return true;
+            }
+
+            if (throwOnError)
+            {
+                await ThrowApiExceptionAsync(response, cancellationToken);
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Build and send the HTTP request, translating transport failures into <see cref="LatticeConnectionException"/>.
+        /// </summary>
+        private async Task<HttpResponseMessage> SendCoreAsync(
+            string method,
+            string path,
+            object? data,
+            Dictionary<string, string>? queryParams,
+            CancellationToken cancellationToken)
         {
             string url = _baseUrl + path;
 
@@ -113,41 +186,7 @@ namespace Lattice.Sdk
                     request.Content = new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json");
                 }
 
-                HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
-
-                // For HEAD requests, we don't have a body
-                if (method == "HEAD")
-                {
-                    return new ResponseContext
-                    {
-                        Success = response.IsSuccessStatusCode,
-                        StatusCode = (int)response.StatusCode
-                    };
-                }
-
-                string responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
-
-                if (!string.IsNullOrEmpty(responseContent))
-                {
-                    try
-                    {
-                        ResponseContext? context = JsonSerializer.Deserialize<ResponseContext>(responseContent, _jsonOptions);
-                        if (context != null)
-                        {
-                            return context;
-                        }
-                    }
-                    catch
-                    {
-                        // If we can't parse as ResponseContext, return a basic response
-                    }
-                }
-
-                return new ResponseContext
-                {
-                    Success = response.IsSuccessStatusCode,
-                    StatusCode = (int)response.StatusCode
-                };
+                return await _httpClient.SendAsync(request, cancellationToken);
             }
             catch (HttpRequestException ex)
             {
@@ -160,12 +199,56 @@ namespace Lattice.Sdk
         }
 
         /// <summary>
+        /// Read the <c>{ error, detail? }</c> error body from a non-2xx response and throw a <see cref="LatticeApiException"/>.
+        /// Falls back to the HTTP reason phrase when the body is missing or not the expected JSON shape.
+        /// </summary>
+        private async Task ThrowApiExceptionAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+        {
+            int statusCode = (int)response.StatusCode;
+            string body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+
+            string? errorMessage = null;
+            string? detail = null;
+
+            if (!string.IsNullOrWhiteSpace(body))
+            {
+                try
+                {
+                    ApiErrorResponse? parsed = JsonSerializer.Deserialize<ApiErrorResponse>(body, _jsonOptions);
+                    if (parsed != null)
+                    {
+                        errorMessage = parsed.Error;
+                        if (parsed.Detail != null)
+                        {
+                            detail = JsonSerializer.Serialize(parsed.Detail, _jsonOptions);
+                        }
+                    }
+                }
+                catch (JsonException)
+                {
+                    // Body was not the expected JSON shape; fall back to the status reason phrase below.
+                }
+            }
+
+            if (string.IsNullOrEmpty(errorMessage))
+            {
+                errorMessage = response.ReasonPhrase ?? $"HTTP {statusCode}";
+            }
+
+            string message = string.IsNullOrEmpty(detail) || detail == "null"
+                ? errorMessage!
+                : $"{errorMessage} (detail: {detail})";
+
+            throw new LatticeApiException(message, statusCode, message);
+        }
+
+        /// <summary>
         /// Get JSON serializer options.
         /// </summary>
         internal JsonSerializerOptions JsonOptions => _jsonOptions;
 
         /// <summary>
-        /// Make an HTTP request that returns raw JSON content (not wrapped in ResponseContext).
+        /// Make an HTTP request and return the raw JSON body as a <see cref="JsonElement"/> (null on empty body or non-2xx).
         /// </summary>
         internal async Task<JsonElement?> RequestRawContentAsync(
             string method,

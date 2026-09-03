@@ -65,58 +65,34 @@ The Lattice API does not currently enforce authentication. All endpoints are acc
 
 ## Response Format
 
-All successful and error responses (except raw content retrieval -- see note below) are wrapped in a standard envelope:
+Lattice returns **raw payloads**. There is no response envelope -- the body of a successful response *is* the resource you requested, and the HTTP status code conveys success or failure.
+
+**Success (HTTP 2xx):** The response body is the payload directly.
+
+- List endpoints return a JSON array (e.g. `GET /v1.0/collections` → `[ { ... }, ... ]`).
+- Single-resource endpoints return a JSON object (e.g. `GET /v1.0/collections/{id}` → `{ ... }`).
+- Operations with no payload (e.g. some `DELETE`s) return an **empty body** (zero length) with a 2xx status.
+
+```json
+[
+  { "id": "d4e5f6a7-b8c9-0123-4567-89abcdef0123", "name": "customers" }
+]
+```
+
+**Error (HTTP 4xx/5xx):** The response body is an error object. The HTTP status code carries the status.
 
 ```json
 {
-  "success": true,
-  "statusCode": 200,
-  "errorMessage": null,
-  "data": { },
-  "processingTimeMs": 12.34,
-  "guid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "timestampUtc": "2024-01-15T12:00:00.000Z"
+  "error": "Name is required for collection creation"
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `success` | boolean | Whether the operation completed successfully. |
-| `statusCode` | integer | HTTP status code of the response. |
-| `errorMessage` | string or null | Error description when `success` is `false`. Null on success. |
-| `data` | object, array, or null | The response payload. Varies by endpoint. |
-| `processingTimeMs` | number | Server-side processing time in milliseconds. |
-| `guid` | string | Unique identifier for this response (UUID v4). |
-| `timestampUtc` | string | ISO 8601 UTC timestamp of the response. |
-
-**Exception:** When retrieving a document with `includeContent=true`, the response is the raw JSON document content returned directly, **not** wrapped in the standard envelope.
-
----
-
-## Error Handling
-
-When an error occurs, the response envelope contains details about the failure:
+When structured information is available, a `detail` field is included:
 
 ```json
 {
-  "success": false,
-  "statusCode": 400,
-  "errorMessage": "Name is required for collection creation",
-  "data": null,
-  "processingTimeMs": 1.23,
-  "guid": "...",
-  "timestampUtc": "..."
-}
-```
-
-Schema validation errors include structured detail in the `data` field:
-
-```json
-{
-  "success": false,
-  "statusCode": 400,
-  "errorMessage": "Schema validation failed",
-  "data": {
+  "error": "Schema validation failed",
+  "detail": {
     "errors": [
       "Field 'email' is required but missing",
       "Field 'age' must be of type integer"
@@ -124,6 +100,59 @@ Schema validation errors include structured detail in the `data` field:
   }
 }
 ```
+
+### Response Headers
+
+Request correlation and timing metadata are returned in response headers (previously fields on the envelope):
+
+| Header | Description |
+|--------|-------------|
+| `X-Lattice-Request-Id` | Unique identifier for this request/response (UUID). Previously the envelope `guid`. |
+| `X-Lattice-Processing-Time-Ms` | Server-side processing time in milliseconds. Previously the envelope `processingTimeMs`. |
+
+All JSON property names use **camelCase**. Both success and error bodies use `Content-Type: application/json` (an empty success body still uses this content type).
+
+---
+
+## Error Handling
+
+When an error occurs, the HTTP status code indicates the failure and the response body contains an error object:
+
+```json
+{
+  "error": "Name is required for collection creation"
+}
+```
+
+Errors that carry structured information add a `detail` field. Schema validation errors, for example:
+
+```json
+{
+  "error": "Schema validation failed",
+  "detail": {
+    "errors": [
+      "Field 'email' is required but missing",
+      "Field 'age' must be of type integer"
+    ]
+  }
+}
+```
+
+A document lock conflict (`409`) reports the lock holder in `detail`:
+
+```json
+{
+  "error": "Document is locked",
+  "detail": {
+    "collectionId": "d4e5f6a7-b8c9-0123-4567-89abcdef0123",
+    "documentName": "john-doe",
+    "lockedByHostname": "server-02",
+    "lockCreatedUtc": "2024-01-15T12:00:00.000Z"
+  }
+}
+```
+
+Clients should treat the HTTP status code as the source of truth: `2xx` means success, anything else is an error. On an error, parse `{ error, detail? }`; if the body is not JSON, fall back to the HTTP status text.
 
 ### HTTP Status Codes
 
@@ -166,16 +195,9 @@ curl http://localhost:8000/
 
 ```json
 {
-  "success": true,
-  "statusCode": 200,
-  "data": {
-    "status": "healthy",
-    "version": "1.0.0",
-    "timestamp": "2024-01-15T12:00:00.000Z"
-  },
-  "processingTimeMs": 0.52,
-  "guid": "...",
-  "timestampUtc": "2024-01-15T12:00:00.000Z"
+  "status": "Healthy",
+  "version": "1.0.0",
+  "timestamp": "2024-01-15T12:00:00.000Z"
 }
 ```
 
@@ -237,32 +259,25 @@ curl -X PUT http://localhost:8000/v1.0/collections \
 
 ```json
 {
-  "success": true,
-  "statusCode": 201,
-  "data": {
-    "id": "d4e5f6a7-b8c9-0123-4567-89abcdef0123",
-    "name": "customers",
-    "description": "Customer records",
-    "documentsDirectory": null,
-    "labels": ["production", "crm"],
-    "tags": {
-      "department": "sales",
-      "region": "us-east"
-    },
-    "createdUtc": "2024-01-15T12:00:00.000Z",
-    "lastUpdateUtc": "2024-01-15T12:00:00.000Z",
-    "schemaEnforcementMode": "none",
-    "indexingMode": "all"
+  "id": "d4e5f6a7-b8c9-0123-4567-89abcdef0123",
+  "name": "customers",
+  "description": "Customer records",
+  "documentsDirectory": null,
+  "labels": ["production", "crm"],
+  "tags": {
+    "department": "sales",
+    "region": "us-east"
   },
-  "processingTimeMs": 15.78,
-  "guid": "...",
-  "timestampUtc": "2024-01-15T12:00:00.000Z"
+  "createdUtc": "2024-01-15T12:00:00.000Z",
+  "lastUpdateUtc": "2024-01-15T12:00:00.000Z",
+  "schemaEnforcementMode": "none",
+  "indexingMode": "all"
 }
 ```
 
 **Errors:**
 
-- `400 Bad Request` -- `name` is missing or empty.
+- `400 Bad Request` -- `name` is missing or empty. Body: `{ "error": "Name is required for collection creation" }`.
 
 ---
 
@@ -279,28 +294,23 @@ curl http://localhost:8000/v1.0/collections
 **Response (200 OK):**
 
 ```json
-{
-  "success": true,
-  "statusCode": 200,
-  "data": [
-    {
-      "id": "d4e5f6a7-b8c9-0123-4567-89abcdef0123",
-      "name": "customers",
-      "description": "Customer records",
-      "documentsDirectory": null,
-      "labels": ["production", "crm"],
-      "tags": { "department": "sales" },
-      "createdUtc": "2024-01-15T12:00:00.000Z",
-      "lastUpdateUtc": "2024-01-15T12:00:00.000Z",
-      "schemaEnforcementMode": "none",
-      "indexingMode": "all"
-    }
-  ],
-  "processingTimeMs": 3.21,
-  "guid": "...",
-  "timestampUtc": "2024-01-15T12:00:00.000Z"
-}
+[
+  {
+    "id": "d4e5f6a7-b8c9-0123-4567-89abcdef0123",
+    "name": "customers",
+    "description": "Customer records",
+    "documentsDirectory": null,
+    "labels": ["production", "crm"],
+    "tags": { "department": "sales" },
+    "createdUtc": "2024-01-15T12:00:00.000Z",
+    "lastUpdateUtc": "2024-01-15T12:00:00.000Z",
+    "schemaEnforcementMode": "none",
+    "indexingMode": "all"
+  }
+]
 ```
+
+> On first server start (when no collections exist), Lattice automatically creates a collection named `default` (indexing mode `all`, schema enforcement `none`), so this list is never empty on a fresh install.
 
 ---
 
@@ -324,26 +334,22 @@ curl http://localhost:8000/v1.0/collections/d4e5f6a7-b8c9-0123-4567-89abcdef0123
 
 ```json
 {
-  "success": true,
-  "statusCode": 200,
-  "data": {
-    "id": "d4e5f6a7-b8c9-0123-4567-89abcdef0123",
-    "name": "customers",
-    "description": "Customer records",
-    "documentsDirectory": null,
-    "labels": ["production", "crm"],
-    "tags": { "department": "sales" },
-    "createdUtc": "2024-01-15T12:00:00.000Z",
-    "lastUpdateUtc": "2024-01-15T12:00:00.000Z",
-    "schemaEnforcementMode": "none",
-    "indexingMode": "all"
-  }
+  "id": "d4e5f6a7-b8c9-0123-4567-89abcdef0123",
+  "name": "customers",
+  "description": "Customer records",
+  "documentsDirectory": null,
+  "labels": ["production", "crm"],
+  "tags": { "department": "sales" },
+  "createdUtc": "2024-01-15T12:00:00.000Z",
+  "lastUpdateUtc": "2024-01-15T12:00:00.000Z",
+  "schemaEnforcementMode": "none",
+  "indexingMode": "all"
 }
 ```
 
 **Errors:**
 
-- `404 Not Found` -- Collection with the given ID does not exist.
+- `404 Not Found` -- Collection with the given ID does not exist. Body: `{ "error": "Collection not found" }`.
 
 ---
 
@@ -383,22 +389,11 @@ Deletes a collection and **all of its documents** (cascade delete).
 curl -X DELETE http://localhost:8000/v1.0/collections/d4e5f6a7-b8c9-0123-4567-89abcdef0123
 ```
 
-**Response (200 OK):**
-
-```json
-{
-  "success": true,
-  "statusCode": 200,
-  "data": null,
-  "processingTimeMs": 42.10,
-  "guid": "...",
-  "timestampUtc": "2024-01-15T12:00:00.000Z"
-}
-```
+**Response (200 OK):** Empty body (zero length).
 
 **Errors:**
 
-- `404 Not Found` -- Collection does not exist.
+- `404 Not Found` -- Collection does not exist. Body: `{ "error": "Collection not found" }`.
 
 ---
 
@@ -422,28 +417,24 @@ curl http://localhost:8000/v1.0/collections/d4e5f6a7-b8c9-0123-4567-89abcdef0123
 
 ```json
 {
-  "success": true,
-  "statusCode": 200,
-  "data": {
-    "schemaEnforcementMode": "strict",
-    "fieldConstraints": [
-      {
-        "id": "...",
-        "collectionId": "d4e5f6a7-...",
-        "fieldPath": "email",
-        "dataType": "string",
-        "required": true,
-        "nullable": false,
-        "regexPattern": "^[^@]+@[^@]+\\.[^@]+$",
-        "minLength": 5,
-        "maxLength": 255,
-        "allowedValues": null,
-        "arrayElementType": null,
-        "minValue": null,
-        "maxValue": null
-      }
-    ]
-  }
+  "schemaEnforcementMode": "strict",
+  "fieldConstraints": [
+    {
+      "id": "...",
+      "collectionId": "d4e5f6a7-...",
+      "fieldPath": "email",
+      "dataType": "string",
+      "required": true,
+      "nullable": false,
+      "regexPattern": "^[^@]+@[^@]+\\.[^@]+$",
+      "minLength": 5,
+      "maxLength": 255,
+      "allowedValues": null,
+      "arrayElementType": null,
+      "minValue": null,
+      "maxValue": null
+    }
+  ]
 }
 ```
 
@@ -527,12 +518,8 @@ curl http://localhost:8000/v1.0/collections/d4e5f6a7-b8c9-0123-4567-89abcdef0123
 
 ```json
 {
-  "success": true,
-  "statusCode": 200,
-  "data": {
-    "indexingMode": "selective",
-    "indexedFields": ["name", "email", "address.city"]
-  }
+  "indexingMode": "selective",
+  "indexedFields": ["name", "email", "address.city"]
 }
 ```
 
@@ -610,19 +597,15 @@ curl -X POST http://localhost:8000/v1.0/collections/d4e5f6a7-b8c9-0123-4567-89ab
 
 ```json
 {
-  "success": true,
-  "statusCode": 200,
-  "data": {
-    "collectionId": "d4e5f6a7-...",
-    "documentsProcessed": 150,
-    "indexesCreated": 12,
-    "indexesDropped": 3,
-    "valuesInserted": 1800,
-    "duration": "00:00:02.3456789",
-    "durationMs": 2345.68,
-    "errors": [],
-    "success": true
-  }
+  "collectionId": "d4e5f6a7-...",
+  "documentsProcessed": 150,
+  "indexesCreated": 12,
+  "indexesDropped": 3,
+  "valuesInserted": 1800,
+  "duration": "00:00:02.3456789",
+  "durationMs": 2345.68,
+  "errors": [],
+  "success": true
 }
 ```
 
@@ -653,24 +636,20 @@ curl http://localhost:8000/v1.0/collections/d4e5f6a7-b8c9-0123-4567-89abcdef0123
 **Response (200 OK):**
 
 ```json
-{
-  "success": true,
-  "statusCode": 200,
-  "data": [
-    {
-      "id": "a1b2c3d4-...",
-      "collectionId": "d4e5f6a7-...",
-      "schemaId": "f0e1d2c3-...",
-      "name": "john-doe",
-      "labels": ["active"],
-      "tags": { "source": "import" },
-      "createdUtc": "2024-01-15T12:00:00.000Z",
-      "lastUpdateUtc": "2024-01-15T12:00:00.000Z",
-      "contentLength": 256,
-      "sha256Hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-    }
-  ]
-}
+[
+  {
+    "id": "a1b2c3d4-...",
+    "collectionId": "d4e5f6a7-...",
+    "schemaId": "f0e1d2c3-...",
+    "name": "john-doe",
+    "labels": ["active"],
+    "tags": { "source": "import" },
+    "createdUtc": "2024-01-15T12:00:00.000Z",
+    "lastUpdateUtc": "2024-01-15T12:00:00.000Z",
+    "contentLength": 256,
+    "sha256Hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+]
 ```
 
 **Errors:**
@@ -730,31 +709,27 @@ curl -X PUT http://localhost:8000/v1.0/collections/d4e5f6a7-b8c9-0123-4567-89abc
 
 ```json
 {
-  "success": true,
-  "statusCode": 201,
-  "data": {
-    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    "collectionId": "d4e5f6a7-...",
-    "schemaId": "f0e1d2c3-...",
-    "name": "john-doe",
-    "labels": ["active", "verified"],
-    "tags": {
-      "source": "web-form",
-      "importBatch": "2024-01"
-    },
-    "createdUtc": "2024-01-15T12:00:00.000Z",
-    "lastUpdateUtc": "2024-01-15T12:00:00.000Z",
-    "contentLength": 256,
-    "sha256Hash": "a1b2c3..."
-  }
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "collectionId": "d4e5f6a7-...",
+  "schemaId": "f0e1d2c3-...",
+  "name": "john-doe",
+  "labels": ["active", "verified"],
+  "tags": {
+    "source": "web-form",
+    "importBatch": "2024-01"
+  },
+  "createdUtc": "2024-01-15T12:00:00.000Z",
+  "lastUpdateUtc": "2024-01-15T12:00:00.000Z",
+  "contentLength": 256,
+  "sha256Hash": "a1b2c3..."
 }
 ```
 
 **Errors:**
 
-- `400 Bad Request` -- `content` is missing or not a valid JSON object; schema validation failure.
-- `404 Not Found` -- Collection does not exist.
-- `409 Conflict` -- Object lock held on the same document name (concurrent write).
+- `400 Bad Request` -- `content` is missing or not a valid JSON object; schema validation failure. On a validation failure the body includes `detail`, e.g. `{ "error": "Schema validation failed", "detail": { "errors": [ ... ] } }`.
+- `404 Not Found` -- Collection does not exist. Body: `{ "error": "Collection not found" }`.
+- `409 Conflict` -- Object lock held on the same document name (concurrent write). Body: `{ "error": "Document is locked", "detail": { "collectionId": "...", "documentName": "...", "lockedByHostname": "...", "lockCreatedUtc": "..." } }`.
 
 ---
 
@@ -810,42 +785,38 @@ curl -X PUT http://localhost:8000/v1.0/collections/d4e5f6a7-b8c9-0123-4567-89abc
 **Response (201 Created):**
 
 ```json
-{
-  "success": true,
-  "statusCode": 201,
-  "data": [
-    {
-      "id": "a1b2c3d4-...",
-      "collectionId": "d4e5f6a7-...",
-      "schemaId": "f0e1d2c3-...",
-      "name": "john-doe",
-      "labels": ["active"],
-      "tags": null,
-      "createdUtc": "2024-01-15T12:00:00.000Z",
-      "lastUpdateUtc": "2024-01-15T12:00:00.000Z",
-      "contentLength": 128,
-      "sha256Hash": "..."
-    },
-    {
-      "id": "b2c3d4e5-...",
-      "collectionId": "d4e5f6a7-...",
-      "schemaId": "f0e1d2c3-...",
-      "name": "jane-smith",
-      "labels": ["active"],
-      "tags": null,
-      "createdUtc": "2024-01-15T12:00:00.000Z",
-      "lastUpdateUtc": "2024-01-15T12:00:00.000Z",
-      "contentLength": 130,
-      "sha256Hash": "..."
-    }
-  ]
-}
+[
+  {
+    "id": "a1b2c3d4-...",
+    "collectionId": "d4e5f6a7-...",
+    "schemaId": "f0e1d2c3-...",
+    "name": "john-doe",
+    "labels": ["active"],
+    "tags": null,
+    "createdUtc": "2024-01-15T12:00:00.000Z",
+    "lastUpdateUtc": "2024-01-15T12:00:00.000Z",
+    "contentLength": 128,
+    "sha256Hash": "..."
+  },
+  {
+    "id": "b2c3d4e5-...",
+    "collectionId": "d4e5f6a7-...",
+    "schemaId": "f0e1d2c3-...",
+    "name": "jane-smith",
+    "labels": ["active"],
+    "tags": null,
+    "createdUtc": "2024-01-15T12:00:00.000Z",
+    "lastUpdateUtc": "2024-01-15T12:00:00.000Z",
+    "contentLength": 130,
+    "sha256Hash": "..."
+  }
+]
 ```
 
 **Errors:**
 
-- `400 Bad Request` -- `documents` array is missing or empty; a document is missing `content`.
-- `404 Not Found` -- Collection does not exist.
+- `400 Bad Request` -- `documents` array is missing or empty; a document is missing `content`. Body: `{ "error": "<message>" }`.
+- `404 Not Found` -- Collection does not exist. Body: `{ "error": "Collection not found" }`.
 
 ---
 
@@ -864,7 +835,7 @@ Retrieves a specific document by its ID. By default, returns document metadata o
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `includeContent` | boolean | `false` | If `true`, returns the raw JSON document content directly (not wrapped in the standard response envelope). |
+| `includeContent` | boolean | `false` | If `true`, returns the raw JSON document content instead of the document metadata object. |
 
 **cURL (metadata only):**
 
@@ -876,20 +847,16 @@ curl http://localhost:8000/v1.0/collections/d4e5f6a7-.../documents/a1b2c3d4-...
 
 ```json
 {
-  "success": true,
-  "statusCode": 200,
-  "data": {
-    "id": "a1b2c3d4-...",
-    "collectionId": "d4e5f6a7-...",
-    "schemaId": "f0e1d2c3-...",
-    "name": "john-doe",
-    "labels": ["active", "verified"],
-    "tags": { "source": "web-form" },
-    "createdUtc": "2024-01-15T12:00:00.000Z",
-    "lastUpdateUtc": "2024-01-15T12:00:00.000Z",
-    "contentLength": 256,
-    "sha256Hash": "a1b2c3..."
-  }
+  "id": "a1b2c3d4-...",
+  "collectionId": "d4e5f6a7-...",
+  "schemaId": "f0e1d2c3-...",
+  "name": "john-doe",
+  "labels": ["active", "verified"],
+  "tags": { "source": "web-form" },
+  "createdUtc": "2024-01-15T12:00:00.000Z",
+  "lastUpdateUtc": "2024-01-15T12:00:00.000Z",
+  "contentLength": 256,
+  "sha256Hash": "a1b2c3..."
 }
 ```
 
@@ -901,7 +868,7 @@ curl "http://localhost:8000/v1.0/collections/d4e5f6a7-.../documents/a1b2c3d4-...
 
 **Response (200 OK -- with content):**
 
-Note: This response is the raw JSON content, **not** wrapped in the standard response envelope.
+With `includeContent=true`, the payload is the document's raw JSON content itself (rather than the metadata object):
 
 ```json
 {
@@ -921,7 +888,7 @@ Note: This response is the raw JSON content, **not** wrapped in the standard res
 
 **Errors:**
 
-- `404 Not Found` -- Collection or document does not exist.
+- `404 Not Found` -- Collection or document does not exist. Body: `{ "error": "Document not found" }`.
 
 ---
 
@@ -963,22 +930,11 @@ Deletes a document from the collection.
 curl -X DELETE http://localhost:8000/v1.0/collections/d4e5f6a7-.../documents/a1b2c3d4-...
 ```
 
-**Response (200 OK):**
-
-```json
-{
-  "success": true,
-  "statusCode": 200,
-  "data": null,
-  "processingTimeMs": 8.45,
-  "guid": "...",
-  "timestampUtc": "2024-01-15T12:00:00.000Z"
-}
-```
+**Response (200 OK):** Empty body (zero length).
 
 **Errors:**
 
-- `404 Not Found` -- Collection or document does not exist.
+- `404 Not Found` -- Collection or document does not exist. Body: `{ "error": "Document not found" }`.
 
 ---
 
@@ -1097,52 +1053,50 @@ curl -X POST http://localhost:8000/v1.0/collections/d4e5f6a7-.../documents/searc
 ```json
 {
   "success": true,
-  "statusCode": 200,
-  "data": {
-    "success": true,
-    "timestamp": {
-      "start": "2024-01-15T12:00:00.000Z",
-      "end": "2024-01-15T12:00:00.050Z",
-      "totalMs": 50.0
-    },
-    "maxResults": 10,
-    "endOfResults": true,
-    "totalRecords": 2,
-    "recordsRemaining": 0,
-    "documents": [
-      {
-        "id": "a1b2c3d4-...",
-        "collectionId": "d4e5f6a7-...",
-        "schemaId": "f0e1d2c3-...",
-        "name": "john-doe",
-        "labels": ["active"],
-        "tags": { "source": "web-form" },
-        "createdUtc": "2024-01-15T12:00:00.000Z",
-        "lastUpdateUtc": "2024-01-15T12:00:00.000Z",
-        "contentLength": 256,
-        "sha256Hash": "...",
-        "content": {
-          "firstName": "John",
-          "lastName": "Doe",
-          "email": "john@example.com",
-          "age": 30,
-          "address": {
-            "street": "123 Main St",
-            "city": "Springfield",
-            "state": "IL",
-            "zip": "62704"
-          }
+  "timestamp": {
+    "start": "2024-01-15T12:00:00.000Z",
+    "end": "2024-01-15T12:00:00.050Z",
+    "totalMs": 50.0
+  },
+  "maxResults": 10,
+  "endOfResults": true,
+  "totalRecords": 2,
+  "recordsRemaining": 0,
+  "documents": [
+    {
+      "id": "a1b2c3d4-...",
+      "collectionId": "d4e5f6a7-...",
+      "schemaId": "f0e1d2c3-...",
+      "name": "john-doe",
+      "labels": ["active"],
+      "tags": { "source": "web-form" },
+      "createdUtc": "2024-01-15T12:00:00.000Z",
+      "lastUpdateUtc": "2024-01-15T12:00:00.000Z",
+      "contentLength": 256,
+      "sha256Hash": "...",
+      "content": {
+        "firstName": "John",
+        "lastName": "Doe",
+        "email": "john@example.com",
+        "age": 30,
+        "address": {
+          "street": "123 Main St",
+          "city": "Springfield",
+          "state": "IL",
+          "zip": "62704"
         }
       }
-    ]
-  }
+    }
+  ]
 }
 ```
 
+> The `success` field here is part of the `SearchResult` payload (search-level status), not a response envelope. It is unrelated to the removed envelope.
+
 **Errors:**
 
-- `400 Bad Request` -- Invalid filter conditions or malformed SQL expression.
-- `404 Not Found` -- Collection does not exist.
+- `400 Bad Request` -- Invalid filter conditions or malformed SQL expression. Body: `{ "error": "<message>" }`.
+- `404 Not Found` -- Collection does not exist. Body: `{ "error": "Collection not found" }`.
 
 ---
 
@@ -1163,18 +1117,14 @@ curl http://localhost:8000/v1.0/schemas
 **Response (200 OK):**
 
 ```json
-{
-  "success": true,
-  "statusCode": 200,
-  "data": [
-    {
-      "id": "f0e1d2c3-b4a5-6789-0123-456789abcdef",
-      "hash": "a1b2c3d4e5f6...",
-      "createdUtc": "2024-01-15T12:00:00.000Z",
-      "lastUpdateUtc": "2024-01-15T12:00:00.000Z"
-    }
-  ]
-}
+[
+  {
+    "id": "f0e1d2c3-b4a5-6789-0123-456789abcdef",
+    "hash": "a1b2c3d4e5f6...",
+    "createdUtc": "2024-01-15T12:00:00.000Z",
+    "lastUpdateUtc": "2024-01-15T12:00:00.000Z"
+  }
+]
 ```
 
 ---
@@ -1199,20 +1149,16 @@ curl http://localhost:8000/v1.0/schemas/f0e1d2c3-b4a5-6789-0123-456789abcdef
 
 ```json
 {
-  "success": true,
-  "statusCode": 200,
-  "data": {
-    "id": "f0e1d2c3-b4a5-6789-0123-456789abcdef",
-    "hash": "a1b2c3d4e5f6...",
-    "createdUtc": "2024-01-15T12:00:00.000Z",
-    "lastUpdateUtc": "2024-01-15T12:00:00.000Z"
-  }
+  "id": "f0e1d2c3-b4a5-6789-0123-456789abcdef",
+  "hash": "a1b2c3d4e5f6...",
+  "createdUtc": "2024-01-15T12:00:00.000Z",
+  "lastUpdateUtc": "2024-01-15T12:00:00.000Z"
 }
 ```
 
 **Errors:**
 
-- `404 Not Found` -- Schema does not exist.
+- `404 Not Found` -- Schema does not exist. Body: `{ "error": "Schema not found" }`.
 
 ---
 
@@ -1235,47 +1181,43 @@ curl http://localhost:8000/v1.0/schemas/f0e1d2c3-b4a5-6789-0123-456789abcdef/ele
 **Response (200 OK):**
 
 ```json
-{
-  "success": true,
-  "statusCode": 200,
-  "data": [
-    {
-      "id": "...",
-      "schemaId": "f0e1d2c3-...",
-      "position": 0,
-      "key": "firstName",
-      "dataType": "string",
-      "nullable": false,
-      "createdUtc": "2024-01-15T12:00:00.000Z",
-      "lastUpdateUtc": "2024-01-15T12:00:00.000Z"
-    },
-    {
-      "id": "...",
-      "schemaId": "f0e1d2c3-...",
-      "position": 1,
-      "key": "age",
-      "dataType": "integer",
-      "nullable": true,
-      "createdUtc": "2024-01-15T12:00:00.000Z",
-      "lastUpdateUtc": "2024-01-15T12:00:00.000Z"
-    },
-    {
-      "id": "...",
-      "schemaId": "f0e1d2c3-...",
-      "position": 2,
-      "key": "address.city",
-      "dataType": "string",
-      "nullable": false,
-      "createdUtc": "2024-01-15T12:00:00.000Z",
-      "lastUpdateUtc": "2024-01-15T12:00:00.000Z"
-    }
-  ]
-}
+[
+  {
+    "id": "...",
+    "schemaId": "f0e1d2c3-...",
+    "position": 0,
+    "key": "firstName",
+    "dataType": "string",
+    "nullable": false,
+    "createdUtc": "2024-01-15T12:00:00.000Z",
+    "lastUpdateUtc": "2024-01-15T12:00:00.000Z"
+  },
+  {
+    "id": "...",
+    "schemaId": "f0e1d2c3-...",
+    "position": 1,
+    "key": "age",
+    "dataType": "integer",
+    "nullable": true,
+    "createdUtc": "2024-01-15T12:00:00.000Z",
+    "lastUpdateUtc": "2024-01-15T12:00:00.000Z"
+  },
+  {
+    "id": "...",
+    "schemaId": "f0e1d2c3-...",
+    "position": 2,
+    "key": "address.city",
+    "dataType": "string",
+    "nullable": false,
+    "createdUtc": "2024-01-15T12:00:00.000Z",
+    "lastUpdateUtc": "2024-01-15T12:00:00.000Z"
+  }
+]
 ```
 
 **Errors:**
 
-- `404 Not Found` -- Schema does not exist.
+- `404 Not Found` -- Schema does not exist. Body: `{ "error": "Schema not found" }`.
 
 ---
 
@@ -1296,22 +1238,18 @@ curl http://localhost:8000/v1.0/tables
 **Response (200 OK):**
 
 ```json
-{
-  "success": true,
-  "statusCode": 200,
-  "data": [
-    {
-      "id": "...",
-      "key": "firstName:string",
-      "tableName": "idx_a1b2c3d4"
-    },
-    {
-      "id": "...",
-      "key": "address.city:string",
-      "tableName": "idx_e5f6a7b8"
-    }
-  ]
-}
+[
+  {
+    "id": "...",
+    "key": "firstName:string",
+    "tableName": "idx_a1b2c3d4"
+  },
+  {
+    "id": "...",
+    "key": "address.city:string",
+    "tableName": "idx_e5f6a7b8"
+  }
+]
 ```
 
 ---
@@ -1342,33 +1280,29 @@ curl "http://localhost:8000/v1.0/tables/idx_a1b2c3d4/entries?skip=0&limit=50"
 **Response (200 OK):**
 
 ```json
-{
-  "success": true,
-  "statusCode": 200,
-  "data": [
-    {
-      "id": "...",
-      "documentId": "a1b2c3d4-...",
-      "schemaId": "f0e1d2c3-...",
-      "schemaElementId": "...",
-      "position": 0,
-      "value": "John"
-    },
-    {
-      "id": "...",
-      "documentId": "b2c3d4e5-...",
-      "schemaId": "f0e1d2c3-...",
-      "schemaElementId": "...",
-      "position": 0,
-      "value": "Jane"
-    }
-  ]
-}
+[
+  {
+    "id": "...",
+    "documentId": "a1b2c3d4-...",
+    "schemaId": "f0e1d2c3-...",
+    "schemaElementId": "...",
+    "position": 0,
+    "value": "John"
+  },
+  {
+    "id": "...",
+    "documentId": "b2c3d4e5-...",
+    "schemaId": "f0e1d2c3-...",
+    "schemaElementId": "...",
+    "position": 0,
+    "value": "Jane"
+  }
+]
 ```
 
 **Errors:**
 
-- `404 Not Found` -- Index table does not exist.
+- `404 Not Found` -- Index table does not exist. Body: `{ "error": "Index table not found" }`.
 
 ---
 
@@ -1494,6 +1428,10 @@ curl "http://localhost:8000/v1.0/tables/idx_a1b2c3d4/entries?skip=0&limit=50"
 ---
 
 ## Key Behaviors
+
+### Default Collection
+
+On the first server start, when no collections exist yet, Lattice automatically creates a collection named `default` with indexing mode `all` and schema enforcement mode `none`. This means `GET /v1.0/collections` returns at least this one collection on a fresh install.
 
 ### Automatic Schema Detection
 

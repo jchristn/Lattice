@@ -16,7 +16,6 @@ export {
     SearchQuery,
     SearchResult,
     IndexRebuildResult,
-    ResponseContext,
     IndexTableMapping,
     CreateCollectionOptions,
     IngestDocumentOptions,

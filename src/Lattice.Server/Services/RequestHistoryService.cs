@@ -14,7 +14,7 @@ namespace Lattice.Server.Services
     /// <summary>
     /// Database-backed request history service with automatic retention pruning.
     /// </summary>
-    public class RequestHistoryService : IDisposable
+    public class RequestHistoryService : IAsyncDisposable
     {
         private readonly LatticeClient _Client;
         private readonly RequestHistorySettings _Settings;
@@ -188,11 +188,14 @@ namespace Lattice.Server.Services
         }
 
         /// <summary>
-        /// Dispose of background resources.
+        /// Asynchronously dispose of background resources, signaling the retention loop to stop and
+        /// awaiting its completion without blocking a thread.
         /// </summary>
-        public void Dispose()
+        /// <returns>A task that completes once the retention loop has stopped.</returns>
+        public async ValueTask DisposeAsync()
         {
             if (_Disposed) return;
+            _Disposed = true;
 
             if (_RetentionCts != null)
             {
@@ -201,13 +204,10 @@ namespace Lattice.Server.Services
                     _RetentionCts.Cancel();
                     if (_RetentionTask != null)
                     {
-                        _RetentionTask.GetAwaiter().GetResult();
+                        await _RetentionTask.ConfigureAwait(false);
                     }
                 }
                 catch (OperationCanceledException)
-                {
-                }
-                catch (AggregateException e) when (e.InnerException is OperationCanceledException)
                 {
                 }
                 finally
@@ -215,8 +215,6 @@ namespace Lattice.Server.Services
                     _RetentionCts.Dispose();
                 }
             }
-
-            _Disposed = true;
         }
 
         private async Task RunRetentionLoopAsync(CancellationToken token)

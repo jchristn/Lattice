@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Lattice.Sdk.Models;
 
 namespace Lattice.Sdk.Methods
@@ -34,17 +33,11 @@ namespace Lattice.Sdk.Methods
             if (query.IncludeContent)
                 data["includeContent"] = true;
 
-            ResponseContext response = await _client.RequestAsync(
+            return await _client.RequestJsonAsync<SearchResult>(
                 "POST",
                 $"/v1.0/collections/{query.CollectionId}/documents/search",
                 data,
                 cancellationToken: cancellationToken);
-
-            if (response.Success && response.Data.HasValue)
-            {
-                return JsonSerializer.Deserialize<SearchResult>(response.Data.Value.GetRawText(), _client.JsonOptions);
-            }
-            return null;
         }
 
         public async Task<SearchResult?> SearchBySqlAsync(string collectionId, string sqlExpression, CancellationToken cancellationToken = default)
@@ -54,17 +47,11 @@ namespace Lattice.Sdk.Methods
                 ["sqlExpression"] = sqlExpression
             };
 
-            ResponseContext response = await _client.RequestAsync(
+            return await _client.RequestJsonAsync<SearchResult>(
                 "POST",
                 $"/v1.0/collections/{collectionId}/documents/search",
                 data,
                 cancellationToken: cancellationToken);
-
-            if (response.Success && response.Data.HasValue)
-            {
-                return JsonSerializer.Deserialize<SearchResult>(response.Data.Value.GetRawText(), _client.JsonOptions);
-            }
-            return null;
         }
 
         public async Task<SearchResult?> EnumerateAsync(SearchQuery query, CancellationToken cancellationToken = default)

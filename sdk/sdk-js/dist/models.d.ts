@@ -7,18 +7,18 @@
  * Schema enforcement mode for collections.
  */
 export declare enum SchemaEnforcementMode {
-    None = 0,
-    Strict = 1,
-    Flexible = 2,
-    Partial = 3
+    None = "none",
+    Strict = "strict",
+    Flexible = "flexible",
+    Partial = "partial"
 }
 /**
  * Indexing mode for collections.
  */
 export declare enum IndexingMode {
-    All = 0,
-    Selective = 1,
-    None = 2
+    All = "all",
+    Selective = "selective",
+    None = "none"
 }
 /**
  * Search condition operators.
@@ -193,19 +193,6 @@ export interface IndexRebuildResult {
     success: boolean;
 }
 /**
- * Represents the standard API response wrapper.
- */
-export interface ResponseContext<T = any> {
-    success: boolean;
-    statusCode: number;
-    errorMessage?: string;
-    data?: T;
-    headers: Record<string, string>;
-    processingTimeMs: number;
-    guid?: string;
-    timestampUtc?: Date;
-}
-/**
  * Represents an index table mapping.
  */
 export interface IndexTableMapping {
@@ -231,6 +218,15 @@ export interface CreateCollectionOptions {
  */
 export interface IngestDocumentOptions {
     collectionId: string;
+    content: any;
+    name?: string;
+    labels?: string[];
+    tags?: Record<string, string>;
+}
+/**
+ * Options for batch ingesting documents.
+ */
+export interface BatchIngestDocumentEntry {
     content: any;
     name?: string;
     labels?: string[];

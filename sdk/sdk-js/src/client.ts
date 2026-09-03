@@ -13,7 +13,6 @@ import {
     IndexedField,
     SearchResult,
     IndexRebuildResult,
-    ResponseContext,
     SearchQuery,
     IndexTableMapping,
     SchemaEnforcementMode,
@@ -33,7 +32,7 @@ import {
     fieldConstraintToRequest,
     searchQueryToRequest
 } from "./models";
-import { LatticeError, LatticeConnectionError, LatticeApiError } from "./exceptions";
+import { LatticeConnectionError, LatticeApiError } from "./exceptions";
 
 /**
  * HTTP request options.
@@ -77,8 +76,14 @@ export class LatticeClient {
 
     /**
      * Make an HTTP request to the Lattice API.
+     *
+     * On success (HTTP 2xx) the parsed response body is returned directly as the
+     * payload (an empty body resolves to `undefined`). On failure (non-2xx) a
+     * {@link LatticeApiError} is thrown, carrying the server's `error` message,
+     * the HTTP status code, any structured `detail`, and the request id from the
+     * `X-Lattice-Request-Id` response header.
      */
-    async request<T = any>(options: RequestOptions): Promise<ResponseContext<T>> {
+    async request<T = any>(options: RequestOptions): Promise<T> {
         let url = `${this.baseUrl}${options.path}`;
 
         if (options.params) {
@@ -97,76 +102,77 @@ export class LatticeClient {
             fetchOptions.body = JSON.stringify(options.data);
         }
 
-        try {
+        const doFetch = async () => {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), this.timeout);
             fetchOptions.signal = controller.signal;
-
-            const response = await fetch(url, fetchOptions);
-            clearTimeout(timeoutId);
-
-            // For HEAD requests, we don't have a body
-            if (options.method === "HEAD") {
-                return {
-                    success: response.status === 200,
-                    statusCode: response.status,
-                    headers: Object.fromEntries(response.headers.entries()),
-                    processingTimeMs: 0
-                };
+            try {
+                return await fetch(url, fetchOptions);
+            } finally {
+                clearTimeout(timeoutId);
             }
+        };
 
-            const responseText = await response.text();
-
-            if (responseText) {
-                try {
-                    const responseData = JSON.parse(responseText);
-
-                    // Check if this is a standard API envelope (has 'success' property)
-                    // or raw content (e.g., when includeContent=true for document retrieval)
-                    if (responseData.success !== undefined) {
-                        // Standard envelope response
-                        return {
-                            success: responseData.success,
-                            statusCode: responseData.statusCode ?? response.status,
-                            errorMessage: responseData.errorMessage,
-                            data: responseData.data,
-                            headers: Object.fromEntries(response.headers.entries()),
-                            processingTimeMs: responseData.processingTimeMs ?? 0,
-                            guid: responseData.guid,
-                            timestampUtc: responseData.timestampUtc ? new Date(responseData.timestampUtc) : undefined
-                        };
-                    } else {
-                        // Raw content response (not wrapped in standard envelope)
-                        return {
-                            success: response.ok,
-                            statusCode: response.status,
-                            data: responseData,
-                            headers: Object.fromEntries(response.headers.entries()),
-                            processingTimeMs: 0
-                        };
-                    }
-                } catch {
-                    return {
-                        success: response.ok,
-                        statusCode: response.status,
-                        data: responseText as any,
-                        headers: Object.fromEntries(response.headers.entries()),
-                        processingTimeMs: 0
-                    };
-                }
-            }
-
-            return {
-                success: response.ok,
-                statusCode: response.status,
-                headers: Object.fromEntries(response.headers.entries()),
-                processingTimeMs: 0
-            };
+        let response: Awaited<ReturnType<typeof fetch>>;
+        try {
+            response = await doFetch();
         } catch (error: any) {
             if (error.name === "AbortError") {
                 throw new LatticeConnectionError(`Request to ${url} timed out`);
             }
             throw new LatticeConnectionError(`Failed to connect to ${url}`, error);
+        }
+
+        const requestId = response.headers.get("X-Lattice-Request-Id") ?? undefined;
+
+        // HEAD responses have no body; read the text for everything else.
+        const responseText = options.method === "HEAD" ? "" : await response.text();
+
+        // Parse the body once (may be empty, JSON, or plain text).
+        let parsedBody: any = undefined;
+        if (responseText) {
+            try {
+                parsedBody = JSON.parse(responseText);
+            } catch {
+                parsedBody = responseText;
+            }
+        }
+
+        if (!response.ok) {
+            // Error contract: body is `{ error, detail? }`. Fall back to the
+            // status text when the body isn't the expected JSON shape.
+            let message: string;
+            let detail: any = undefined;
+
+            if (parsedBody && typeof parsedBody === "object" && typeof parsedBody.error === "string") {
+                message = parsedBody.error;
+                detail = parsedBody.detail;
+            } else if (typeof parsedBody === "string" && parsedBody.length > 0) {
+                message = parsedBody;
+            } else {
+                message = response.statusText || `HTTP ${response.status}`;
+            }
+
+            throw new LatticeApiError(message, response.status, detail, requestId);
+        }
+
+        // Success: the body IS the payload. Empty body resolves to undefined.
+        return parsedBody as T;
+    }
+
+    /**
+     * Issue a HEAD request and report whether the resource exists (2xx).
+     * Non-2xx responses (e.g. 404) resolve to `false` rather than throwing.
+     */
+    async head(path: string): Promise<boolean> {
+        try {
+            await this.request({ method: "HEAD", path });
+            return true;
+        } catch (error) {
+            if (error instanceof LatticeApiError) {
+                return false;
+            }
+            throw error;
         }
     }
 
@@ -175,8 +181,8 @@ export class LatticeClient {
      */
     async healthCheck(): Promise<boolean> {
         try {
-            const response = await this.request({ method: "GET", path: "/v1.0/health" });
-            return response.success;
+            await this.request({ method: "GET", path: "/v1.0/health" });
+            return true;
         } catch {
             return false;
         }
@@ -210,29 +216,26 @@ class CollectionMethods {
         }
         if (options.indexedFields) data.indexedFields = options.indexedFields;
 
-        const response = await this.client.request({
+        const result = await this.client.request({
             method: "PUT",
             path: "/v1.0/collections",
             data
         });
 
-        if (response.success && response.data) {
-            return parseCollection(response.data);
-        }
-        return null;
+        return result ? parseCollection(result) : null;
     }
 
     /**
      * Get all collections.
      */
     async readAll(): Promise<Collection[]> {
-        const response = await this.client.request({
+        const result = await this.client.request({
             method: "GET",
             path: "/v1.0/collections"
         });
 
-        if (response.success && response.data) {
-            return response.data.map((c: any) => parseCollection(c)).filter((c: any) => c !== null);
+        if (Array.isArray(result)) {
+            return result.map((c: any) => parseCollection(c)).filter((c): c is Collection => c !== null);
         }
         return [];
     }
@@ -241,50 +244,50 @@ class CollectionMethods {
      * Get a collection by ID.
      */
     async readById(collectionId: string): Promise<Collection | null> {
-        const response = await this.client.request({
+        const result = await this.client.request({
             method: "GET",
             path: `/v1.0/collections/${collectionId}`
         });
 
-        if (response.success && response.data) {
-            return parseCollection(response.data);
-        }
-        return null;
+        return result ? parseCollection(result) : null;
     }
 
     /**
      * Check if a collection exists.
      */
     async exists(collectionId: string): Promise<boolean> {
-        const response = await this.client.request({
-            method: "HEAD",
-            path: `/v1.0/collections/${collectionId}`
-        });
-        return response.success;
+        return this.client.head(`/v1.0/collections/${collectionId}`);
     }
 
     /**
      * Delete a collection.
      */
     async delete(collectionId: string): Promise<boolean> {
-        const response = await this.client.request({
-            method: "DELETE",
-            path: `/v1.0/collections/${collectionId}`
-        });
-        return response.success;
+        try {
+            await this.client.request({
+                method: "DELETE",
+                path: `/v1.0/collections/${collectionId}`
+            });
+            return true;
+        } catch (error) {
+            if (error instanceof LatticeApiError) {
+                return false;
+            }
+            throw error;
+        }
     }
 
     /**
      * Get field constraints for a collection.
      */
     async getConstraints(collectionId: string): Promise<FieldConstraint[]> {
-        const response = await this.client.request({
+        const result = await this.client.request({
             method: "GET",
             path: `/v1.0/collections/${collectionId}/constraints`
         });
 
-        if (response.success && response.data && response.data.fieldConstraints) {
-            return response.data.fieldConstraints.map((c: any) => parseFieldConstraint(c)).filter((c: any) => c !== null);
+        if (result && result.fieldConstraints) {
+            return result.fieldConstraints.map((c: any) => parseFieldConstraint(c)).filter((c: any) => c !== null);
         }
         return [];
     }
@@ -302,25 +305,32 @@ class CollectionMethods {
             data.fieldConstraints = fieldConstraints.map(fieldConstraintToRequest);
         }
 
-        const response = await this.client.request({
-            method: "PUT",
-            path: `/v1.0/collections/${collectionId}/constraints`,
-            data
-        });
-        return response.success;
+        try {
+            await this.client.request({
+                method: "PUT",
+                path: `/v1.0/collections/${collectionId}/constraints`,
+                data
+            });
+            return true;
+        } catch (error) {
+            if (error instanceof LatticeApiError) {
+                return false;
+            }
+            throw error;
+        }
     }
 
     /**
      * Get indexed fields for a collection.
      */
     async getIndexedFields(collectionId: string): Promise<IndexedField[]> {
-        const response = await this.client.request({
+        const result = await this.client.request({
             method: "GET",
             path: `/v1.0/collections/${collectionId}/indexing`
         });
 
-        if (response.success && response.data && response.data.indexedFields) {
-            return response.data.indexedFields.map((f: any) => parseIndexedField(f)).filter((f: any) => f !== null);
+        if (result && result.indexedFields) {
+            return result.indexedFields.map((f: any) => parseIndexedField(f)).filter((f: any) => f !== null);
         }
         return [];
     }
@@ -340,12 +350,19 @@ class CollectionMethods {
         };
         if (indexedFields) data.indexedFields = indexedFields;
 
-        const response = await this.client.request({
-            method: "PUT",
-            path: `/v1.0/collections/${collectionId}/indexing`,
-            data
-        });
-        return response.success;
+        try {
+            await this.client.request({
+                method: "PUT",
+                path: `/v1.0/collections/${collectionId}/indexing`,
+                data
+            });
+            return true;
+        } catch (error) {
+            if (error instanceof LatticeApiError) {
+                return false;
+            }
+            throw error;
+        }
     }
 
     /**
@@ -355,16 +372,13 @@ class CollectionMethods {
         collectionId: string,
         dropUnusedIndexes: boolean = true
     ): Promise<IndexRebuildResult | null> {
-        const response = await this.client.request({
+        const result = await this.client.request({
             method: "POST",
             path: `/v1.0/collections/${collectionId}/indexes/rebuild`,
             data: { dropUnusedIndexes }
         });
 
-        if (response.success && response.data) {
-            return parseIndexRebuildResult(response.data);
-        }
-        return null;
+        return result ? parseIndexRebuildResult(result) : null;
     }
 }
 
@@ -384,16 +398,13 @@ class DocumentMethods {
         if (options.labels) data.labels = options.labels;
         if (options.tags) data.tags = options.tags;
 
-        const response = await this.client.request({
+        const result = await this.client.request({
             method: "PUT",
             path: `/v1.0/collections/${options.collectionId}/documents`,
             data
         });
 
-        if (response.success && response.data) {
-            return parseDocument(response.data);
-        }
-        return null;
+        return result ? parseDocument(result) : null;
     }
 
     /**
@@ -403,7 +414,7 @@ class DocumentMethods {
         collectionId: string,
         documents: BatchIngestDocumentEntry[]
     ): Promise<Document[] | null> {
-        const response = await this.client.request({
+        const result = await this.client.request({
             method: "PUT",
             path: `/v1.0/collections/${collectionId}/documents/batch`,
             data: {
@@ -417,8 +428,8 @@ class DocumentMethods {
             }
         });
 
-        if (response.success && response.data) {
-            return response.data.map((d: any) => parseDocument(d)).filter((d: any) => d !== null);
+        if (Array.isArray(result)) {
+            return result.map((d: any) => parseDocument(d)).filter((d): d is Document => d !== null);
         }
         return null;
     }
@@ -432,7 +443,7 @@ class DocumentMethods {
         includeLabels: boolean = true,
         includeTags: boolean = true
     ): Promise<Document[]> {
-        const response = await this.client.request({
+        const result = await this.client.request({
             method: "GET",
             path: `/v1.0/collections/${collectionId}/documents`,
             params: {
@@ -442,8 +453,8 @@ class DocumentMethods {
             }
         });
 
-        if (response.success && response.data) {
-            return response.data.map((d: any) => parseDocument(d)).filter((d: any) => d !== null);
+        if (Array.isArray(result)) {
+            return result.map((d: any) => parseDocument(d)).filter((d): d is Document => d !== null);
         }
         return [];
     }
@@ -460,13 +471,13 @@ class DocumentMethods {
     ): Promise<Document | null> {
         if (includeContent) {
             // When includeContent=true, the server returns ONLY the raw document body,
-            // not wrapped in the standard API envelope. We need to make two requests:
+            // not the document metadata. We make two requests:
             // 1. Get document metadata (without content)
             // 2. Get raw content separately
             // Then combine them.
 
             // First, get document metadata
-            const metadataResponse = await this.client.request({
+            const metadata = await this.client.request({
                 method: "GET",
                 path: `/v1.0/collections/${collectionId}/documents/${documentId}`,
                 params: {
@@ -476,17 +487,17 @@ class DocumentMethods {
                 }
             });
 
-            if (!metadataResponse.success || !metadataResponse.data) {
+            if (!metadata) {
                 return null;
             }
 
-            const doc = parseDocument(metadataResponse.data);
+            const doc = parseDocument(metadata);
             if (!doc) {
                 return null;
             }
 
             // Now get the raw content
-            const contentResponse = await this.client.request({
+            const content = await this.client.request({
                 method: "GET",
                 path: `/v1.0/collections/${collectionId}/documents/${documentId}`,
                 params: {
@@ -496,15 +507,15 @@ class DocumentMethods {
                 }
             });
 
-            if (contentResponse.success && contentResponse.data !== undefined) {
-                doc.content = contentResponse.data;
+            if (content !== undefined && content !== null) {
+                doc.content = content;
             }
 
             return doc;
         }
 
         // Normal flow when includeContent=false
-        const response = await this.client.request({
+        const result = await this.client.request({
             method: "GET",
             path: `/v1.0/collections/${collectionId}/documents/${documentId}`,
             params: {
@@ -514,32 +525,32 @@ class DocumentMethods {
             }
         });
 
-        if (response.success && response.data) {
-            return parseDocument(response.data);
-        }
-        return null;
+        return result ? parseDocument(result) : null;
     }
 
     /**
      * Check if a document exists.
      */
     async exists(collectionId: string, documentId: string): Promise<boolean> {
-        const response = await this.client.request({
-            method: "HEAD",
-            path: `/v1.0/collections/${collectionId}/documents/${documentId}`
-        });
-        return response.success;
+        return this.client.head(`/v1.0/collections/${collectionId}/documents/${documentId}`);
     }
 
     /**
      * Delete a document.
      */
     async delete(collectionId: string, documentId: string): Promise<boolean> {
-        const response = await this.client.request({
-            method: "DELETE",
-            path: `/v1.0/collections/${collectionId}/documents/${documentId}`
-        });
-        return response.success;
+        try {
+            await this.client.request({
+                method: "DELETE",
+                path: `/v1.0/collections/${collectionId}/documents/${documentId}`
+            });
+            return true;
+        } catch (error) {
+            if (error instanceof LatticeApiError) {
+                return false;
+            }
+            throw error;
+        }
     }
 }
 
@@ -553,32 +564,26 @@ class SearchMethods {
      * Search for documents.
      */
     async search(query: SearchQuery): Promise<SearchResult | null> {
-        const response = await this.client.request({
+        const result = await this.client.request({
             method: "POST",
             path: `/v1.0/collections/${query.collectionId}/documents/search`,
             data: searchQueryToRequest(query)
         });
 
-        if (response.success && response.data) {
-            return parseSearchResult(response.data);
-        }
-        return null;
+        return result ? parseSearchResult(result) : null;
     }
 
     /**
      * Search documents using a SQL-like expression.
      */
     async searchBySql(collectionId: string, sqlExpression: string): Promise<SearchResult | null> {
-        const response = await this.client.request({
+        const result = await this.client.request({
             method: "POST",
             path: `/v1.0/collections/${collectionId}/documents/search`,
             data: { sqlExpression }
         });
 
-        if (response.success && response.data) {
-            return parseSearchResult(response.data);
-        }
-        return null;
+        return result ? parseSearchResult(result) : null;
     }
 
     /**
@@ -599,13 +604,13 @@ class SchemaMethods {
      * Get all schemas.
      */
     async readAll(): Promise<Schema[]> {
-        const response = await this.client.request({
+        const result = await this.client.request({
             method: "GET",
             path: "/v1.0/schemas"
         });
 
-        if (response.success && response.data) {
-            return response.data.map((s: any) => parseSchema(s)).filter((s: any) => s !== null);
+        if (Array.isArray(result)) {
+            return result.map((s: any) => parseSchema(s)).filter((s): s is Schema => s !== null);
         }
         return [];
     }
@@ -614,28 +619,25 @@ class SchemaMethods {
      * Get a schema by ID.
      */
     async readById(schemaId: string): Promise<Schema | null> {
-        const response = await this.client.request({
+        const result = await this.client.request({
             method: "GET",
             path: `/v1.0/schemas/${schemaId}`
         });
 
-        if (response.success && response.data) {
-            return parseSchema(response.data);
-        }
-        return null;
+        return result ? parseSchema(result) : null;
     }
 
     /**
      * Get elements for a schema.
      */
     async getElements(schemaId: string): Promise<SchemaElement[]> {
-        const response = await this.client.request({
+        const result = await this.client.request({
             method: "GET",
             path: `/v1.0/schemas/${schemaId}/elements`
         });
 
-        if (response.success && response.data) {
-            return response.data.map((e: any) => parseSchemaElement(e)).filter((e: any) => e !== null);
+        if (Array.isArray(result)) {
+            return result.map((e: any) => parseSchemaElement(e)).filter((e): e is SchemaElement => e !== null);
         }
         return [];
     }
@@ -651,13 +653,13 @@ class IndexMethods {
      * Get all index table mappings.
      */
     async getMappings(): Promise<IndexTableMapping[]> {
-        const response = await this.client.request({
+        const result = await this.client.request({
             method: "GET",
             path: "/v1.0/tables"
         });
 
-        if (response.success && response.data) {
-            return response.data.map((m: any) => parseIndexTableMapping(m)).filter((m: any) => m !== null);
+        if (Array.isArray(result)) {
+            return result.map((m: any) => parseIndexTableMapping(m)).filter((m): m is IndexTableMapping => m !== null);
         }
         return [];
     }

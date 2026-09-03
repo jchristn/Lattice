@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
 		"name": "Lattice",
-		"description": "Lattice Document Store API\n\nLattice is a JSON document store with automatic schema detection, dynamic indexing, and SQL-like query capabilities.\n\n## Features\n- Automatic JSON schema detection and deduplication\n- Dynamic per-field indexing for fast queries\n- SQL-like DSL for document queries\n- Labels and tags for document organization\n- Full document content storage and retrieval\n\n## Getting Started\n1. Create a collection to organize your documents\n2. Ingest JSON documents into the collection\n3. Search and retrieve documents using filters or SQL expressions\n\n## Variables\n- `protocol`: HTTP protocol (default: http)\n- `hostname`: Server hostname (default: localhost)\n- `port`: Server port (default: 8000)",
+		"description": "Lattice Document Store API\n\nLattice is a JSON document store with automatic schema detection, dynamic indexing, and SQL-like query capabilities.\n\n## Features\n- Automatic JSON schema detection and deduplication\n- Dynamic per-field indexing for fast queries\n- SQL-like DSL for document queries\n- Labels and tags for document organization\n- Full document content storage and retrieval\n\n## Getting Started\n1. Create a collection to organize your documents\n2. Ingest JSON documents into the collection\n3. Search and retrieve documents using filters or SQL expressions\n\n## Response Format\nLattice returns raw payloads with no response envelope.\n- **Success (2xx):** the body is the payload directly (an array for list endpoints, an object for single-resource endpoints, empty for operations with no payload). Status is the HTTP status code.\n- **Error (4xx/5xx):** the body is `{ \"error\": \"<message>\" }`, plus a `detail` object when structured information is available (e.g. validation errors, lock info).\n- **Metadata headers:** `X-Lattice-Request-Id` (request/response id) and `X-Lattice-Processing-Time-Ms` (server processing time).\n\nOn first server start a collection named `default` is auto-created.\n\n## Variables\n- `protocol`: HTTP protocol (default: http)\n- `hostname`: Server hostname (default: localhost)\n- `port`: Server port (default: 8000)",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"variable": [
@@ -74,7 +74,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["v1.0", "health"]
 						},
-						"description": "Health check endpoint. Returns server status, version, and timestamp.\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"data\": {\n    \"status\": \"Healthy\",\n    \"version\": \"1.0.0\",\n    \"timestamp\": \"2024-01-15T12:00:00Z\"\n  }\n}\n```"
+						"description": "Health check endpoint. Returns server status, version, and timestamp.\n\n**Response:**\n```json\n{\n  \"status\": \"Healthy\",\n  \"version\": \"1.0.0\",\n  \"timestamp\": \"2024-01-15T12:00:00Z\"\n}\n```\n\nRequest metadata is returned in the `X-Lattice-Request-Id` and `X-Lattice-Processing-Time-Ms` response headers."
 					},
 					"response": []
 				}
@@ -94,7 +94,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["v1.0", "collections"]
 						},
-						"description": "Retrieve all collections in the system.\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"data\": [\n    {\n      \"id\": \"col_abc123\",\n      \"name\": \"My Collection\",\n      \"description\": \"Collection description\",\n      \"documentsDirectory\": \"/path/to/docs\",\n      \"labels\": [\"production\"],\n      \"tags\": {\"env\": \"prod\"},\n      \"createdUtc\": \"2024-01-15T12:00:00Z\"\n    }\n  ]\n}\n```"
+						"description": "Retrieve all collections in the system.\n\nThe response body is the array of collections directly.\n\n**Response:**\n```json\n[\n  {\n    \"id\": \"col_abc123\",\n    \"name\": \"My Collection\",\n    \"description\": \"Collection description\",\n    \"documentsDirectory\": \"/path/to/docs\",\n    \"labels\": [\"production\"],\n    \"tags\": {\"env\": \"prod\"},\n    \"createdUtc\": \"2024-01-15T12:00:00Z\"\n  }\n]\n```\n\n**Note:** On first server start a collection named `default` is auto-created, so this list is never empty on a fresh install."
 					},
 					"response": []
 				},
@@ -107,9 +107,9 @@
 								"exec": [
 									"if (pm.response.code === 201) {",
 									"    var jsonData = pm.response.json();",
-									"    if (jsonData.data && jsonData.data.id) {",
-									"        pm.collectionVariables.set(\"collectionId\", jsonData.data.id);",
-									"        console.log(\"Set collectionId to: \" + jsonData.data.id);",
+									"    if (jsonData && jsonData.id) {",
+									"        pm.collectionVariables.set(\"collectionId\", jsonData.id);",
+									"        console.log(\"Set collectionId to: \" + jsonData.id);",
 									"    }",
 									"}"
 								],
@@ -148,7 +148,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["v1.0", "collections", "{{collectionId}}"]
 						},
-						"description": "Retrieve a specific collection by ID.\n\n**Path Parameters:**\n- `collectionId`: The unique identifier of the collection\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"data\": {\n    \"id\": \"col_abc123\",\n    \"name\": \"My Collection\",\n    \"description\": \"Collection description\",\n    \"createdUtc\": \"2024-01-15T12:00:00Z\"\n  }\n}\n```"
+						"description": "Retrieve a specific collection by ID.\n\n**Path Parameters:**\n- `collectionId`: The unique identifier of the collection\n\n**Response:**\n```json\n{\n  \"id\": \"col_abc123\",\n  \"name\": \"My Collection\",\n  \"description\": \"Collection description\",\n  \"createdUtc\": \"2024-01-15T12:00:00Z\"\n}\n```\n\n**Errors:** `404 Not Found` returns `{ \"error\": \"Collection not found\" }`."
 					},
 					"response": []
 				},
@@ -176,7 +176,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["v1.0", "collections", "{{collectionId}}"]
 						},
-						"description": "Delete a collection and all its documents.\n\n**Warning:** This action is irreversible. All documents in the collection will be permanently deleted.\n\n**Path Parameters:**\n- `collectionId`: The unique identifier of the collection\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"data\": {\n    \"message\": \"Collection deleted successfully\",\n    \"collectionId\": \"col_abc123\"\n  }\n}\n```"
+						"description": "Delete a collection and all its documents.\n\n**Warning:** This action is irreversible. All documents in the collection will be permanently deleted.\n\n**Path Parameters:**\n- `collectionId`: The unique identifier of the collection\n\n**Response:** `200 OK` with an empty body on success.\n\n**Errors:** `404 Not Found` returns `{ \"error\": \"Collection not found\" }`."
 					},
 					"response": []
 				},
@@ -190,7 +190,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["v1.0", "collections", "{{collectionId}}", "constraints"]
 						},
-						"description": "Get the field constraints defined for a collection.\n\n**Path Parameters:**\n- `collectionId`: The unique identifier of the collection\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"data\": [\n    {\n      \"id\": \"fco_abc123\",\n      \"collectionId\": \"col_xyz789\",\n      \"fieldPath\": \"email\",\n      \"dataType\": \"string\",\n      \"required\": true,\n      \"nullable\": false,\n      \"regexPattern\": \"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\\\.[a-zA-Z0-9-.]+$\"\n    }\n  ]\n}\n```"
+						"description": "Get the field constraints defined for a collection.\n\n**Path Parameters:**\n- `collectionId`: The unique identifier of the collection\n\n**Response:**\n```json\n{\n  \"schemaEnforcementMode\": \"strict\",\n  \"fieldConstraints\": [\n    {\n      \"id\": \"fco_abc123\",\n      \"collectionId\": \"col_xyz789\",\n      \"fieldPath\": \"email\",\n      \"dataType\": \"string\",\n      \"required\": true,\n      \"nullable\": false,\n      \"regexPattern\": \"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\\\.[a-zA-Z0-9-.]+$\"\n    }\n  ]\n}\n```"
 					},
 					"response": []
 				},
@@ -227,7 +227,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["v1.0", "collections", "{{collectionId}}", "indexing"]
 						},
-						"description": "Get the indexed fields configured for a collection.\n\n**Path Parameters:**\n- `collectionId`: The unique identifier of the collection\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"data\": [\n    {\n      \"id\": \"ixf_abc123\",\n      \"collectionId\": \"col_xyz789\",\n      \"fieldPath\": \"email\",\n      \"createdUtc\": \"2024-01-15T12:00:00Z\"\n    }\n  ]\n}\n```"
+						"description": "Get the indexed fields configured for a collection.\n\n**Path Parameters:**\n- `collectionId`: The unique identifier of the collection\n\n**Response:**\n```json\n{\n  \"indexingMode\": \"selective\",\n  \"indexedFields\": [\"email\", \"name\", \"address.city\"]\n}\n```"
 					},
 					"response": []
 				},
@@ -273,7 +273,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["v1.0", "collections", "{{collectionId}}", "indexes", "rebuild"]
 						},
-						"description": "Rebuild indexes for a collection.\n\nThis operation re-processes all documents in the collection and rebuilds the indexes according to the current indexing configuration.\n\n**Request Body:**\n| Field | Type | Default | Description |\n|-------|------|---------|-------------|\n| dropUnusedIndexes | boolean | true | Remove index values for fields not in the indexed fields list (only applies when using Selective indexing mode) |\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"data\": {\n    \"documentsProcessed\": 1500,\n    \"indexesCreated\": 25,\n    \"indexesDropped\": 3,\n    \"valuesInserted\": 45000,\n    \"duration\": 2340,\n    \"errors\": [],\n    \"success\": true\n  }\n}\n```\n\n**Use Cases:**\n- After changing indexing mode from All to Selective\n- After updating the indexed fields list\n- To clean up unused index data\n- To recover from index corruption"
+						"description": "Rebuild indexes for a collection.\n\nThis operation re-processes all documents in the collection and rebuilds the indexes according to the current indexing configuration.\n\n**Request Body:**\n| Field | Type | Default | Description |\n|-------|------|---------|-------------|\n| dropUnusedIndexes | boolean | true | Remove index values for fields not in the indexed fields list (only applies when using Selective indexing mode) |\n\n**Response:**\n```json\n{\n  \"documentsProcessed\": 1500,\n  \"indexesCreated\": 25,\n  \"indexesDropped\": 3,\n  \"valuesInserted\": 45000,\n  \"duration\": 2340,\n  \"errors\": [],\n  \"success\": true\n}\n```\n\n**Note:** The `success` field above is part of the rebuild-result payload, not a response envelope.\n\n**Use Cases:**\n- After changing indexing mode from All to Selective\n- After updating the indexed fields list\n- To clean up unused index data\n- To recover from index corruption"
 					},
 					"response": []
 				},
@@ -286,9 +286,9 @@
 								"exec": [
 									"if (pm.response.code === 201) {",
 									"    var jsonData = pm.response.json();",
-									"    if (jsonData.data && jsonData.data.id) {",
-									"        pm.collectionVariables.set(\"collectionId\", jsonData.data.id);",
-									"        console.log(\"Set collectionId to: \" + jsonData.data.id);",
+									"    if (jsonData && jsonData.id) {",
+									"        pm.collectionVariables.set(\"collectionId\", jsonData.id);",
+									"        console.log(\"Set collectionId to: \" + jsonData.id);",
 									"    }",
 									"}"
 								],
@@ -333,7 +333,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["v1.0", "collections", "{{collectionId}}", "documents"]
 						},
-						"description": "Retrieve all documents in a collection.\n\n**Path Parameters:**\n- `collectionId`: The unique identifier of the collection\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"data\": [\n    {\n      \"id\": \"doc_xyz789\",\n      \"collectionId\": \"col_abc123\",\n      \"schemaId\": \"sch_def456\",\n      \"name\": \"customer_001.json\",\n      \"labels\": [\"active\"],\n      \"tags\": {\"priority\": \"high\"},\n      \"createdUtc\": \"2024-01-15T12:00:00Z\"\n    }\n  ]\n}\n```\n\n**Note:** Document content is not included by default. Use Get Document with `includeContent=true` to retrieve content."
+						"description": "Retrieve all documents in a collection.\n\n**Path Parameters:**\n- `collectionId`: The unique identifier of the collection\n\n**Response:**\n```json\n[\n  {\n    \"id\": \"doc_xyz789\",\n    \"collectionId\": \"col_abc123\",\n    \"schemaId\": \"sch_def456\",\n    \"name\": \"customer_001.json\",\n    \"labels\": [\"active\"],\n    \"tags\": {\"priority\": \"high\"},\n    \"createdUtc\": \"2024-01-15T12:00:00Z\"\n  }\n]\n```\n\n**Note:** Document content is not included by default. Use Get Document with `includeContent=true` to retrieve content."
 					},
 					"response": []
 				},
@@ -346,13 +346,13 @@
 								"exec": [
 									"if (pm.response.code === 201) {",
 									"    var jsonData = pm.response.json();",
-									"    if (jsonData.data && jsonData.data.id) {",
-									"        pm.collectionVariables.set(\"documentId\", jsonData.data.id);",
-									"        console.log(\"Set documentId to: \" + jsonData.data.id);",
+									"    if (jsonData && jsonData.id) {",
+									"        pm.collectionVariables.set(\"documentId\", jsonData.id);",
+									"        console.log(\"Set documentId to: \" + jsonData.id);",
 									"    }",
-									"    if (jsonData.data && jsonData.data.schemaId) {",
-									"        pm.collectionVariables.set(\"schemaId\", jsonData.data.schemaId);",
-									"        console.log(\"Set schemaId to: \" + jsonData.data.schemaId);",
+									"    if (jsonData && jsonData.schemaId) {",
+									"        pm.collectionVariables.set(\"schemaId\", jsonData.schemaId);",
+									"        console.log(\"Set schemaId to: \" + jsonData.schemaId);",
 									"    }",
 									"}"
 								],
@@ -390,11 +390,11 @@
 								"exec": [
 									"if (pm.response.code === 201) {",
 									"    var jsonData = pm.response.json();",
-									"    if (jsonData.data && jsonData.data.id) {",
-									"        pm.collectionVariables.set(\"documentId\", jsonData.data.id);",
+									"    if (jsonData && jsonData.id) {",
+									"        pm.collectionVariables.set(\"documentId\", jsonData.id);",
 									"    }",
-									"    if (jsonData.data && jsonData.data.schemaId) {",
-									"        pm.collectionVariables.set(\"schemaId\", jsonData.data.schemaId);",
+									"    if (jsonData && jsonData.schemaId) {",
+									"        pm.collectionVariables.set(\"schemaId\", jsonData.schemaId);",
 									"    }",
 									"}"
 								],
@@ -440,7 +440,7 @@
 								}
 							]
 						},
-						"description": "Retrieve the raw JSON content of a document.\n\n**Important:** When `includeContent=true`, this endpoint returns the document's JSON payload directly, without the standard API response wrapper. This makes it easy to consume the document content as-is.\n\n**Path Parameters:**\n- `collectionId`: The unique identifier of the collection\n- `documentId`: The unique identifier of the document\n\n**Query Parameters:**\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| includeContent | boolean | Yes | Must be `true` to get raw content |\n\n**Response:**\nReturns the raw JSON document content directly:\n```json\n{\n  \"Person\": {\n    \"First\": \"Joel\",\n    \"Last\": \"Christner\",\n    \"Email\": \"joel@example.com\"\n  },\n  \"Company\": \"Acme Corp\",\n  \"Active\": true\n}\n```\n\n**Note:** To get document metadata (ID, schema, timestamps, etc.), use the Get Document endpoint without the `includeContent` parameter."
+						"description": "Retrieve the raw JSON content of a document.\n\n**Important:** When `includeContent=true`, the response body is the document's raw JSON content itself, instead of the document metadata object.\n\n**Path Parameters:**\n- `collectionId`: The unique identifier of the collection\n- `documentId`: The unique identifier of the document\n\n**Query Parameters:**\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| includeContent | boolean | Yes | Must be `true` to get raw content |\n\n**Response:**\nReturns the raw JSON document content directly:\n```json\n{\n  \"Person\": {\n    \"First\": \"Joel\",\n    \"Last\": \"Christner\",\n    \"Email\": \"joel@example.com\"\n  },\n  \"Company\": \"Acme Corp\",\n  \"Active\": true\n}\n```\n\n**Note:** To get document metadata (ID, schema, timestamps, etc.), use the Get Document endpoint without the `includeContent` parameter."
 					},
 					"response": []
 				},
@@ -454,7 +454,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["v1.0", "collections", "{{collectionId}}", "documents", "{{documentId}}"]
 						},
-						"description": "Retrieve document metadata by ID.\n\n**Path Parameters:**\n- `collectionId`: The unique identifier of the collection\n- `documentId`: The unique identifier of the document\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"data\": {\n    \"id\": \"doc_xyz789\",\n    \"collectionId\": \"col_abc123\",\n    \"schemaId\": \"sch_def456\",\n    \"name\": \"customer_001.json\",\n    \"contentLength\": 1234,\n    \"sha256Hash\": \"abc123...\",\n    \"labels\": [\"active\"],\n    \"tags\": {\"priority\": \"high\"},\n    \"createdUtc\": \"2024-01-15T12:00:00Z\"\n  }\n}\n```\n\n**Note:** To get the actual document content, use the `?includeContent=true` query parameter."
+						"description": "Retrieve document metadata by ID.\n\n**Path Parameters:**\n- `collectionId`: The unique identifier of the collection\n- `documentId`: The unique identifier of the document\n\n**Response:**\n```json\n{\n  \"id\": \"doc_xyz789\",\n  \"collectionId\": \"col_abc123\",\n  \"schemaId\": \"sch_def456\",\n  \"name\": \"customer_001.json\",\n  \"contentLength\": 1234,\n  \"sha256Hash\": \"abc123...\",\n  \"labels\": [\"active\"],\n  \"tags\": {\"priority\": \"high\"},\n  \"createdUtc\": \"2024-01-15T12:00:00Z\"\n}\n```\n\n**Note:** To get the actual document content, use the `?includeContent=true` query parameter."
 					},
 					"response": []
 				},
@@ -482,7 +482,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["v1.0", "collections", "{{collectionId}}", "documents", "{{documentId}}"]
 						},
-						"description": "Delete a document from a collection.\n\n**Warning:** This action is irreversible.\n\n**Path Parameters:**\n- `collectionId`: The unique identifier of the collection\n- `documentId`: The unique identifier of the document\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"data\": {\n    \"message\": \"Document deleted successfully\",\n    \"documentId\": \"doc_xyz789\"\n  }\n}\n```"
+						"description": "Delete a document from a collection.\n\n**Warning:** This action is irreversible.\n\n**Path Parameters:**\n- `collectionId`: The unique identifier of the collection\n- `documentId`: The unique identifier of the document\n\n**Response:** `200 OK` with an empty body on success.\n\n**Errors:** `404 Not Found` returns `{ \"error\": \"Document not found\" }`."
 					},
 					"response": []
 				},
@@ -495,9 +495,9 @@
 								"exec": [
 									"if (pm.response.code === 201) {",
 									"    var jsonData = pm.response.json();",
-									"    if (jsonData.data && jsonData.data.length > 0) {",
-									"        pm.collectionVariables.set(\"documentId\", jsonData.data[0].id);",
-									"        console.log(\"Set documentId to first batch document: \" + jsonData.data[0].id);",
+									"    if (jsonData && jsonData.length > 0) {",
+									"        pm.collectionVariables.set(\"documentId\", jsonData[0].id);",
+									"        console.log(\"Set documentId to first batch document: \" + jsonData[0].id);",
 									"    }",
 									"}"
 								],
@@ -522,7 +522,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["v1.0", "collections", "{{collectionId}}", "documents", "batch"]
 						},
-						"description": "Ingest multiple JSON documents into a collection in a single batch operation.\n\nThis is more efficient than making individual ingest calls when you need to add many documents at once.\n\n**Request Body:**\n| Field | Type | Required | Description |\n|-------|------|----------|-------------|\n| documents | array | Yes | Array of document objects to ingest |\n\n**Each document object:**\n| Field | Type | Required | Description |\n|-------|------|----------|-------------|\n| content | object | Yes | The JSON document content |\n| name | string | No | Document name/filename |\n| labels | string[] | No | Labels for categorization |\n| tags | object | No | Key-value tags for metadata |\n\n**Response:** Returns an array of created document metadata objects.\n\n```json\n{\n  \"success\": true,\n  \"statusCode\": 201,\n  \"data\": [\n    {\n      \"id\": \"doc_abc123\",\n      \"collectionId\": \"col_xyz789\",\n      \"name\": \"batch_doc_001.json\",\n      \"labels\": [\"batch\", \"customer\"],\n      \"tags\": {\"priority\": \"high\"}\n    },\n    ...\n  ]\n}\n```"
+						"description": "Ingest multiple JSON documents into a collection in a single batch operation.\n\nThis is more efficient than making individual ingest calls when you need to add many documents at once.\n\n**Request Body:**\n| Field | Type | Required | Description |\n|-------|------|----------|-------------|\n| documents | array | Yes | Array of document objects to ingest |\n\n**Each document object:**\n| Field | Type | Required | Description |\n|-------|------|----------|-------------|\n| content | object | Yes | The JSON document content |\n| name | string | No | Document name/filename |\n| labels | string[] | No | Labels for categorization |\n| tags | object | No | Key-value tags for metadata |\n\n**Response:** Returns an array of created document metadata objects directly.\n\n```json\n[\n  {\n    \"id\": \"doc_abc123\",\n    \"collectionId\": \"col_xyz789\",\n    \"name\": \"batch_doc_001.json\",\n    \"labels\": [\"batch\", \"customer\"],\n    \"tags\": {\"priority\": \"high\"}\n  }\n]\n```"
 					},
 					"response": []
 				}
@@ -686,7 +686,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["v1.0", "schemas"]
 						},
-						"description": "Retrieve all schemas in the system.\n\nSchemas are automatically created when documents are ingested. Documents with identical JSON structures share the same schema (deduplicated by hash).\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"data\": [\n    {\n      \"id\": \"sch_def456\",\n      \"hash\": \"a1b2c3d4...\",\n      \"createdUtc\": \"2024-01-15T12:00:00Z\"\n    }\n  ]\n}\n```"
+						"description": "Retrieve all schemas in the system.\n\nSchemas are automatically created when documents are ingested. Documents with identical JSON structures share the same schema (deduplicated by hash).\n\n**Response:**\n```json\n[\n  {\n    \"id\": \"sch_def456\",\n    \"hash\": \"a1b2c3d4...\",\n    \"createdUtc\": \"2024-01-15T12:00:00Z\"\n  }\n]\n```"
 					},
 					"response": []
 				},
@@ -714,7 +714,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["v1.0", "schemas", "{{schemaId}}", "elements"]
 						},
-						"description": "Retrieve the elements (fields) of a schema.\n\nSchema elements describe each field in the JSON structure, including:\n- Key name (dot notation for nested fields)\n- Data type (string, integer, number, boolean, null, array<T>)\n- Position in the schema\n- Nullability\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"data\": [\n    {\n      \"id\": \"sel_001\",\n      \"schemaId\": \"sch_def456\",\n      \"position\": 0,\n      \"key\": \"Person.First\",\n      \"dataType\": \"string\",\n      \"nullable\": false\n    },\n    {\n      \"id\": \"sel_002\",\n      \"schemaId\": \"sch_def456\",\n      \"position\": 1,\n      \"key\": \"Person.Last\",\n      \"dataType\": \"string\",\n      \"nullable\": false\n    }\n  ]\n}\n```"
+						"description": "Retrieve the elements (fields) of a schema.\n\nSchema elements describe each field in the JSON structure, including:\n- Key name (dot notation for nested fields)\n- Data type (string, integer, number, boolean, null, array<T>)\n- Position in the schema\n- Nullability\n\n**Response:**\n```json\n[\n  {\n    \"id\": \"sel_001\",\n    \"schemaId\": \"sch_def456\",\n    \"position\": 0,\n    \"key\": \"Person.First\",\n    \"dataType\": \"string\",\n    \"nullable\": false\n  },\n  {\n    \"id\": \"sel_002\",\n    \"schemaId\": \"sch_def456\",\n    \"position\": 1,\n    \"key\": \"Person.Last\",\n    \"dataType\": \"string\",\n    \"nullable\": false\n  }\n]\n```"
 					},
 					"response": []
 				}
@@ -734,7 +734,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["v1.0", "tables"]
 						},
-						"description": "Retrieve all index table mappings.\n\nLattice creates a dedicated database table for each unique field (key) found in documents. This enables fast equality and range queries on any indexed field.\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"data\": [\n    {\n      \"id\": \"itm_001\",\n      \"key\": \"Person.First\",\n      \"tableName\": \"idx_a1b2c3d4\",\n      \"createdUtc\": \"2024-01-15T12:00:00Z\"\n    },\n    {\n      \"id\": \"itm_002\",\n      \"key\": \"Person.Last\",\n      \"tableName\": \"idx_e5f6g7h8\",\n      \"createdUtc\": \"2024-01-15T12:00:00Z\"\n    }\n  ]\n}\n```\n\n**Note:** Table names are MD5 hashes of the key names to ensure valid SQL identifiers."
+						"description": "Retrieve all index table mappings.\n\nLattice creates a dedicated database table for each unique field (key) found in documents. This enables fast equality and range queries on any indexed field.\n\n**Response:**\n```json\n[\n  {\n    \"id\": \"itm_001\",\n    \"key\": \"Person.First\",\n    \"tableName\": \"idx_a1b2c3d4\",\n    \"createdUtc\": \"2024-01-15T12:00:00Z\"\n  },\n  {\n    \"id\": \"itm_002\",\n    \"key\": \"Person.Last\",\n    \"tableName\": \"idx_e5f6g7h8\",\n    \"createdUtc\": \"2024-01-15T12:00:00Z\"\n  }\n]\n```\n\n**Note:** Table names are MD5 hashes of the key names to ensure valid SQL identifiers."
 					},
 					"response": []
 				}
