@@ -3,6 +3,7 @@ namespace Lattice.Server.API.REST
     using System;
     using System.Collections.Generic;
     using System.Collections.Specialized;
+    using System.Diagnostics;
     using System.Globalization;
     using System.IO;
     using System.Linq;
@@ -22,6 +23,7 @@ namespace Lattice.Server.API.REST
     using Lattice.Core.Validation;
     using Lattice.Server.Classes;
     using Lattice.Server.Services;
+    using Lattice.Server.Telemetry;
 
     /// <summary>
     /// REST service handler for Lattice API.
@@ -161,6 +163,7 @@ namespace Lattice.Server.API.REST
         {
             // General routes
             _Webserver!.Routes.Preflight = PreflightRoute;
+            _Webserver.Routes.PreRouting = PreRoutingRoute;
             _Webserver.Routes.PostRouting = PostRoutingRoute;
 
             // Health check routes
@@ -649,15 +652,75 @@ namespace Lattice.Server.API.REST
             await ctx.Response.Send().ConfigureAwait(false);
         }
 
+        private async Task PreRoutingRoute(HttpContextBase ctx)
+        {
+            // Increment in-flight request gauge. Decremented symmetrically in PostRoutingRoute.
+            try
+            {
+                string method = ctx.Request.Method.ToString();
+                if (!String.Equals(method, "OPTIONS", StringComparison.OrdinalIgnoreCase))
+                {
+                    ServerTelemetry.RequestStarted(method);
+                }
+            }
+            catch
+            {
+                // Telemetry must never break request handling.
+            }
+
+            await Task.CompletedTask;
+        }
+
         private async Task PostRoutingRoute(HttpContextBase ctx)
         {
             ctx.Request.Timestamp.End = DateTime.UtcNow;
+
+            // Record HTTP server metrics for every request (health, swagger, 404s, and functional API).
+            try
+            {
+                string method = ctx.Request.Method.ToString();
+                if (!String.Equals(method, "OPTIONS", StringComparison.OrdinalIgnoreCase))
+                {
+                    string rawPath = ctx.Request.Url.RawWithQuery ?? "/";
+                    int queryIndex = rawPath.IndexOf('?');
+                    string path = queryIndex >= 0 ? rawPath.Substring(0, queryIndex) : rawPath;
+
+                    string requestType = ServerTelemetry.ClassifyRequestType(method, path);
+                    double seconds = (ctx.Request.Timestamp.TotalMs ?? 0.0) / 1000.0;
+                    long requestBytes = ctx.Request.ContentLength;
+                    long responseBytes = GetResponseContentLength(ctx);
+
+                    ServerTelemetry.RequestCompleted(
+                        method,
+                        ctx.Response.StatusCode,
+                        requestType,
+                        seconds,
+                        requestBytes,
+                        responseBytes);
+                }
+            }
+            catch
+            {
+                // Telemetry must never break request handling.
+            }
 
             _Logging?.Debug(
                 _Header
                 + ctx.Request.Method + " " + ctx.Request.Url.RawWithQuery + " "
                 + ctx.Response.StatusCode + " "
                 + "(" + ctx.Request.Timestamp.TotalMs?.ToString("F2") + "ms)");
+        }
+
+        private static long GetResponseContentLength(HttpContextBase ctx)
+        {
+            try
+            {
+                return ctx.Response.ContentLength;
+            }
+            catch
+            {
+                return -1;
+            }
         }
 
         private async Task DefaultRoute(HttpContextBase ctx)
@@ -706,6 +769,15 @@ namespace Lattice.Server.API.REST
             DateTime startTime = requestContext.CreatedUtc;
             ResponseContext responseContext;
 
+            // Start an HTTP server span. Core-engine spans started during handler execution nest under
+            // it (same async context). Disposed at method end via the using declaration.
+            using Activity activity = ServerTelemetry.StartServerSpan(
+                requestContext.Method,
+                requestContext.Path,
+                ServerTelemetry.ClassifyRequestType(requestContext.Method, requestContext.Path),
+                requestContext.CollectionId,
+                requestContext.DocumentId);
+
             try
             {
                 responseContext = await handler(requestContext);
@@ -751,6 +823,17 @@ namespace Lattice.Server.API.REST
             DateTime completedUtc = DateTime.UtcNow;
             responseContext.Guid = requestContext.Guid;
             responseContext.ProcessingTimeMs = completedUtc.Subtract(startTime).TotalMilliseconds;
+
+            if (activity != null)
+            {
+                activity.SetTag("http.response.status_code", responseContext.StatusCode);
+                activity.SetTag("lattice.request_id", requestContext.Guid);
+                if (responseContext.Success && responseContext.StatusCode < 500)
+                    activity.SetStatus(ActivityStatusCode.Ok);
+                else
+                    activity.SetStatus(ActivityStatusCode.Error);
+            }
+
             string responseBody = await SendResponse(ctx, responseContext);
             await RecordRequestHistoryAsync(requestContext, responseContext, responseBody, completedUtc);
         }

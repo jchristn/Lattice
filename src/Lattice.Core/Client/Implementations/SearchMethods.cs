@@ -10,6 +10,7 @@ namespace Lattice.Core.Client.Implementations
     using Lattice.Core.Models;
     using Lattice.Core.Repositories;
     using Lattice.Core.Search;
+    using Lattice.Core.Telemetry;
 
     /// <summary>
     /// Search methods implementation.
@@ -49,6 +50,9 @@ namespace Lattice.Core.Client.Implementations
         /// <inheritdoc />
         public async Task<SearchResult> Search(SearchQuery query, CancellationToken token = default)
         {
+            using OperationScope op = LatticeTelemetry.StartOperation("search.query", query?.CollectionId);
+            try
+            {
             if (query == null)
                 throw new ArgumentNullException(nameof(query));
 
@@ -182,7 +186,14 @@ namespace Lattice.Core.Client.Implementations
             }
 
             result.Timestamp.End = DateTime.UtcNow;
+            LatticeTelemetry.RecordSearchResults(query.CollectionId, result.TotalRecords);
             return result;
+            }
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         /// <summary>
@@ -237,26 +248,47 @@ namespace Lattice.Core.Client.Implementations
         }
 
         /// <inheritdoc />
-        public Task<SearchResult> SearchBySql(string collectionId, string sql, CancellationToken token = default)
+        public async Task<SearchResult> SearchBySql(string collectionId, string sql, CancellationToken token = default)
         {
-            SearchQuery query = _SqlParser.Parse(sql);
-            query.CollectionId = collectionId;
-            return Search(query, token);
+            using OperationScope op = LatticeTelemetry.StartOperation("search.sql", collectionId);
+            try
+            {
+                SearchQuery query = _SqlParser.Parse(sql);
+                query.CollectionId = collectionId;
+                return await Search(query, token);
+            }
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         /// <inheritdoc />
-        public Task<SearchResult> SearchBySql(string collectionId, string sql, List<string> labels, Dictionary<string, string> tags, CancellationToken token = default)
+        public async Task<SearchResult> SearchBySql(string collectionId, string sql, List<string> labels, Dictionary<string, string> tags, CancellationToken token = default)
         {
-            SearchQuery query = _SqlParser.Parse(sql);
-            query.CollectionId = collectionId;
-            query.Labels = labels ?? new List<string>();
-            query.Tags = tags ?? new Dictionary<string, string>();
-            return Search(query, token);
+            using OperationScope op = LatticeTelemetry.StartOperation("search.sql", collectionId);
+            try
+            {
+                SearchQuery query = _SqlParser.Parse(sql);
+                query.CollectionId = collectionId;
+                query.Labels = labels ?? new List<string>();
+                query.Tags = tags ?? new Dictionary<string, string>();
+                return await Search(query, token);
+            }
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         /// <inheritdoc />
         public async Task<EnumerationResult<Document>> Enumerate(EnumerationQuery query, CancellationToken token = default)
         {
+            using OperationScope op = LatticeTelemetry.StartOperation("search.enumerate", query?.CollectionId);
+            try
+            {
             EnumerationResult<Document> result = await _Repo.Documents.Enumerate(query, token);
 
             // Load labels and tags if requested and there are documents
@@ -286,6 +318,12 @@ namespace Lattice.Core.Client.Implementations
             }
 
             return result;
+            }
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         #endregion

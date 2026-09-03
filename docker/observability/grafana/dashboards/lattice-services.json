@@ -1,0 +1,89 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 0,
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": ["lattice", "services"],
+  "title": "Lattice - Services",
+  "uid": "lattice-services",
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "30s",
+  "timezone": "browser",
+  "templating": {
+    "list": [
+      {
+        "name": "operation",
+        "label": "Operation",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(lattice_operations_total, operation)",
+        "refresh": 2,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Operation rate by operation",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 1 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "refId": "A", "expr": "sum by (operation) (rate(lattice_operations_total{operation=~\"$operation\"}[5m]))", "legendFormat": "{{operation}}" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Error rate by operation (outcome=error)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 15, "lineWidth": 1 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "refId": "A", "expr": "sum by (operation) (rate(lattice_operations_total{operation=~\"$operation\", outcome=\"error\"}[5m]))", "legendFormat": "{{operation}}" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Operation duration p95 by operation",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 5, "lineWidth": 1 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.95, sum by (operation, le) (rate(lattice_operation_duration_seconds_bucket{operation=~\"$operation\"}[5m])))", "legendFormat": "{{operation}}" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "Operations (rate / error % / p95)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 16 },
+      "fieldConfig": { "defaults": { "custom": { "align": "auto", "filterable": true } }, "overrides": [
+        { "matcher": { "id": "byFrameRefID", "options": "A" }, "properties": [ { "id": "unit", "value": "ops" } ] },
+        { "matcher": { "id": "byFrameRefID", "options": "B" }, "properties": [ { "id": "unit", "value": "percent" } ] },
+        { "matcher": { "id": "byFrameRefID", "options": "C" }, "properties": [ { "id": "unit", "value": "s" } ] }
+      ] },
+      "options": { "showHeader": true, "footer": { "show": false } },
+      "targets": [
+        { "refId": "A", "format": "table", "instant": true, "expr": "sum by (operation) (rate(lattice_operations_total{operation=~\"$operation\"}[5m]))", "legendFormat": "" },
+        { "refId": "B", "format": "table", "instant": true, "expr": "100 * sum by (operation) (rate(lattice_operations_total{operation=~\"$operation\", outcome=\"error\"}[5m])) / clamp_min(sum by (operation) (rate(lattice_operations_total{operation=~\"$operation\"}[5m])), 1)", "legendFormat": "" },
+        { "refId": "C", "format": "table", "instant": true, "expr": "histogram_quantile(0.95, sum by (operation, le) (rate(lattice_operation_duration_seconds_bucket{operation=~\"$operation\"}[5m])))", "legendFormat": "" }
+      ],
+      "transformations": [
+        { "id": "merge", "options": {} },
+        { "id": "organize", "options": { "renameByName": { "operation": "Operation", "Value #A": "Rate (ops)", "Value #B": "Error %", "Value #C": "p95 (s)" } } }
+      ]
+    }
+  ]
+}

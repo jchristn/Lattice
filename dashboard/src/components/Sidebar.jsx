@@ -6,6 +6,7 @@ import {
   FolderIcon,
   HistoryIcon,
   ListIcon,
+  PulseIcon,
   SchemaIcon,
   SearchIcon,
   TableIcon,
@@ -92,6 +93,14 @@ export default function Sidebar() {
         >
           <span className="sidebar-icon"><HistoryIcon size={16} /></span>
           Request History
+        </NavLink>
+
+        <NavLink
+          to="/observability"
+          className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+        >
+          <span className="sidebar-icon"><PulseIcon size={16} /></span>
+          Observability
         </NavLink>
       </nav>
 

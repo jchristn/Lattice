@@ -7,6 +7,7 @@ namespace Lattice.Core.Client.Implementations
     using Lattice.Core.Client.Interfaces;
     using Lattice.Core.Models;
     using Lattice.Core.Repositories;
+    using Lattice.Core.Telemetry;
 
     /// <summary>
     /// Index methods implementation.
@@ -42,30 +43,66 @@ namespace Lattice.Core.Client.Implementations
         /// <inheritdoc />
         public async Task<List<IndexTableMapping>> GetMappings(CancellationToken token = default)
         {
-            List<IndexTableMapping> mappings = new List<IndexTableMapping>();
-            await foreach (IndexTableMapping mapping in _Repo.Indexes.GetAllMappings(token))
+            using OperationScope op = LatticeTelemetry.StartOperation("index.get_mappings", null);
+            try
             {
-                mappings.Add(mapping);
+                List<IndexTableMapping> mappings = new List<IndexTableMapping>();
+                await foreach (IndexTableMapping mapping in _Repo.Indexes.GetAllMappings(token))
+                {
+                    mappings.Add(mapping);
+                }
+                return mappings;
             }
-            return mappings;
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         /// <inheritdoc />
-        public Task<IndexTableMapping> GetMappingByKey(string key, CancellationToken token = default)
+        public async Task<IndexTableMapping> GetMappingByKey(string key, CancellationToken token = default)
         {
-            return _Repo.Indexes.GetMappingByKey(key, token);
+            using OperationScope op = LatticeTelemetry.StartOperation("index.get_mapping", null);
+            try
+            {
+                return await _Repo.Indexes.GetMappingByKey(key, token);
+            }
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         /// <inheritdoc />
-        public Task<List<IndexTableEntry>> GetTableEntries(string tableName, int skip = 0, int limit = 100, CancellationToken token = default)
+        public async Task<List<IndexTableEntry>> GetTableEntries(string tableName, int skip = 0, int limit = 100, CancellationToken token = default)
         {
-            return _Repo.Indexes.GetTableEntries(tableName, skip, limit, token);
+            using OperationScope op = LatticeTelemetry.StartOperation("index.get_entries", null);
+            try
+            {
+                return await _Repo.Indexes.GetTableEntries(tableName, skip, limit, token);
+            }
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         /// <inheritdoc />
-        public Task<long> GetTableEntryCount(string tableName, CancellationToken token = default)
+        public async Task<long> GetTableEntryCount(string tableName, CancellationToken token = default)
         {
-            return _Repo.Indexes.GetTableEntryCount(tableName, token);
+            using OperationScope op = LatticeTelemetry.StartOperation("index.count_entries", null);
+            try
+            {
+                return await _Repo.Indexes.GetTableEntryCount(tableName, token);
+            }
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         #endregion

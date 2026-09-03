@@ -24,5 +24,15 @@
     "InMemory": false,
     "DefaultDocumentsDirectory": "/app/documents",
     "EnableLogging": false
+  },
+  "Telemetry": {
+    "Enable": true,
+    "ServiceName": "lattice-server",
+    "Otlp": { "Enable": true, "Endpoint": "http://otel-collector:4317", "Protocol": "Grpc", "TimeoutMs": 10000 },
+    "Metrics": { "Enable": true, "ExportIntervalMs": 15000, "IncludeRuntime": true, "IncludeProcess": true },
+    "Traces": { "Enable": true, "SamplingRatio": 1.0 },
+    "Logs": { "Enable": true, "MinimumSeverity": 2 },
+    "Prometheus": { "Enable": false, "Hostname": "localhost", "Port": 9464, "Path": "/metrics" },
+    "Loki": { "Enable": false, "Endpoint": "http://localhost:3100/otlp", "TenantId": null }
   }
 }

@@ -82,6 +82,22 @@ namespace Lattice.Server.Classes
             }
         }
 
+        /// <summary>
+        /// Telemetry (metrics, traces, logs) settings.
+        /// </summary>
+        public TelemetrySettings Telemetry
+        {
+            get
+            {
+                return _Telemetry;
+            }
+            set
+            {
+                if (value == null) _Telemetry = new TelemetrySettings();
+                else _Telemetry = value;
+            }
+        }
+
         #endregion
 
         #region Private-Members
@@ -90,6 +106,7 @@ namespace Lattice.Server.Classes
         private RestSettings _Rest = new RestSettings();
         private LatticeSettings _Lattice = new LatticeSettings();
         private RequestHistorySettings _RequestHistory = new RequestHistorySettings();
+        private TelemetrySettings _Telemetry = new TelemetrySettings();
 
         #endregion
 

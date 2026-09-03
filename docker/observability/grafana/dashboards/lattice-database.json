@@ -1,0 +1,89 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 0,
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": ["lattice", "database"],
+  "title": "Lattice - Database",
+  "uid": "lattice-database",
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "30s",
+  "timezone": "browser",
+  "templating": {
+    "list": [
+      {
+        "name": "db_system",
+        "label": "DB System",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(lattice_operations_total, db_system)",
+        "refresh": 2,
+        "includeAll": true,
+        "allValue": ".+",
+        "multi": true,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "About DB timing",
+      "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
+      "options": { "mode": "markdown", "content": "Database timing is measured at the **repository-call boundary** on the `Lattice.Core` meter, tagged with `db_system` (sqlite | mysql | postgresql | sqlserver). Durations come from `lattice_operation_duration_seconds_*`; only operations that touch the store carry a `db_system` label." }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Operation rate by db_system",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 3 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 15, "lineWidth": 1, "stacking": { "mode": "normal", "group": "A" } } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "refId": "A", "expr": "sum by (db_system) (rate(lattice_operations_total{db_system=~\"$db_system\", db_system!=\"\"}[5m]))", "legendFormat": "{{db_system}}" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Error rate by db_system (outcome=error)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 3 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 15, "lineWidth": 1 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "refId": "A", "expr": "sum by (db_system) (rate(lattice_operations_total{db_system=~\"$db_system\", db_system!=\"\", outcome=\"error\"}[5m]))", "legendFormat": "{{db_system}}" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Operation duration p95 by db_system + operation",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 11 },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 5, "lineWidth": 1 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.95, sum by (db_system, operation, le) (rate(lattice_operation_duration_seconds_bucket{db_system=~\"$db_system\", db_system!=\"\"}[5m])))", "legendFormat": "{{db_system}} / {{operation}}" }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Slowest operations (p95) by operation",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 19 },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "align": "auto", "filterable": true } }, "overrides": [] },
+      "options": { "showHeader": true, "sortBy": [ { "displayName": "p95 (s)", "desc": true } ], "footer": { "show": false } },
+      "targets": [
+        { "refId": "A", "format": "table", "instant": true, "expr": "histogram_quantile(0.95, sum by (operation, db_system, le) (rate(lattice_operation_duration_seconds_bucket{db_system=~\"$db_system\", db_system!=\"\"}[5m])))", "legendFormat": "" }
+      ],
+      "transformations": [
+        { "id": "organize", "options": { "excludeByName": { "Time": true }, "renameByName": { "operation": "Operation", "db_system": "DB System", "Value": "p95 (s)" } } }
+      ]
+    }
+  ]
+}

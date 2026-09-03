@@ -3,9 +3,12 @@ namespace Lattice.Server
     using System;
     using System.Threading;
     using SyslogLogging;
+    using Radiant;
     using Lattice.Core;
+    using Lattice.Core.Telemetry;
     using Lattice.Server.API.REST;
     using Lattice.Server.Classes;
+    using Lattice.Server.Telemetry;
 
     /// <summary>
     /// Main program entry point.
@@ -16,6 +19,7 @@ namespace Lattice.Server
         private static LoggingModule _Logging = null!;
         private static LatticeClient _Client = null!;
         private static RestServiceHandler _Rest = null!;
+        private static RadiantHost _Telemetry = null;
         private static readonly string _Header = "[LatticeServer] ";
         private static readonly ManualResetEvent _ExitEvent = new ManualResetEvent(false);
 
@@ -50,6 +54,33 @@ namespace Lattice.Server
 
             _Logging.Info(_Header + "logging initialized");
 
+            // Initialize telemetry (metrics, traces, logs). Instrumentation rides the .NET BCL and is
+            // always present; this starts a host that collects and exports it when enabled.
+            LatticeTelemetry.DatabaseSystem = ResolveDatabaseSystem(_Settings);
+            try
+            {
+                _Telemetry = TelemetryBootstrap.Start(_Settings.Telemetry, message => _Logging?.Debug("[Radiant] " + message));
+                if (_Telemetry != null && _Telemetry.IsEnabled)
+                {
+                    _Logging.Info(_Header + "telemetry initialized (service '" + _Settings.Telemetry.ServiceName
+                        + "', instance " + _Telemetry.ServiceInstanceId + ")");
+                    if (_Settings.Telemetry.Otlp.Enable)
+                        _Logging.Info(_Header + "telemetry OTLP export to " + _Settings.Telemetry.Otlp.Endpoint);
+                    if (_Settings.Telemetry.Prometheus.Enable)
+                        _Logging.Info(_Header + "telemetry Prometheus scrape at http://" + _Settings.Telemetry.Prometheus.Hostname
+                            + ":" + _Settings.Telemetry.Prometheus.Port + _Settings.Telemetry.Prometheus.Path);
+                }
+                else
+                {
+                    _Logging.Info(_Header + "telemetry disabled");
+                }
+            }
+            catch (Exception e)
+            {
+                _Logging.Warn(_Header + "telemetry failed to start: " + e.Message + " (continuing without telemetry export)");
+                _Telemetry = null;
+            }
+
             // Initialize Lattice client
             _Client = new LatticeClient(_Settings.Lattice);
             _Logging.Info(_Header + "Lattice client initialized");
@@ -79,7 +110,41 @@ namespace Lattice.Server
 
             // Cleanup
             _Rest.Stop();
+
+            if (_Telemetry != null)
+            {
+                try
+                {
+                    _Telemetry.ForceFlush(5000);
+                    _Telemetry.Dispose();
+                    _Logging.Info(_Header + "telemetry stopped");
+                }
+                catch (Exception e)
+                {
+                    _Logging.Warn(_Header + "telemetry shutdown error: " + e.Message);
+                }
+            }
+
             _Logging.Info(_Header + "server stopped");
+        }
+
+        private static string ResolveDatabaseSystem(Settings settings)
+        {
+            try
+            {
+                switch (settings.Lattice.Database.Type)
+                {
+                    case DatabaseTypeEnum.Sqlite: return "sqlite";
+                    case DatabaseTypeEnum.Mysql: return "mysql";
+                    case DatabaseTypeEnum.Postgres: return "postgresql";
+                    case DatabaseTypeEnum.SqlServer: return "sqlserver";
+                    default: return "unknown";
+                }
+            }
+            catch
+            {
+                return "unknown";
+            }
         }
 
         private static void Welcome()

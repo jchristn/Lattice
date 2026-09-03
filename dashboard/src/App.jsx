@@ -11,6 +11,7 @@ import Tables from './views/Tables'
 import IndexEntries from './views/IndexEntries'
 import ApiExplorer from './views/ApiExplorer'
 import RequestHistory from './views/RequestHistory'
+import Observability from './views/Observability'
 
 function App() {
   const { serverUrl } = useApp()
@@ -34,6 +35,7 @@ function App() {
         <Route path="search" element={<Search />} />
         <Route path="api-explorer" element={<ApiExplorer />} />
         <Route path="request-history" element={<RequestHistory />} />
+        <Route path="observability" element={<Observability />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

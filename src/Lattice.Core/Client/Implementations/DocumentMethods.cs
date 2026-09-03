@@ -15,6 +15,7 @@ namespace Lattice.Core.Client.Implementations
     using Lattice.Core.Models;
     using Lattice.Core.Repositories;
     using Lattice.Core.Schema;
+    using Lattice.Core.Telemetry;
     using Lattice.Core.Validation;
 
     /// <summary>
@@ -73,6 +74,9 @@ namespace Lattice.Core.Client.Implementations
             Dictionary<string, string> tags = null,
             CancellationToken token = default)
         {
+            using OperationScope op = LatticeTelemetry.StartOperation("document.ingest", collectionId);
+            try
+            {
             if (string.IsNullOrWhiteSpace(collectionId))
                 throw new ArgumentNullException(nameof(collectionId));
             if (string.IsNullOrWhiteSpace(json))
@@ -98,6 +102,7 @@ namespace Lattice.Core.Client.Implementations
                     else
                     {
                         // Lock is active, throw exception
+                        LatticeTelemetry.RecordLockContention(collectionId);
                         throw new DocumentLockedException(
                             collectionId,
                             documentNameForLock,
@@ -115,6 +120,7 @@ namespace Lattice.Core.Client.Implementations
 
                 if (!lockResult.Success)
                 {
+                    LatticeTelemetry.RecordLockContention(collectionId);
                     throw new DocumentLockedException(
                         collectionId,
                         documentNameForLock,
@@ -164,6 +170,7 @@ namespace Lattice.Core.Client.Implementations
                         Hash = schemaHash
                     };
                     schema = await _Repo.Schemas.Create(schema, token);
+                    LatticeTelemetry.RecordSchemaCreated(collectionId);
 
                     // Create schema elements
                     foreach (SchemaElement element in schemaElements)
@@ -190,6 +197,7 @@ namespace Lattice.Core.Client.Implementations
                                 };
                                 await _Repo.Indexes.CreateMapping(mapping, token);
                                 await _Repo.Indexes.CreateIndexTable(tableName, token);
+                                LatticeTelemetry.RecordIndexTableCreated();
                             }
                         }
                     }
@@ -315,6 +323,7 @@ namespace Lattice.Core.Client.Implementations
                 string documentPath = Path.Combine(collection.DocumentsDirectory, $"{document.Id}.json");
                 await File.WriteAllTextAsync(documentPath, json, token);
 
+                LatticeTelemetry.RecordDocumentsIngested(collectionId, 1, "single");
                 return document;
             }
             finally
@@ -325,6 +334,12 @@ namespace Lattice.Core.Client.Implementations
                     await _Repo.ObjectLocks.ReleaseLock(lockId, token);
                 }
             }
+            }
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         /// <inheritdoc />
@@ -333,6 +348,9 @@ namespace Lattice.Core.Client.Implementations
             List<BatchDocument> documents,
             CancellationToken token = default)
         {
+            using OperationScope op = LatticeTelemetry.StartOperation("document.ingest_batch", collectionId);
+            try
+            {
             if (string.IsNullOrWhiteSpace(collectionId))
                 throw new ArgumentNullException(nameof(collectionId));
             if (documents == null || documents.Count == 0)
@@ -367,6 +385,7 @@ namespace Lattice.Core.Client.Implementations
                             foreach (string lockId in acquiredLockIds)
                                 await _Repo.ObjectLocks.ReleaseLock(lockId, token);
 
+                            LatticeTelemetry.RecordLockContention(collectionId);
                             throw new DocumentLockedException(
                                 collectionId,
                                 documentNameForLock,
@@ -386,6 +405,7 @@ namespace Lattice.Core.Client.Implementations
                         foreach (string lockId in acquiredLockIds)
                             await _Repo.ObjectLocks.ReleaseLock(lockId, token);
 
+                        LatticeTelemetry.RecordLockContention(collectionId);
                         throw new DocumentLockedException(
                             collectionId,
                             documentNameForLock,
@@ -404,6 +424,8 @@ namespace Lattice.Core.Client.Implementations
                 Collection? collection = await _Repo.Collections.ReadById(collectionId, token);
                 if (collection == null)
                     throw new ArgumentException($"Collection {collectionId} not found", nameof(collectionId));
+
+                LatticeTelemetry.RecordBatchSize(collectionId, documents.Count);
 
                 List<FieldConstraint> fieldConstraints = null;
                 if (collection.SchemaEnforcementMode != SchemaEnforcementMode.None)
@@ -470,6 +492,7 @@ namespace Lattice.Core.Client.Implementations
                                 Hash = schemaHash
                             };
                             schema = await _Repo.Schemas.Create(schema, token);
+                            LatticeTelemetry.RecordSchemaCreated(collectionId);
 
                             foreach (SchemaElement element in schemaElements)
                             {
@@ -503,6 +526,7 @@ namespace Lattice.Core.Client.Implementations
                                             };
                                             await _Repo.Indexes.CreateMapping(mapping, token);
                                             await _Repo.Indexes.CreateIndexTable(tableName, token);
+                                            LatticeTelemetry.RecordIndexTableCreated();
                                         }
                                         mappingCache[element.Key] = mapping;
                                     }
@@ -645,6 +669,7 @@ namespace Lattice.Core.Client.Implementations
                     results.Add(document);
                 }
 
+                LatticeTelemetry.RecordDocumentsIngested(collectionId, results.Count, "batch");
                 return results;
             }
             finally
@@ -658,6 +683,12 @@ namespace Lattice.Core.Client.Implementations
                     }
                 }
             }
+            }
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         /// <inheritdoc />
@@ -668,6 +699,9 @@ namespace Lattice.Core.Client.Implementations
             bool includeTags = true,
             CancellationToken token = default)
         {
+            using OperationScope op = LatticeTelemetry.StartOperation("document.read", null);
+            try
+            {
             // Use optimized single JOIN query when labels or tags are requested
             Document? document;
             if (includeLabels || includeTags)
@@ -696,6 +730,12 @@ namespace Lattice.Core.Client.Implementations
             }
 
             return document;
+            }
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         /// <inheritdoc />
@@ -706,6 +746,9 @@ namespace Lattice.Core.Client.Implementations
             bool includeTags = true,
             CancellationToken token = default)
         {
+            using OperationScope op = LatticeTelemetry.StartOperation("document.read_many", null);
+            try
+            {
             if (ids == null || ids.Count == 0)
                 return new Dictionary<string, Document>();
 
@@ -743,6 +786,12 @@ namespace Lattice.Core.Client.Implementations
             }
 
             return documents;
+            }
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         /// <inheritdoc />
@@ -752,6 +801,9 @@ namespace Lattice.Core.Client.Implementations
             bool includeTags = true,
             CancellationToken token = default)
         {
+            using OperationScope op = LatticeTelemetry.StartOperation("document.read_collection", collectionId);
+            try
+            {
             // First, get all document IDs in the collection
             List<string> documentIds = new List<string>();
 
@@ -784,24 +836,48 @@ namespace Lattice.Core.Client.Implementations
             }
 
             return documents;
+            }
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         /// <inheritdoc />
         public async Task Delete(string id, CancellationToken token = default)
         {
-            Document? document = await _Repo.Documents.ReadById(id, token);
-            if (document == null) return;
+            using OperationScope op = LatticeTelemetry.StartOperation("document.delete", null);
+            try
+            {
+                Document? document = await _Repo.Documents.ReadById(id, token);
+                if (document == null) return;
 
-            Collection? collection = await _Repo.Collections.ReadById(document.CollectionId, token);
-            string documentsDirectory = collection?.DocumentsDirectory ?? _Settings.DefaultDocumentsDirectory;
+                Collection? collection = await _Repo.Collections.ReadById(document.CollectionId, token);
+                string documentsDirectory = collection?.DocumentsDirectory ?? _Settings.DefaultDocumentsDirectory;
 
-            await DeleteInternal(id, documentsDirectory, token);
+                await DeleteInternal(id, documentsDirectory, token);
+            }
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         /// <inheritdoc />
-        public Task<bool> Exists(string id, CancellationToken token = default)
+        public async Task<bool> Exists(string id, CancellationToken token = default)
         {
-            return _Repo.Documents.Exists(id, token);
+            using OperationScope op = LatticeTelemetry.StartOperation("document.exists", null);
+            try
+            {
+                return await _Repo.Documents.Exists(id, token);
+            }
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         #endregion

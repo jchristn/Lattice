@@ -8,7 +8,7 @@
 		<ApplicationIcon>logo.ico</ApplicationIcon>
 		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
 		<Title>Lattice</Title>
-		<Version>0.2.0</Version>
+		<Version>0.2.1</Version>
 		<Authors>Joel Christner</Authors>
 		<Description>Lattice is a JSON document store with real-time schema processing, indexing during ingestion, and a SQL-like interface for querying data</Description>
 		<Copyright>(c)2026 Joel Christner</Copyright>
@@ -17,8 +17,8 @@
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<RepositoryUrl>https://github.com/jchristn/lattice</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
-		<PackageTags>json;document-store;storage;index;indexing;search;retrieval;rag;nosql;sql</PackageTags>
-		<PackageReleaseNotes>Dependency refresh: Microsoft.Data.SqlClient 7.0.2, Npgsql 10.0.3, MySqlConnector 2.6.2, Microsoft.Data.Sqlite 10.0.11 (resolves SQLitePCLRaw advisory GHSA-2m69-gcr7-jv3q), PrettyId 2.0.1. No public API changes.</PackageReleaseNotes>
+		<PackageTags>json;document-store;storage;index;indexing;search;retrieval;rag;nosql;sql;telemetry;opentelemetry;observability;metrics;tracing</PackageTags>
+		<PackageReleaseNotes>Adds built-in OpenTelemetry instrumentation (System.Diagnostics.Metrics and ActivitySource) across all core services, workflows, and the ingestion/search/index-rebuild paths via the Lattice.Core.Telemetry namespace. Emit rides the .NET base class library and is a no-op until a host subscribes to the "Lattice.Core" meter and activity source, so there is no new package dependency. See TELEMETRY.md.</PackageReleaseNotes>
 		<IncludeSymbols>True</IncludeSymbols>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 		<PackageLicenseFile>LICENSE.md</PackageLicenseFile>

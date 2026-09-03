@@ -1,0 +1,13 @@
+# Grafana dashboard provisioning for the Lattice observability stack.
+
+apiVersion: 1
+
+providers:
+  - name: Lattice
+    orgId: 1
+    folder: Lattice
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

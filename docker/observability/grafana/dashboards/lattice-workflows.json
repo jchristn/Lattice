@@ -1,0 +1,106 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 0,
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": ["lattice", "ingestion", "workflows"],
+  "title": "Lattice - Ingestion & Workflows",
+  "uid": "lattice-workflows",
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "30s",
+  "timezone": "browser",
+  "templating": {
+    "list": [
+      {
+        "name": "collection",
+        "label": "Collection",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(lattice_documents_ingested_total, collection)",
+        "refresh": 2,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Documents ingested rate by mode",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 15, "lineWidth": 1, "stacking": { "mode": "normal", "group": "A" } } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "refId": "A", "expr": "sum by (mode) (rate(lattice_documents_ingested_total{collection=~\"$collection\"}[5m]))", "legendFormat": "{{mode}}" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Ingest batch size (p95 / avg)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 5, "lineWidth": 2 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.95, sum by (le) (rate(lattice_ingest_batch_size_bucket{collection=~\"$collection\"}[5m])))", "legendFormat": "p95" },
+        { "refId": "B", "expr": "sum(rate(lattice_ingest_batch_size_sum{collection=~\"$collection\"}[5m])) / clamp_min(sum(rate(lattice_ingest_batch_size_count{collection=~\"$collection\"}[5m])), 1)", "legendFormat": "avg" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Schemas & index tables created rate",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 1 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(lattice_schemas_created_total{collection=~\"$collection\"}[5m]))", "legendFormat": "schemas created" },
+        { "refId": "B", "expr": "sum(rate(lattice_index_tables_created_total[5m]))", "legendFormat": "index tables created" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Index rebuilds (ok vs error)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 15, "lineWidth": 1 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "refId": "A", "expr": "sum by (outcome) (rate(lattice_index_rebuilds_total{collection=~\"$collection\"}[5m]))", "legendFormat": "{{outcome}}" }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Lock contention rate",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 15, "lineWidth": 1 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "refId": "A", "expr": "sum by (collection) (rate(lattice_lock_contention_total{collection=~\"$collection\"}[5m]))", "legendFormat": "{{collection}}" }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "document.ingest duration p95",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 5, "lineWidth": 2 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.95, sum by (le) (rate(lattice_operation_duration_seconds_bucket{operation=\"document.ingest\"}[5m])))", "legendFormat": "document.ingest p95" },
+        { "refId": "B", "expr": "histogram_quantile(0.95, sum by (le) (rate(lattice_operation_duration_seconds_bucket{operation=\"document.ingest_batch\"}[5m])))", "legendFormat": "document.ingest_batch p95" }
+      ]
+    }
+  ]
+}

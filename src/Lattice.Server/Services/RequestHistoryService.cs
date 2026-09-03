@@ -9,6 +9,7 @@ namespace Lattice.Server.Services
     using Lattice.Core;
     using Lattice.Core.Models;
     using Lattice.Server.Classes;
+    using Lattice.Server.Telemetry;
 
     /// <summary>
     /// Database-backed request history service with automatic retention pruning.
@@ -65,9 +66,11 @@ namespace Lattice.Server.Services
                 SanitizeHeaders(detail);
                 ApplyBodyLimits(detail);
                 await _Client.RequestHistory.Create(detail, token).ConfigureAwait(false);
+                ServerTelemetry.RecordRequestHistoryRecorded("ok");
             }
             catch (Exception e)
             {
+                ServerTelemetry.RecordRequestHistoryRecorded("error");
                 _Logging?.Warn(_Header + "Failed to record request history: " + e.Message);
             }
         }
@@ -240,7 +243,19 @@ namespace Lattice.Server.Services
         private async Task PruneExpiredEntriesAsync(CancellationToken token)
         {
             DateTime cutoffUtc = DateTime.UtcNow.AddDays(-_Settings.RetentionDays);
-            long deleted = await _Client.RequestHistory.DeleteOlderThan(cutoffUtc, token).ConfigureAwait(false);
+            long deleted;
+
+            try
+            {
+                deleted = await _Client.RequestHistory.DeleteOlderThan(cutoffUtc, token).ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                ServerTelemetry.RecordRequestHistoryPrune("error", 0);
+                throw;
+            }
+
+            ServerTelemetry.RecordRequestHistoryPrune("ok", deleted);
 
             if (deleted > 0)
             {

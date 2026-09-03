@@ -10,6 +10,8 @@ services:
       - ./server/logs:/app/logs
       - ./server/data:/app/data
     command: ["lattice.json"]
+    depends_on:
+      - otel-collector
 
   dashboard:
     image: jchristn77/lattice-ui:${DASHBOARD_IMAGE_TAG:-v0.1.0}
@@ -19,6 +21,95 @@ services:
       - "3000:80"
     environment:
       - LATTICE_SERVER_URL=${LATTICE_SERVER_URL:-http://lattice-server:8000}
-    command: ["/bin/sh", "-c", "echo \"window.__LATTICE_CONFIG__={serverUrl:'$$LATTICE_SERVER_URL'};\" > /usr/share/nginx/html/config.js && nginx -g 'daemon off;'"]
+      - GRAFANA_URL=${GRAFANA_URL:-http://localhost:3001}
+      - PROMETHEUS_URL=${PROMETHEUS_URL:-http://localhost:9090}
+      - TEMPO_URL=${TEMPO_URL:-http://localhost:3200}
+      - LOKI_URL=${LOKI_URL:-http://localhost:3100}
+      - OTEL_COLLECTOR_URL=${OTEL_COLLECTOR_URL:-http://localhost:8889/metrics}
+    command: ["/bin/sh", "-c", "echo \"window.__LATTICE_CONFIG__={serverUrl:'$$LATTICE_SERVER_URL',observability:{grafana:'$$GRAFANA_URL',prometheus:'$$PROMETHEUS_URL',tempo:'$$TEMPO_URL',loki:'$$LOKI_URL',otelCollector:'$$OTEL_COLLECTOR_URL'}};\" > /usr/share/nginx/html/config.js && nginx -g 'daemon off;'"]
     depends_on:
       - server
+
+  # ---------------------------------------------------------------------------
+  # Observability stack (OpenTelemetry Collector, Prometheus, Tempo, Loki,
+  # Grafana). The server pushes OTLP to the collector (:4317), which fans metrics
+  # to Prometheus (pull), traces to Tempo, and logs to Loki. Grafana ties them
+  # together. All services share the compose default network and address each
+  # other by service name.
+  #
+  #   open http://localhost:3001   (Grafana, admin / admin)
+  # ---------------------------------------------------------------------------
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.109.0
+    container_name: lattice-otel-collector
+    restart: unless-stopped
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./observability/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8889:8889"   # Prometheus exporter (scraped by Prometheus)
+    depends_on:
+      - tempo
+      - loki
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: lattice-prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yaml"
+      - "--enable-feature=exemplar-storage"
+    volumes:
+      - ./observability/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+
+  tempo:
+    image: grafana/tempo:2.6.1
+    container_name: lattice-tempo
+    restart: unless-stopped
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./observability/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    ports:
+      - "3200:3200"   # Tempo query
+      - "4319:4317"   # OTLP gRPC (collector forwards here; host offset avoids 4317 clash)
+
+  loki:
+    image: grafana/loki:3.2.1
+    container_name: lattice-loki
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    volumes:
+      - loki-data:/loki
+    ports:
+      - "3100:3100"
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: lattice-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3001:3000"   # host 3001 because the dashboard already owns host 3000
+    depends_on:
+      - prometheus
+      - tempo
+      - loki
+
+volumes:
+  prometheus-data:
+  tempo-data:
+  loki-data:
+  grafana-data:

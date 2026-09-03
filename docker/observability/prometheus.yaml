@@ -1,0 +1,23 @@
+# Prometheus scrape config for the Lattice observability stack.
+#
+# Scrapes the collector's Prometheus exporter (metrics pushed via OTLP). To
+# scrape the Lattice server's in-process endpoint directly instead of going
+# through the collector, enable the second job pointing at the server's
+# Prometheus scrape port (default 9464) — shown commented below.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: otel-collector
+    static_configs:
+      - targets: ["otel-collector:8889"]
+
+  # Optional: direct in-process scrape of the Lattice server (no collector in
+  # the path). Requires Telemetry.Prometheus.Enable=true on the server and the
+  # scrape port (9464) reachable from this container. Left disabled because the
+  # containerized server pushes via OTLP instead.
+  # - job_name: lattice-server
+  #   static_configs:
+  #     - targets: ["host.docker.internal:9464"]

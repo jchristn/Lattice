@@ -12,6 +12,7 @@ namespace Lattice.Core.Client.Implementations
     using Lattice.Core.Helpers;
     using Lattice.Core.Models;
     using Lattice.Core.Repositories;
+    using Lattice.Core.Telemetry;
 
     /// <summary>
     /// Collection methods implementation.
@@ -65,6 +66,9 @@ namespace Lattice.Core.Client.Implementations
             List<string> indexedFields = null,
             CancellationToken token = default)
         {
+            using OperationScope op = LatticeTelemetry.StartOperation("collection.create", null);
+            try
+            {
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentNullException(nameof(name));
 
@@ -144,11 +148,20 @@ namespace Lattice.Core.Client.Implementations
             created.Tags = collection.Tags;
 
             return created;
+            }
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         /// <inheritdoc />
         public async Task<Collection> ReadById(string id, CancellationToken token = default)
         {
+            using OperationScope op = LatticeTelemetry.StartOperation("collection.read", id);
+            try
+            {
             Collection? collection = await _Repo.Collections.ReadById(id, token);
             if (collection == null) return null;
 
@@ -165,11 +178,20 @@ namespace Lattice.Core.Client.Implementations
             }
 
             return collection;
+            }
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         /// <inheritdoc />
         public async Task<List<Collection>> ReadAll(CancellationToken token = default)
         {
+            using OperationScope op = LatticeTelemetry.StartOperation("collection.read_all", null);
+            try
+            {
             List<Collection> collections = new List<Collection>();
 
             await foreach (Collection collection in _Repo.Collections.ReadAll(token))
@@ -190,11 +212,20 @@ namespace Lattice.Core.Client.Implementations
             }
 
             return collections;
+            }
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         /// <inheritdoc />
         public async Task Delete(string id, CancellationToken token = default)
         {
+            using OperationScope op = LatticeTelemetry.StartOperation("collection.delete", id);
+            try
+            {
             Collection? collection = await _Repo.Collections.ReadById(id, token);
             if (collection == null) return;
 
@@ -210,30 +241,63 @@ namespace Lattice.Core.Client.Implementations
 
             // Delete collection
             await _Repo.Collections.Delete(id, token);
+            }
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         /// <inheritdoc />
-        public Task<bool> Exists(string id, CancellationToken token = default)
+        public async Task<bool> Exists(string id, CancellationToken token = default)
         {
-            return _Repo.Collections.Exists(id, token);
+            using OperationScope op = LatticeTelemetry.StartOperation("collection.exists", id);
+            try
+            {
+                return await _Repo.Collections.Exists(id, token);
+            }
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         /// <inheritdoc />
-        public Task<List<FieldConstraint>> GetConstraints(string collectionId, CancellationToken token = default)
+        public async Task<List<FieldConstraint>> GetConstraints(string collectionId, CancellationToken token = default)
         {
-            if (string.IsNullOrWhiteSpace(collectionId))
-                throw new ArgumentNullException(nameof(collectionId));
+            using OperationScope op = LatticeTelemetry.StartOperation("collection.get_constraints", collectionId);
+            try
+            {
+                if (string.IsNullOrWhiteSpace(collectionId))
+                    throw new ArgumentNullException(nameof(collectionId));
 
-            return _Repo.FieldConstraints.ReadByCollectionId(collectionId, token);
+                return await _Repo.FieldConstraints.ReadByCollectionId(collectionId, token);
+            }
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         /// <inheritdoc />
-        public Task<List<IndexedField>> GetIndexedFields(string collectionId, CancellationToken token = default)
+        public async Task<List<IndexedField>> GetIndexedFields(string collectionId, CancellationToken token = default)
         {
-            if (string.IsNullOrWhiteSpace(collectionId))
-                throw new ArgumentNullException(nameof(collectionId));
+            using OperationScope op = LatticeTelemetry.StartOperation("collection.get_indexing", collectionId);
+            try
+            {
+                if (string.IsNullOrWhiteSpace(collectionId))
+                    throw new ArgumentNullException(nameof(collectionId));
 
-            return _Repo.IndexedFields.ReadByCollectionId(collectionId, token);
+                return await _Repo.IndexedFields.ReadByCollectionId(collectionId, token);
+            }
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         /// <inheritdoc />
@@ -243,6 +307,9 @@ namespace Lattice.Core.Client.Implementations
             List<FieldConstraint> fieldConstraints = null,
             CancellationToken token = default)
         {
+            using OperationScope op = LatticeTelemetry.StartOperation("collection.update_constraints", collectionId);
+            try
+            {
             if (string.IsNullOrWhiteSpace(collectionId))
                 throw new ArgumentNullException(nameof(collectionId));
 
@@ -271,6 +338,12 @@ namespace Lattice.Core.Client.Implementations
             }
 
             return collection;
+            }
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         /// <inheritdoc />
@@ -280,6 +353,9 @@ namespace Lattice.Core.Client.Implementations
             List<string> indexedFields = null,
             CancellationToken token = default)
         {
+            using OperationScope op = LatticeTelemetry.StartOperation("collection.update_indexing", collectionId);
+            try
+            {
             if (string.IsNullOrWhiteSpace(collectionId))
                 throw new ArgumentNullException(nameof(collectionId));
 
@@ -309,6 +385,12 @@ namespace Lattice.Core.Client.Implementations
             }
 
             return collection;
+            }
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         /// <inheritdoc />
@@ -318,6 +400,9 @@ namespace Lattice.Core.Client.Implementations
             IProgress<IndexRebuildProgress> progress = null,
             CancellationToken token = default)
         {
+            using OperationScope op = LatticeTelemetry.StartOperation("index.rebuild", collectionId);
+            try
+            {
             if (string.IsNullOrWhiteSpace(collectionId))
                 throw new ArgumentNullException(nameof(collectionId));
 
@@ -381,6 +466,7 @@ namespace Lattice.Core.Client.Implementations
             if (collection.IndexingMode == IndexingMode.None)
             {
                 result.Duration = stopwatch.Elapsed;
+                LatticeTelemetry.RecordIndexRebuild(collectionId, "ok");
                 return result;
             }
 
@@ -445,6 +531,7 @@ namespace Lattice.Core.Client.Implementations
                             await _Repo.Indexes.CreateMapping(mapping, token);
                             await _Repo.Indexes.CreateIndexTable(tableName, token);
                             result.IndexesCreated++;
+                            LatticeTelemetry.RecordIndexTableCreated();
                         }
 
                         SchemaElement? schemaElement = await _Repo.SchemaElements.ReadBySchemaIdAndKey(doc.SchemaId, group.Key, token);
@@ -489,7 +576,15 @@ namespace Lattice.Core.Client.Implementations
             }
 
             result.Duration = stopwatch.Elapsed;
+            LatticeTelemetry.RecordIndexRebuild(collectionId, "ok");
             return result;
+            }
+            catch (Exception e)
+            {
+                LatticeTelemetry.RecordIndexRebuild(collectionId, "error");
+                op.Fail(e);
+                throw;
+            }
         }
 
         #endregion

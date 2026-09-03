@@ -7,6 +7,7 @@ namespace Lattice.Core.Client.Implementations
     using Lattice.Core.Client.Interfaces;
     using Lattice.Core.Models;
     using Lattice.Core.Repositories;
+    using Lattice.Core.Telemetry;
 
     /// <summary>
     /// Schema methods implementation.
@@ -42,29 +43,56 @@ namespace Lattice.Core.Client.Implementations
         /// <inheritdoc />
         public async Task<List<Schema>> ReadAll(CancellationToken token = default)
         {
-            List<Schema> schemas = new List<Schema>();
-            await foreach (Schema schema in _Repo.Schemas.ReadAll(token))
+            using OperationScope op = LatticeTelemetry.StartOperation("schema.read_all", null);
+            try
             {
-                schemas.Add(schema);
+                List<Schema> schemas = new List<Schema>();
+                await foreach (Schema schema in _Repo.Schemas.ReadAll(token))
+                {
+                    schemas.Add(schema);
+                }
+                return schemas;
             }
-            return schemas;
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         /// <inheritdoc />
-        public Task<Schema> ReadById(string id, CancellationToken token = default)
+        public async Task<Schema> ReadById(string id, CancellationToken token = default)
         {
-            return _Repo.Schemas.ReadById(id, token);
+            using OperationScope op = LatticeTelemetry.StartOperation("schema.read", null);
+            try
+            {
+                return await _Repo.Schemas.ReadById(id, token);
+            }
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         /// <inheritdoc />
         public async Task<List<SchemaElement>> GetElements(string schemaId, CancellationToken token = default)
         {
-            List<SchemaElement> elements = new List<SchemaElement>();
-            await foreach (SchemaElement element in _Repo.SchemaElements.ReadBySchemaId(schemaId, token))
+            using OperationScope op = LatticeTelemetry.StartOperation("schema.get_elements", null);
+            try
             {
-                elements.Add(element);
+                List<SchemaElement> elements = new List<SchemaElement>();
+                await foreach (SchemaElement element in _Repo.SchemaElements.ReadBySchemaId(schemaId, token))
+                {
+                    elements.Add(element);
+                }
+                return elements;
             }
-            return elements;
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
         }
 
         #endregion
