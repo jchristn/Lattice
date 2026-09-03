@@ -57,6 +57,54 @@
   font-size: 14px;
 }
 
+.login-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.login-tab {
+  flex: 1;
+  padding: 8px 10px;
+  font-size: 13px;
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.login-tab:hover {
+  background-color: var(--bg-secondary);
+}
+
+.login-tab.is-active {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.form-optional {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.login-back-btn {
+  width: 100%;
+  margin-top: 12px;
+  padding: 8px;
+  font-size: 13px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.login-back-btn:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+
 .theme-toggle {
   position: absolute;
   top: 16px;

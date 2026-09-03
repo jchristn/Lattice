@@ -3,23 +3,182 @@ import { useApp } from '../context/AppContext'
 import './Login.css'
 
 export default function Login() {
-  const { connect, error, theme, toggleTheme } = useApp()
+  const {
+    serverUrl,
+    connect,
+    disconnect,
+    login,
+    loginWithAccessKey,
+    error,
+    theme,
+    toggleTheme,
+  } = useApp()
+
+  // Server-URL step
   const [url, setUrl] = useState(window.__LATTICE_CONFIG__?.serverUrl || 'http://localhost:8000')
+
+  // Credentials step
+  const [mode, setMode] = useState('credentials') // 'credentials' | 'accessKey'
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [tenantId, setTenantId] = useState('')
+  const [accessKey, setAccessKey] = useState('')
+
   const [loading, setLoading] = useState(false)
   const [localError, setLocalError] = useState('')
 
-  const handleSubmit = async (e) => {
+  const handleConnect = async (e) => {
     e.preventDefault()
     setLoading(true)
     setLocalError('')
-
     const success = await connect(url)
     if (!success) {
       setLocalError(error || 'Failed to connect')
     }
-
     setLoading(false)
   }
+
+  const handleLogin = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    setLocalError('')
+
+    const success =
+      mode === 'accessKey'
+        ? await loginWithAccessKey(accessKey.trim())
+        : await login(email.trim(), password, tenantId.trim() || null)
+
+    if (!success) {
+      setLocalError(error || 'Login failed')
+    }
+    setLoading(false)
+  }
+
+  const renderServerStep = () => (
+    <form onSubmit={handleConnect}>
+      <div className="form-group">
+        <label className="form-label" htmlFor="server-url">
+          Server URL
+        </label>
+        <input
+          id="server-url"
+          type="url"
+          className="input"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="http://localhost:8000"
+          required
+        />
+      </div>
+
+      {localError && <div className="error-message">{localError}</div>}
+
+      <button type="submit" className="btn btn-primary login-btn" disabled={loading}>
+        {loading ? 'Connecting...' : 'Connect'}
+      </button>
+    </form>
+  )
+
+  const renderCredentialsStep = () => (
+    <form onSubmit={handleLogin}>
+      <div className="login-tabs">
+        <button
+          type="button"
+          className={`login-tab ${mode === 'credentials' ? 'is-active' : ''}`}
+          onClick={() => {
+            setMode('credentials')
+            setLocalError('')
+          }}
+        >
+          Email &amp; password
+        </button>
+        <button
+          type="button"
+          className={`login-tab ${mode === 'accessKey' ? 'is-active' : ''}`}
+          onClick={() => {
+            setMode('accessKey')
+            setLocalError('')
+          }}
+        >
+          Access key
+        </button>
+      </div>
+
+      {mode === 'credentials' ? (
+        <>
+          <div className="form-group">
+            <label className="form-label" htmlFor="login-email">
+              Email
+            </label>
+            <input
+              id="login-email"
+              type="email"
+              className="input"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              autoComplete="username"
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="login-password">
+              Password
+            </label>
+            <input
+              id="login-password"
+              type="password"
+              className="input"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="login-tenant">
+              Tenant ID <span className="form-optional">(optional)</span>
+            </label>
+            <input
+              id="login-tenant"
+              type="text"
+              className="input"
+              value={tenantId}
+              onChange={(e) => setTenantId(e.target.value)}
+              placeholder="default"
+            />
+          </div>
+        </>
+      ) : (
+        <div className="form-group">
+          <label className="form-label" htmlFor="login-access-key">
+            Access key
+          </label>
+          <input
+            id="login-access-key"
+            type="password"
+            className="input"
+            value={accessKey}
+            onChange={(e) => setAccessKey(e.target.value)}
+            placeholder="access_..."
+            required
+          />
+        </div>
+      )}
+
+      {localError && <div className="error-message">{localError}</div>}
+
+      <button type="submit" className="btn btn-primary login-btn" disabled={loading}>
+        {loading ? 'Signing in...' : 'Sign in'}
+      </button>
+
+      <button type="button" className="login-back-btn" onClick={disconnect} disabled={loading}>
+        Change server
+      </button>
+    </form>
+  )
 
   return (
     <div className="login-container">
@@ -27,33 +186,10 @@ export default function Login() {
         <div className="login-header">
           <img src="/logo.png" alt="Lattice" className="login-logo" />
           <h1>Lattice</h1>
-          <p>JSON Document Store</p>
+          <p>{serverUrl ? 'Sign in to continue' : 'JSON Document Store'}</p>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label" htmlFor="server-url">
-              Server URL
-            </label>
-            <input
-              id="server-url"
-              type="url"
-              className="input"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="http://localhost:8000"
-              required
-            />
-          </div>
-
-          {localError && (
-            <div className="error-message">{localError}</div>
-          )}
-
-          <button type="submit" className="btn btn-primary login-btn" disabled={loading}>
-            {loading ? 'Connecting...' : 'Connect'}
-          </button>
-        </form>
+        {serverUrl ? renderCredentialsStep() : renderServerStep()}
 
         <button className="theme-toggle" onClick={toggleTheme} title="Toggle theme">
           {theme === 'light' ? '🌙' : '☀️'}

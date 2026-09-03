@@ -14,9 +14,11 @@ import RequestHistory from './views/RequestHistory'
 import Observability from './views/Observability'
 
 function App() {
-  const { serverUrl } = useApp()
+  const { serverUrl, isAuthenticated } = useApp()
 
-  if (!serverUrl) {
+  // Require both a server connection and an authenticated session. Login handles
+  // both steps (server URL first, then credentials).
+  if (!serverUrl || !isAuthenticated) {
     return <Login />
   }
 

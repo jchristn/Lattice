@@ -2,8 +2,16 @@
  * Lattice API client
  */
 export class LatticeApi {
-  constructor(baseUrl) {
+  constructor(baseUrl, token = null) {
     this.baseUrl = baseUrl.replace(/\/$/, '')
+    this.token = token || null
+    // Optional callback invoked whenever a request returns HTTP 401. Lets the
+    // app clear auth state and return the user to the login screen.
+    this.onUnauthorized = null
+  }
+
+  setToken(token) {
+    this.token = token || null
   }
 
   buildUrl(path, query = null) {
@@ -40,6 +48,12 @@ export class LatticeApi {
 
     const url = this.buildUrl(path, query)
     const requestHeaders = { ...headers }
+
+    // Attach the bearer token unless an explicit Authorization header was passed.
+    if (this.token && !Object.keys(requestHeaders).some((key) => key.toLowerCase() === 'authorization')) {
+      requestHeaders['Authorization'] = `Bearer ${this.token}`
+    }
+
     const fetchOptions = {
       method,
       headers: requestHeaders,
@@ -63,6 +77,13 @@ export class LatticeApi {
     const startedAt = performance.now()
     const response = await fetch(url, fetchOptions)
     const durationMs = performance.now() - startedAt
+
+    // Surface 401s to the app so it can clear the token and re-prompt for login.
+    // The handler only mutates local auth state (no further API calls), so this
+    // cannot loop.
+    if (response.status === 401 && typeof this.onUnauthorized === 'function') {
+      this.onUnauthorized()
+    }
 
     let text = ''
     if (response.status !== 204 && method !== 'HEAD') {
@@ -123,6 +144,27 @@ export class LatticeApi {
     }
 
     return null
+  }
+
+  // Authentication
+  // POST /v1.0/token with { email, password, tenantId } → session token payload.
+  async login(email, password, tenantId) {
+    return this.request('POST', '/v1.0/token', { email, password, tenantId })
+  }
+
+  // GET /v1.0/whoami → current principal descriptor.
+  async whoami() {
+    return this.request('GET', '/v1.0/whoami')
+  }
+
+  // DELETE /v1.0/token → revoke the current session.
+  async logout() {
+    return this.request('DELETE', '/v1.0/token')
+  }
+
+  // GET /v1.0/health → unauthenticated reachability check.
+  async health() {
+    return this.request('GET', '/v1.0/health')
   }
 
   // Collections

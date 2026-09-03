@@ -4,7 +4,15 @@ import { GithubIcon, LogoutIcon, MoonIcon, SunIcon } from './Icons'
 import './Topbar.css'
 
 export default function Topbar() {
-  const { serverUrl, theme, toggleTheme, disconnect } = useApp()
+  const { serverUrl, theme, toggleTheme, disconnect, logout, principal } = useApp()
+
+  const principalLabel = principal?.email || (principal ? 'Credential' : '')
+
+  const handleLogout = async () => {
+    // Revoke the session but keep the server connection so the user lands on the
+    // credentials screen rather than the server-URL screen.
+    await logout()
+  }
 
   return (
     <header className="topbar">
@@ -23,6 +31,11 @@ export default function Topbar() {
       </div>
 
       <div className="topbar-actions">
+        {principalLabel ? (
+          <span className="topbar-principal" title={principalLabel}>
+            {principalLabel}
+          </span>
+        ) : null}
         <a
           className="topbar-btn"
           href="https://github.com/jchristn/lattice"
@@ -41,11 +54,22 @@ export default function Topbar() {
         >
           {theme === 'light' ? <MoonIcon size={16} /> : <SunIcon size={16} />}
         </button>
+        {principal ? (
+          <button
+            className="topbar-btn topbar-logout-btn"
+            onClick={handleLogout}
+            title="Log out"
+            type="button"
+          >
+            <LogoutIcon size={16} />
+            <span>Logout</span>
+          </button>
+        ) : null}
         <button
           className="topbar-btn topbar-btn-disconnect"
           onClick={disconnect}
-          title="Disconnect"
-          aria-label="Disconnect"
+          title="Disconnect from server"
+          aria-label="Disconnect from server"
           type="button"
         >
           <LogoutIcon size={16} />

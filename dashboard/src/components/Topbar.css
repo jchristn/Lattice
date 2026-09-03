@@ -87,3 +87,16 @@
   color: var(--danger-color);
   padding: 8px 12px;
 }
+
+.topbar-principal {
+  font-size: 13px;
+  color: var(--text-secondary);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-logout-btn {
+  gap: 6px;
+}
