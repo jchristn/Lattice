@@ -9,7 +9,16 @@
     "Port": 8000,
     "Ssl": false,
     "SslCertificateFile": null,
-    "SslCertificatePassword": null
+    "SslCertificatePassword": null,
+    "Cors": {
+      "Enable": true,
+      "AllowOrigins": [ "*" ],
+      "AllowMethods": [ "GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS" ],
+      "AllowHeaders": [ "*" ],
+      "ExposeHeaders": [ "Content-Type", "X-Requested-With", "X-Lattice-Request-Id" ],
+      "AllowCredentials": false,
+      "MaxAgeSeconds": 86400
+    }
   },
   "Lattice": {
     "Database": {

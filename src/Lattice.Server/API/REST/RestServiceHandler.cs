@@ -607,53 +607,20 @@ namespace Lattice.Server.API.REST
                     .WithResponse(404, OpenApiResponseMetadata.NotFound()));
         }
 
+        // Watson invokes this exclusively for OPTIONS (CORS preflight) requests.
         private async Task PreflightRoute(HttpContextBase ctx)
         {
-            NameValueCollection responseHeaders = new NameValueCollection(StringComparer.InvariantCultureIgnoreCase);
-
-            string[]? requestedHeaders = null;
-            string headers = "";
-
-            if (ctx.Request.Headers != null)
-            {
-                for (int i = 0; i < ctx.Request.Headers.Count; i++)
-                {
-                    string? key = ctx.Request.Headers.GetKey(i);
-                    string? value = ctx.Request.Headers.Get(i);
-                    if (String.IsNullOrEmpty(key)) continue;
-                    if (String.IsNullOrEmpty(value)) continue;
-                    if (String.Compare(key.ToLower(), "access-control-request-headers") == 0)
-                    {
-                        requestedHeaders = value.Split(',');
-                        break;
-                    }
-                }
-            }
-
-            if (requestedHeaders != null)
-            {
-                foreach (string curr in requestedHeaders)
-                {
-                    headers += ", " + curr;
-                }
-            }
-
-            responseHeaders.Add("Access-Control-Allow-Methods", "OPTIONS, HEAD, GET, PUT, POST, DELETE");
-            responseHeaders.Add("Access-Control-Allow-Headers", "*, Content-Type, X-Requested-With, X-Lattice-Request-Id" + headers);
-            responseHeaders.Add("Access-Control-Expose-Headers", "Content-Type, X-Requested-With, X-Lattice-Request-Id" + headers);
-            responseHeaders.Add("Access-Control-Allow-Origin", "*");
-            responseHeaders.Add("Accept", "*/*");
-            responseHeaders.Add("Accept-Language", "en-US, en");
-            responseHeaders.Add("Accept-Charset", "ISO-8859-1, utf-8");
-            responseHeaders.Add("Connection", "keep-alive");
-
-            ctx.Response.StatusCode = 200;
-            ctx.Response.Headers = responseHeaders;
+            ApplyCorsHeaders(ctx.Response, ctx.Request);
+            ctx.Response.StatusCode = 204;
+            ctx.Response.ContentType = "application/json";
             await ctx.Response.Send().ConfigureAwait(false);
         }
 
         private async Task PreRoutingRoute(HttpContextBase ctx)
         {
+            // Stamp CORS headers on every (non-OPTIONS) response before it is handled.
+            ApplyCorsHeaders(ctx.Response, ctx.Request);
+
             // Increment in-flight request gauge. Decremented symmetrically in PostRoutingRoute.
             try
             {
@@ -922,13 +889,65 @@ namespace Lattice.Server.API.REST
         {
             if (headers == null) return;
 
-            headers["Access-Control-Allow-Origin"] = "*";
-            headers["Access-Control-Allow-Headers"] = "*, Content-Type, X-Requested-With, X-Lattice-Request-Id";
-            headers["Access-Control-Expose-Headers"] = "Content-Type, X-Requested-With, X-Lattice-Request-Id";
+            // CORS headers are stamped centrally in PreRoutingRoute / PreflightRoute via ApplyCorsHeaders.
             headers["Content-Type"] = contentType;
             headers["X-Lattice-Request-Id"] = String.IsNullOrWhiteSpace(requestId)
                 ? System.Guid.NewGuid().ToString("N")
                 : requestId;
+        }
+
+        // Stamp configurable CORS headers on a response, echoing/allowing the request Origin per settings.
+        private void ApplyCorsHeaders(HttpResponseBase response, HttpRequestBase request)
+        {
+            CorsSettings cors = _Settings?.Rest?.Cors;
+            if (cors == null || !cors.Enable) return;
+
+            string origin = request.Headers?.Get("Origin");
+            if (String.IsNullOrEmpty(origin)) return;
+
+            bool originAllowed = false;
+            string allowedOriginValue = null;
+
+            if (cors.AllowOrigins.Contains("*"))
+            {
+                originAllowed = true;
+                allowedOriginValue = cors.AllowCredentials ? origin : "*";
+            }
+            else
+            {
+                foreach (string allowedOrigin in cors.AllowOrigins)
+                {
+                    if (String.Equals(allowedOrigin, origin, StringComparison.OrdinalIgnoreCase))
+                    {
+                        originAllowed = true;
+                        allowedOriginValue = origin;
+                        break;
+                    }
+                }
+            }
+
+            if (!originAllowed) return;
+
+            response.Headers["Access-Control-Allow-Origin"] = allowedOriginValue;
+
+            // When the allowed origin is echoed rather than "*", advertise that responses vary by origin.
+            if (!String.Equals(allowedOriginValue, "*", StringComparison.Ordinal))
+                response.Headers["Vary"] = "Origin";
+
+            if (cors.AllowMethods != null && cors.AllowMethods.Count > 0)
+                response.Headers["Access-Control-Allow-Methods"] = String.Join(", ", cors.AllowMethods);
+
+            if (cors.AllowHeaders != null && cors.AllowHeaders.Count > 0)
+                response.Headers["Access-Control-Allow-Headers"] = String.Join(", ", cors.AllowHeaders);
+
+            if (cors.ExposeHeaders != null && cors.ExposeHeaders.Count > 0)
+                response.Headers["Access-Control-Expose-Headers"] = String.Join(", ", cors.ExposeHeaders);
+
+            if (cors.AllowCredentials)
+                response.Headers["Access-Control-Allow-Credentials"] = "true";
+
+            if (request.Method == HttpMethod.OPTIONS && cors.MaxAgeSeconds > 0)
+                response.Headers["Access-Control-Max-Age"] = cors.MaxAgeSeconds.ToString();
         }
 
         private static NameValueCollection CloneNameValueCollection(NameValueCollection? source)

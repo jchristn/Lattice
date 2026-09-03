@@ -1,6 +1,6 @@
 services:
   server:
-    image: jchristn77/lattice:${SERVER_IMAGE_TAG:-v0.1.0}
+    image: jchristn77/lattice:${SERVER_IMAGE_TAG:-v0.2.1}
     container_name: lattice-server
     restart: unless-stopped
     ports:
@@ -14,13 +14,13 @@ services:
       - otel-collector
 
   dashboard:
-    image: jchristn77/lattice-ui:${DASHBOARD_IMAGE_TAG:-v0.1.0}
+    image: jchristn77/lattice-ui:${DASHBOARD_IMAGE_TAG:-v0.2.1}
     container_name: lattice-dashboard
     restart: unless-stopped
     ports:
       - "3000:80"
     environment:
-      - LATTICE_SERVER_URL=${LATTICE_SERVER_URL:-http://lattice-server:8000}
+      - LATTICE_SERVER_URL=${LATTICE_SERVER_URL:-http://localhost:8000}
       - GRAFANA_URL=${GRAFANA_URL:-http://localhost:3001}
       - PROMETHEUS_URL=${PROMETHEUS_URL:-http://localhost:9090}
       - TEMPO_URL=${TEMPO_URL:-http://localhost:3200}

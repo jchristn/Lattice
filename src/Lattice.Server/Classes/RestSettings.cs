@@ -100,6 +100,16 @@ namespace Lattice.Server.Classes
         /// </summary>
         public bool EnableSwaggerUi { get; set; } = true;
 
+        /// <summary>
+        /// Cross-Origin Resource Sharing (CORS) settings.
+        /// When absent or null in configuration, a new permissive instance is used.
+        /// </summary>
+        public CorsSettings Cors
+        {
+            get => _Cors;
+            set => _Cors = value ?? new CorsSettings();
+        }
+
         #endregion
 
         #region Private-Members
@@ -109,6 +119,7 @@ namespace Lattice.Server.Classes
         private bool _Ssl = false;
         private string? _SslCertificateFile = null;
         private string? _SslCertificatePassword = null;
+        private CorsSettings _Cors = new CorsSettings();
 
         #endregion
 
