@@ -45,21 +45,28 @@ class LatticeClient:
         collections = client.collection.read_all()
     """
 
-    def __init__(self, base_url: str, timeout: int = 30):
+    def __init__(self, base_url: str, timeout: int = 30, bearer_token: Optional[str] = None):
         """
         Initialize the Lattice client.
 
         Args:
             base_url: The base URL of the Lattice server (e.g., "http://localhost:8000")
             timeout: Request timeout in seconds (default: 30)
+            bearer_token: Optional bearer token — a credential access key or a session
+                token — sent as ``Authorization: Bearer`` on every request. Also settable
+                later via :meth:`set_bearer_token` or :meth:`login`.
         """
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self._session = requests.Session()
+        self._bearer_token: Optional[str] = None
 
         # Request/response correlation id from the most recent response's
         # X-Lattice-Request-Id header (replaces the old envelope `guid`).
         self.last_request_id: Optional[str] = None
+
+        if bearer_token:
+            self.set_bearer_token(bearer_token)
 
         # Initialize method groups
         self.collection = CollectionMethods(self)
@@ -67,6 +74,70 @@ class LatticeClient:
         self.search = SearchMethods(self)
         self.schema = SchemaMethods(self)
         self.index = IndexMethods(self)
+
+    @property
+    def bearer_token(self) -> Optional[str]:
+        """The bearer token presented on every request, or None."""
+        return self._bearer_token
+
+    def set_bearer_token(self, token: Optional[str]) -> None:
+        """
+        Set (or clear) the bearer token — a credential access key or a session token —
+        sent as ``Authorization: Bearer`` on every request.
+
+        Args:
+            token: The token, or None to send no Authorization header.
+        """
+        self._bearer_token = token
+        if token:
+            self._session.headers["Authorization"] = f"Bearer {token}"
+        else:
+            self._session.headers.pop("Authorization", None)
+
+    def login(self, email: str, password: str, tenant_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Log in with email, password, and tenant to obtain a session token. On success the
+        returned token is stored on the client and used for subsequent requests.
+
+        Args:
+            email: User email
+            password: User password
+            tenant_id: Tenant identifier
+
+        Returns:
+            The login response dict (token and principal information), or None.
+        """
+        payload = self._request(
+            "POST", "/v1.0/token",
+            data={"email": email, "password": password, "tenantId": tenant_id}
+        )
+        if isinstance(payload, dict) and payload.get("token"):
+            self.set_bearer_token(payload["token"])
+        return payload
+
+    def whoami(self) -> Optional[Dict[str, Any]]:
+        """
+        Return the resolved principal for the current credentials.
+
+        Returns:
+            A dict describing the principal, or None.
+        """
+        return self._request("GET", "/v1.0/whoami")
+
+    def logout(self) -> bool:
+        """
+        Revoke the current session token (logout) and clear it from the client.
+
+        Returns:
+            True when the session was revoked.
+        """
+        try:
+            self._request("DELETE", "/v1.0/token")
+            result = True
+        except LatticeApiError:
+            result = False
+        self.set_bearer_token(None)
+        return result
 
     def _request(
         self,

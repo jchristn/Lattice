@@ -14,6 +14,7 @@ namespace Lattice.Sdk
         private readonly HttpClient _httpClient;
         private readonly string _baseUrl;
         private readonly JsonSerializerOptions _jsonOptions;
+        private string? _bearerToken;
         private bool _disposed;
 
         /// <summary>
@@ -46,9 +47,13 @@ namespace Lattice.Sdk
         /// </summary>
         /// <param name="baseUrl">The base URL of the Lattice server (e.g., "http://localhost:8000")</param>
         /// <param name="timeout">Request timeout (default: 30 seconds)</param>
-        public LatticeClient(string baseUrl, TimeSpan? timeout = null)
+        /// <param name="bearerToken">Optional bearer token — a credential access key or a session token —
+        /// sent as <c>Authorization: Bearer</c> on every request. Also settable later via
+        /// <see cref="SetBearerToken"/> or <see cref="LoginAsync"/>.</param>
+        public LatticeClient(string baseUrl, TimeSpan? timeout = null, string? bearerToken = null)
         {
             _baseUrl = baseUrl.TrimEnd('/');
+            _bearerToken = bearerToken;
             _httpClient = new HttpClient
             {
                 Timeout = timeout ?? TimeSpan.FromSeconds(30)
@@ -72,6 +77,60 @@ namespace Lattice.Sdk
         /// The response header carrying the request/correlation id (replaces the old envelope "guid").
         /// </summary>
         internal const string RequestIdHeader = "X-Lattice-Request-Id";
+
+        /// <summary>
+        /// The bearer token (credential access key or session token) presented on every request, or null.
+        /// </summary>
+        public string? BearerToken => _bearerToken;
+
+        /// <summary>
+        /// Set (or clear) the bearer token — a credential access key or a session token — sent as
+        /// <c>Authorization: Bearer</c> on every request.
+        /// </summary>
+        /// <param name="token">The token, or null to send no Authorization header.</param>
+        public void SetBearerToken(string? token)
+        {
+            _bearerToken = token;
+        }
+
+        /// <summary>
+        /// Log in with email, password, and tenant to obtain a session token. On success the returned
+        /// token is stored on the client and used for subsequent requests.
+        /// </summary>
+        /// <param name="email">User email.</param>
+        /// <param name="password">User password.</param>
+        /// <param name="tenantId">Tenant identifier.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>The login response (token and principal information).</returns>
+        public async Task<AuthTokenResponse?> LoginAsync(string email, string password, string tenantId, CancellationToken cancellationToken = default)
+        {
+            object body = new { email, password, tenantId };
+            AuthTokenResponse? response = await RequestJsonAsync<AuthTokenResponse>("POST", "/v1.0/token", body, cancellationToken: cancellationToken).ConfigureAwait(false);
+            if (response != null && !string.IsNullOrEmpty(response.Token)) _bearerToken = response.Token;
+            return response;
+        }
+
+        /// <summary>
+        /// Return the resolved principal for the current credentials.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>The principal description.</returns>
+        public async Task<WhoAmIResponse?> WhoAmIAsync(CancellationToken cancellationToken = default)
+        {
+            return await RequestJsonAsync<WhoAmIResponse>("GET", "/v1.0/whoami", cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Revoke the current session token (logout) and clear it from the client.
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>True when the session was revoked.</returns>
+        public async Task<bool> LogoutAsync(CancellationToken cancellationToken = default)
+        {
+            bool ok = await RequestStatusAsync("DELETE", "/v1.0/token", throwOnError: false, cancellationToken: cancellationToken).ConfigureAwait(false);
+            _bearerToken = null;
+            return ok;
+        }
 
         /// <summary>
         /// Check if the Lattice server is healthy.
@@ -178,6 +237,7 @@ namespace Lattice.Sdk
             try
             {
                 HttpRequestMessage request = new HttpRequestMessage(new HttpMethod(method), url);
+                ApplyAuthorization(request);
 
                 if (data != null && (method == "PUT" || method == "POST"))
                 {
@@ -242,6 +302,17 @@ namespace Lattice.Sdk
         }
 
         /// <summary>
+        /// Stamp the <c>Authorization: Bearer</c> header on a request when a bearer token is set.
+        /// </summary>
+        private void ApplyAuthorization(HttpRequestMessage request)
+        {
+            if (!string.IsNullOrEmpty(_bearerToken))
+            {
+                request.Headers.TryAddWithoutValidation("Authorization", "Bearer " + _bearerToken);
+            }
+        }
+
+        /// <summary>
         /// Get JSON serializer options.
         /// </summary>
         internal JsonSerializerOptions JsonOptions => _jsonOptions;
@@ -259,6 +330,7 @@ namespace Lattice.Sdk
             try
             {
                 HttpRequestMessage request = new HttpRequestMessage(new HttpMethod(method), fullUrl);
+                ApplyAuthorization(request);
                 HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
 
                 if (!response.IsSuccessStatusCode)

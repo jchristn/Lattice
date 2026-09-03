@@ -69,6 +69,7 @@ function paginationParams(
 export class LatticeClient {
     private baseUrl: string;
     private timeout: number;
+    private bearerToken?: string;
 
     public collection: CollectionMethods;
     public document: DocumentMethods;
@@ -81,16 +82,64 @@ export class LatticeClient {
      *
      * @param baseUrl - The base URL of the Lattice server (e.g., "http://localhost:8000")
      * @param timeout - Request timeout in milliseconds (default: 30000)
+     * @param bearerToken - Optional bearer token (a credential access key or a session token)
+     *   sent as `Authorization: Bearer` on every request. Also settable via
+     *   {@link setBearerToken} or {@link login}.
      */
-    constructor(baseUrl: string, timeout: number = 30000) {
+    constructor(baseUrl: string, timeout: number = 30000, bearerToken?: string) {
         this.baseUrl = baseUrl.replace(/\/+$/, "");
         this.timeout = timeout;
+        this.bearerToken = bearerToken;
 
         this.collection = new CollectionMethods(this);
         this.document = new DocumentMethods(this);
         this.search = new SearchMethods(this);
         this.schema = new SchemaMethods(this);
         this.index = new IndexMethods(this);
+    }
+
+    /**
+     * Set (or clear) the bearer token — a credential access key or a session token — sent as
+     * `Authorization: Bearer` on every request. Pass `undefined` to send no Authorization header.
+     */
+    setBearerToken(token?: string): void {
+        this.bearerToken = token;
+    }
+
+    /** The bearer token presented on every request, or `undefined`. */
+    getBearerToken(): string | undefined {
+        return this.bearerToken;
+    }
+
+    /**
+     * Log in with email, password, and tenant to obtain a session token. On success the returned
+     * token is stored on the client and used for subsequent requests.
+     */
+    async login(email: string, password: string, tenantId: string): Promise<any> {
+        const payload = await this.request<any>({
+            method: "POST",
+            path: "/v1.0/token",
+            data: { email, password, tenantId }
+        });
+        if (payload && payload.token) this.bearerToken = payload.token;
+        return payload;
+    }
+
+    /** Return the resolved principal for the current credentials. */
+    async whoami(): Promise<any> {
+        return this.request<any>({ method: "GET", path: "/v1.0/whoami" });
+    }
+
+    /** Revoke the current session token (logout) and clear it from the client. */
+    async logout(): Promise<boolean> {
+        let ok = true;
+        try {
+            await this.request({ method: "DELETE", path: "/v1.0/token" });
+        } catch {
+            ok = false;
+        }
+        this.bearerToken = undefined;
+        return ok;
     }
 
     /**
@@ -110,11 +159,16 @@ export class LatticeClient {
             url += `?${searchParams.toString()}`;
         }
 
+        const headers: Record<string, string> = {
+            "Content-Type": "application/json"
+        };
+        if (this.bearerToken) {
+            headers["Authorization"] = `Bearer ${this.bearerToken}`;
+        }
+
         const fetchOptions: RequestInit = {
             method: options.method,
-            headers: {
-                "Content-Type": "application/json"
-            }
+            headers
         };
 
         if (options.data && (options.method === "POST" || options.method === "PUT")) {
