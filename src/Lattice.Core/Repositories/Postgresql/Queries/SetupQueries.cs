@@ -25,7 +25,6 @@ namespace Lattice.Core.Repositories.Postgresql.Queries
                     lastupdateutc TIMESTAMP NOT NULL
                 );
 
-                CREATE INDEX IF NOT EXISTS idx_collections_tenantid ON collections(tenantid);
                 CREATE INDEX IF NOT EXISTS idx_collections_name ON collections(name);
                 CREATE INDEX IF NOT EXISTS idx_collections_createdutc ON collections(createdutc);
                 CREATE INDEX IF NOT EXISTS idx_collections_lastupdateutc ON collections(lastupdateutc);
@@ -413,7 +412,9 @@ namespace Lattice.Core.Repositories.Postgresql.Queries
             {
                 "ALTER TABLE documents ADD COLUMN IF NOT EXISTS contentlength BIGINT DEFAULT 0;",
                 "ALTER TABLE documents ADD COLUMN IF NOT EXISTS sha256hash VARCHAR(128);",
-                "ALTER TABLE collections ADD COLUMN IF NOT EXISTS tenantid VARCHAR(64);"
+                // Add tenantid column then its index (index created here so it runs after the column exists).
+                "ALTER TABLE collections ADD COLUMN IF NOT EXISTS tenantid VARCHAR(64);",
+                "CREATE INDEX IF NOT EXISTS idx_collections_tenantid ON collections(tenantid);"
             };
         }
 

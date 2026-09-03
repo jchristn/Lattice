@@ -26,9 +26,6 @@ namespace Lattice.Core.Repositories.SqlServer.Queries
                     [lastupdateutc] DATETIME2 NOT NULL
                 );
 
-                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_collections_tenantid')
-                CREATE INDEX [idx_collections_tenantid] ON [collections]([tenantid]);
-
                 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_collections_name')
                 CREATE INDEX [idx_collections_name] ON [collections]([name]);
 
@@ -531,7 +528,8 @@ namespace Lattice.Core.Repositories.SqlServer.Queries
             {
                 "IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('documents') AND name = 'contentlength') ALTER TABLE [documents] ADD [contentlength] BIGINT DEFAULT 0;",
                 "IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('documents') AND name = 'sha256hash') ALTER TABLE [documents] ADD [sha256hash] NVARCHAR(128);",
-                "IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('collections') AND name = 'tenantid') ALTER TABLE [collections] ADD [tenantid] NVARCHAR(64);"
+                "IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('collections') AND name = 'tenantid') ALTER TABLE [collections] ADD [tenantid] NVARCHAR(64);",
+                "IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_collections_tenantid') CREATE INDEX [idx_collections_tenantid] ON [collections]([tenantid]);"
             };
         }
 

@@ -18,7 +18,7 @@ services:
       - Lattice__InMemory=false
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/v1.0/collections"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/v1.0/health"]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -24,7 +24,6 @@ namespace Lattice.Core.Repositories.Sqlite.Queries
                     createdutc TEXT NOT NULL,
                     lastupdateutc TEXT NOT NULL
                 );
-                CREATE INDEX IF NOT EXISTS idx_collections_tenantid ON collections(tenantid);
                 CREATE INDEX IF NOT EXISTS idx_collections_name ON collections(name);
                 CREATE INDEX IF NOT EXISTS idx_collections_createdutc ON collections(createdutc);
                 CREATE INDEX IF NOT EXISTS idx_collections_lastupdateutc ON collections(lastupdateutc);
@@ -423,8 +422,11 @@ namespace Lattice.Core.Repositories.Sqlite.Queries
                 "ALTER TABLE documents ADD COLUMN contentlength INTEGER DEFAULT 0;",
                 // Add sha256hash column to documents table
                 "ALTER TABLE documents ADD COLUMN sha256hash TEXT;",
-                // Add tenantid column to collections table (multi-tenancy)
-                "ALTER TABLE collections ADD COLUMN tenantid TEXT;"
+                // Add tenantid column to collections table (multi-tenancy), then its index. The index is
+                // created here (not in CreateTablesAndIndices) so it runs only after the column exists on
+                // databases created before multi-tenancy.
+                "ALTER TABLE collections ADD COLUMN tenantid TEXT;",
+                "CREATE INDEX IF NOT EXISTS idx_collections_tenantid ON collections(tenantid);"
             };
         }
 

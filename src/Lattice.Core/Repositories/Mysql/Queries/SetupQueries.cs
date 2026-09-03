@@ -27,7 +27,6 @@ namespace Lattice.Core.Repositories.Mysql.Queries
                     PRIMARY KEY (`id`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-                CREATE INDEX IF NOT EXISTS `idx_collections_tenantid` ON `collections`(`tenantid`);
                 CREATE INDEX IF NOT EXISTS `idx_collections_name` ON `collections`(`name`(255));
                 CREATE INDEX IF NOT EXISTS `idx_collections_createdutc` ON `collections`(`createdutc`);
                 CREATE INDEX IF NOT EXISTS `idx_collections_lastupdateutc` ON `collections`(`lastupdateutc`);
@@ -464,7 +463,9 @@ namespace Lattice.Core.Repositories.Mysql.Queries
                 "ALTER TABLE `documents` ADD COLUMN `contentlength` BIGINT DEFAULT 0;",
                 // Add sha256hash column to documents table
                 "ALTER TABLE `documents` ADD COLUMN `sha256hash` VARCHAR(128);",
-                "ALTER TABLE `collections` ADD COLUMN `tenantid` VARCHAR(64);"
+                // Add tenantid column then its index (index created here so it runs after the column exists).
+                "ALTER TABLE `collections` ADD COLUMN `tenantid` VARCHAR(64);",
+                "CREATE INDEX IF NOT EXISTS `idx_collections_tenantid` ON `collections`(`tenantid`);"
             };
         }
 
