@@ -64,6 +64,7 @@ namespace Lattice.Core.Client.Implementations
             List<FieldConstraint> fieldConstraints = null,
             IndexingMode indexingMode = IndexingMode.All,
             List<string> indexedFields = null,
+            string tenantId = null,
             CancellationToken token = default)
         {
             using OperationScope op = LatticeTelemetry.StartOperation("collection.create", null);
@@ -75,6 +76,7 @@ namespace Lattice.Core.Client.Implementations
             Collection collection = new Collection
             {
                 Id = IdGenerator.NewCollectionId(),
+                TenantId = tenantId,
                 Name = name,
                 Description = description,
                 DocumentsDirectory = documentsDirectory ?? Path.Combine(_Settings.DefaultDocumentsDirectory, name),

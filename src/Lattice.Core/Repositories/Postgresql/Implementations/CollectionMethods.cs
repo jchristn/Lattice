@@ -24,8 +24,9 @@ namespace Lattice.Core.Repositories.Postgresql.Implementations
             token.ThrowIfCancellationRequested();
 
             string query = $@"
-                INSERT INTO collections (id, name, description, documentsdirectory, schemaenforcementmode, indexingmode, createdutc, lastupdateutc)
+                INSERT INTO collections (id, tenantid, name, description, documentsdirectory, schemaenforcementmode, indexingmode, createdutc, lastupdateutc)
                 VALUES ('{Sanitizer.Sanitize(collection.Id)}',
+                        {(collection.TenantId != null ? $"'{Sanitizer.Sanitize(collection.TenantId)}'" : "NULL")},
                         '{Sanitizer.Sanitize(collection.Name)}',
                         {(collection.Description != null ? $"'{Sanitizer.Sanitize(collection.Description)}'" : "NULL")},
                         {(collection.DocumentsDirectory != null ? $"'{Sanitizer.Sanitize(collection.DocumentsDirectory)}'" : "NULL")},

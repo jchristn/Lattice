@@ -24,9 +24,10 @@ namespace Lattice.Core.Repositories.SqlServer.Implementations
             token.ThrowIfCancellationRequested();
 
             string query = $@"
-                INSERT INTO [collections] ([id], [name], [description], [documentsdirectory], [schemaenforcementmode], [indexingmode], [createdutc], [lastupdateutc])
+                INSERT INTO [collections] ([id], [tenantid], [name], [description], [documentsdirectory], [schemaenforcementmode], [indexingmode], [createdutc], [lastupdateutc])
                 OUTPUT INSERTED.*
                 VALUES ('{Sanitizer.Sanitize(collection.Id)}',
+                        {(collection.TenantId != null ? $"N'{Sanitizer.Sanitize(collection.TenantId)}'" : "NULL")},
                         N'{Sanitizer.Sanitize(collection.Name)}',
                         {(collection.Description != null ? $"N'{Sanitizer.Sanitize(collection.Description)}'" : "NULL")},
                         {(collection.DocumentsDirectory != null ? $"N'{Sanitizer.Sanitize(collection.DocumentsDirectory)}'" : "NULL")},

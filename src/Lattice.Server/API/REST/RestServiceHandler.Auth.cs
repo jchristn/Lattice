@@ -480,6 +480,40 @@ namespace Lattice.Server.API.REST
             return String.Equals(reqCtx.TenantId, recordTenantId, StringComparison.Ordinal);
         }
 
+        // True when the caller may access the given collection: auth disabled, a system administrator, a
+        // shared collection with no owning tenant (created before tenancy or by the first-run seeder), or a
+        // collection owned by the caller's tenant.
+        private bool CollectionVisible(RequestContext reqCtx, Collection collection)
+        {
+            if (!_AuthEnabled) return true;
+            if (collection == null) return false;
+            if (reqCtx.Caller != null && reqCtx.Caller.IsAdmin) return true;
+            if (String.IsNullOrEmpty(collection.TenantId)) return true;
+            return String.Equals(collection.TenantId, reqCtx.TenantId, StringComparison.Ordinal);
+        }
+
+        // Load a collection by id and report whether the caller may access it. Returns false when the
+        // collection does not exist, so callers can respond 404 without leaking cross-tenant existence.
+        private async Task<bool> CollectionAccessibleAsync(RequestContext reqCtx, string collectionId)
+        {
+            if (!_AuthEnabled) return true;
+            if (String.IsNullOrEmpty(collectionId)) return false;
+            Collection collection = await _Client.Collection.ReadById(collectionId, CancellationToken.None).ConfigureAwait(false);
+            return CollectionVisible(reqCtx, collection);
+        }
+
+        // Filter a collection list to those the caller may see (all of them for a system administrator).
+        private List<Collection> VisibleCollections(RequestContext reqCtx, List<Collection> collections)
+        {
+            if (!_AuthEnabled || (reqCtx.Caller != null && reqCtx.Caller.IsAdmin)) return collections;
+            List<Collection> visible = new List<Collection>();
+            foreach (Collection collection in collections)
+            {
+                if (CollectionVisible(reqCtx, collection)) visible.Add(collection);
+            }
+            return visible;
+        }
+
         // Append a security audit entry for an authentication or authorization event. Audit writes must
         // never break request handling, so failures are logged and swallowed.
         private async Task WriteSecurityAuditAsync(RequestContext reqCtx, RequiredPermission required, string eventType, string authResult, string authzResult, string denialReason, int responseCode)

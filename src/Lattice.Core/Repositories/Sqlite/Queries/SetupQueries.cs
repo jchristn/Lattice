@@ -15,6 +15,7 @@ namespace Lattice.Core.Repositories.Sqlite.Queries
                 -- Collections table
                 CREATE TABLE IF NOT EXISTS collections (
                     id TEXT PRIMARY KEY,
+                    tenantid TEXT,
                     name TEXT NOT NULL,
                     description TEXT,
                     documentsdirectory TEXT,
@@ -23,6 +24,7 @@ namespace Lattice.Core.Repositories.Sqlite.Queries
                     createdutc TEXT NOT NULL,
                     lastupdateutc TEXT NOT NULL
                 );
+                CREATE INDEX IF NOT EXISTS idx_collections_tenantid ON collections(tenantid);
                 CREATE INDEX IF NOT EXISTS idx_collections_name ON collections(name);
                 CREATE INDEX IF NOT EXISTS idx_collections_createdutc ON collections(createdutc);
                 CREATE INDEX IF NOT EXISTS idx_collections_lastupdateutc ON collections(lastupdateutc);
@@ -420,7 +422,9 @@ namespace Lattice.Core.Repositories.Sqlite.Queries
                 // Add contentlength column to documents table (use DEFAULT 0 for existing rows)
                 "ALTER TABLE documents ADD COLUMN contentlength INTEGER DEFAULT 0;",
                 // Add sha256hash column to documents table
-                "ALTER TABLE documents ADD COLUMN sha256hash TEXT;"
+                "ALTER TABLE documents ADD COLUMN sha256hash TEXT;",
+                // Add tenantid column to collections table (multi-tenancy)
+                "ALTER TABLE collections ADD COLUMN tenantid TEXT;"
             };
         }
 

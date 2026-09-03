@@ -1288,6 +1288,7 @@ namespace Lattice.Server.API.REST
             await WrappedRequestHandler(ctx, RequestTypeEnum.Collection, async (reqCtx) =>
             {
                 List<Collection> collections = await _Client.Collection.ReadAll(CancellationToken.None).ConfigureAwait(false);
+                collections = VisibleCollections(reqCtx, collections);
                 return new ResponseContext
                 {
                     Success = true,
@@ -1328,6 +1329,7 @@ namespace Lattice.Server.API.REST
                     request.FieldConstraints,
                     request.IndexingMode,
                     request.IndexedFields,
+                    reqCtx.TenantId,
                     CancellationToken.None).ConfigureAwait(false);
 
                 return new ResponseContext
@@ -1350,7 +1352,7 @@ namespace Lattice.Server.API.REST
                 }
 
                 Collection? collection = await _Client.Collection.ReadById(collectionId, CancellationToken.None).ConfigureAwait(false);
-                if (collection == null)
+                if (collection == null || !CollectionVisible(reqCtx, collection))
                 {
                     return new ResponseContext(false, 404, "Collection not found");
                 }
@@ -1374,8 +1376,8 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                bool exists = await _Client.Collection.Exists(collectionId, CancellationToken.None).ConfigureAwait(false);
-                if (!exists)
+                Collection headCollection = await _Client.Collection.ReadById(collectionId, CancellationToken.None).ConfigureAwait(false);
+                if (headCollection == null || !CollectionVisible(reqCtx, headCollection))
                 {
                     return new ResponseContext(false, 404, "Collection not found");
                 }
@@ -1398,8 +1400,8 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                bool exists = await _Client.Collection.Exists(collectionId, CancellationToken.None).ConfigureAwait(false);
-                if (!exists)
+                Collection deleteCollection = await _Client.Collection.ReadById(collectionId, CancellationToken.None).ConfigureAwait(false);
+                if (deleteCollection == null || !CollectionVisible(reqCtx, deleteCollection))
                 {
                     return new ResponseContext(false, 404, "Collection not found");
                 }
@@ -1426,7 +1428,7 @@ namespace Lattice.Server.API.REST
                 }
 
                 Collection? collection = await _Client.Collection.ReadById(collectionId, CancellationToken.None).ConfigureAwait(false);
-                if (collection == null)
+                if (collection == null || !CollectionVisible(reqCtx, collection))
                 {
                     return new ResponseContext(false, 404, "Collection not found");
                 }
@@ -1456,8 +1458,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                bool exists = await _Client.Collection.Exists(collectionId, CancellationToken.None).ConfigureAwait(false);
-                if (!exists)
+                if (!await CollectionAccessibleAsync(reqCtx, collectionId).ConfigureAwait(false))
                 {
                     return new ResponseContext(false, 404, "Collection not found");
                 }
@@ -1507,7 +1508,7 @@ namespace Lattice.Server.API.REST
                 }
 
                 Collection? collection = await _Client.Collection.ReadById(collectionId, CancellationToken.None).ConfigureAwait(false);
-                if (collection == null)
+                if (collection == null || !CollectionVisible(reqCtx, collection))
                 {
                     return new ResponseContext(false, 404, "Collection not found");
                 }
@@ -1537,8 +1538,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                bool exists = await _Client.Collection.Exists(collectionId, CancellationToken.None).ConfigureAwait(false);
-                if (!exists)
+                if (!await CollectionAccessibleAsync(reqCtx, collectionId).ConfigureAwait(false))
                 {
                     return new ResponseContext(false, 404, "Collection not found");
                 }
@@ -1595,8 +1595,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                bool exists = await _Client.Collection.Exists(collectionId, CancellationToken.None).ConfigureAwait(false);
-                if (!exists)
+                if (!await CollectionAccessibleAsync(reqCtx, collectionId).ConfigureAwait(false))
                 {
                     return new ResponseContext(false, 404, "Collection not found");
                 }
@@ -1637,8 +1636,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                bool collectionExists = await _Client.Collection.Exists(collectionId, CancellationToken.None).ConfigureAwait(false);
-                if (!collectionExists)
+                if (!await CollectionAccessibleAsync(reqCtx, collectionId).ConfigureAwait(false))
                 {
                     return new ResponseContext(false, 404, "Collection not found");
                 }
@@ -1664,8 +1662,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                bool collectionExists = await _Client.Collection.Exists(collectionId, CancellationToken.None).ConfigureAwait(false);
-                if (!collectionExists)
+                if (!await CollectionAccessibleAsync(reqCtx, collectionId).ConfigureAwait(false))
                 {
                     return new ResponseContext(false, 404, "Collection not found");
                 }
@@ -1717,8 +1714,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                bool collectionExists = await _Client.Collection.Exists(collectionId, CancellationToken.None).ConfigureAwait(false);
-                if (!collectionExists)
+                if (!await CollectionAccessibleAsync(reqCtx, collectionId).ConfigureAwait(false))
                 {
                     return new ResponseContext(false, 404, "Collection not found");
                 }
@@ -1799,6 +1795,11 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Document ID is required");
                 }
 
+                if (!await CollectionAccessibleAsync(reqCtx, collectionId).ConfigureAwait(false))
+                {
+                    return new ResponseContext(false, 404, "Document not found");
+                }
+
                 Document? document = await _Client.Document.ReadById(documentId, includeContent: false, token: CancellationToken.None).ConfigureAwait(false);
                 if (document == null || document.CollectionId != collectionId)
                 {
@@ -1822,6 +1823,29 @@ namespace Lattice.Server.API.REST
             bool success = true;
             string responseBody = "{}";
             string? errorMessage = null;
+
+            // This path does not run through WrappedRequestHandler, so enforce the same auth gate here.
+            if (_AuthEnabled)
+            {
+                CallerContext rawCaller = await AuthenticateAsync(ctx).ConfigureAwait(false);
+                if (rawCaller == null || !rawCaller.IsAuthenticated)
+                {
+                    string unauthBody = JsonSerializer.Serialize(new ErrorResponse { Error = "Authentication required" }, _JsonOptions);
+                    await SendRawResponse(ctx, requestContext, 401, unauthBody, startTime, false, "Authentication required").ConfigureAwait(false);
+                    return;
+                }
+
+                requestContext.Caller = rawCaller;
+                requestContext.TenantId = rawCaller.TenantId;
+
+                AuthorizationVerdict verdict = await _AuthZ.AuthorizeAsync(rawCaller, ResourceType.Document, OperationType.Read, requestContext.CollectionId).ConfigureAwait(false);
+                if (verdict != AuthorizationVerdict.Permitted)
+                {
+                    string deniedBody = JsonSerializer.Serialize(new ErrorResponse { Error = "Authorization denied" }, _JsonOptions);
+                    await SendRawResponse(ctx, requestContext, 403, deniedBody, startTime, false, "Authorization denied").ConfigureAwait(false);
+                    return;
+                }
+            }
 
             try
             {
@@ -1848,8 +1872,11 @@ namespace Lattice.Server.API.REST
                     return;
                 }
 
-                Document? document = await _Client.Document.ReadById(documentId, includeContent: true, token: CancellationToken.None).ConfigureAwait(false);
-                if (document == null || document.CollectionId != collectionId)
+                bool collectionAccessible = await CollectionAccessibleAsync(requestContext, collectionId).ConfigureAwait(false);
+                Document? document = collectionAccessible
+                    ? await _Client.Document.ReadById(documentId, includeContent: true, token: CancellationToken.None).ConfigureAwait(false)
+                    : null;
+                if (!collectionAccessible || document == null || document.CollectionId != collectionId)
                 {
                     statusCode = 404;
                     success = false;
@@ -1890,6 +1917,11 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Document ID is required");
                 }
 
+                if (!await CollectionAccessibleAsync(reqCtx, collectionId).ConfigureAwait(false))
+                {
+                    return new ResponseContext(false, 404, "Document not found");
+                }
+
                 Document? document = await _Client.Document.ReadById(documentId, token: CancellationToken.None).ConfigureAwait(false);
                 if (document == null || document.CollectionId != collectionId)
                 {
@@ -1919,6 +1951,11 @@ namespace Lattice.Server.API.REST
                 if (String.IsNullOrEmpty(documentId))
                 {
                     return new ResponseContext(false, 400, "Document ID is required");
+                }
+
+                if (!await CollectionAccessibleAsync(reqCtx, collectionId).ConfigureAwait(false))
+                {
+                    return new ResponseContext(false, 404, "Document not found");
                 }
 
                 Document? document = await _Client.Document.ReadById(documentId, token: CancellationToken.None).ConfigureAwait(false);
@@ -1952,8 +1989,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                bool collectionExists = await _Client.Collection.Exists(collectionId, CancellationToken.None).ConfigureAwait(false);
-                if (!collectionExists)
+                if (!await CollectionAccessibleAsync(reqCtx, collectionId).ConfigureAwait(false))
                 {
                     return new ResponseContext(false, 404, "Collection not found");
                 }

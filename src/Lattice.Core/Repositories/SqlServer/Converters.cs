@@ -27,6 +27,12 @@ namespace Lattice.Core.Repositories.SqlServer
                 LastUpdateUtc = Convert.ToDateTime(row["lastupdateutc"])
             };
 
+            // Tenant ownership (multi-tenancy). Backwards compatible: older rows carry null.
+            if (row.Table.Columns.Contains("tenantid") && row["tenantid"] != DBNull.Value)
+            {
+                collection.TenantId = row["tenantid"]?.ToString();
+            }
+
             if (row.Table.Columns.Contains("schemaenforcementmode") && row["schemaenforcementmode"] != DBNull.Value)
             {
                 collection.SchemaEnforcementMode = (SchemaEnforcementMode)Convert.ToInt32(row["schemaenforcementmode"]);

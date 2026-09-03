@@ -124,7 +124,20 @@ namespace Lattice.Server.API.REST
 
                 case "lattice_list_collections":
                 {
-                    List<Collection> collections = await _Client.Collection.ReadAll(CancellationToken.None).ConfigureAwait(false);
+                    List<Collection> all = await _Client.Collection.ReadAll(CancellationToken.None).ConfigureAwait(false);
+                    List<Collection> collections;
+                    if (!_AuthEnabled || (caller != null && caller.IsAdmin))
+                    {
+                        collections = all;
+                    }
+                    else
+                    {
+                        collections = new List<Collection>();
+                        foreach (Collection c in all)
+                        {
+                            if (CollectionVisibleToCaller(caller, c)) collections.Add(c);
+                        }
+                    }
                     toolResult = BuildEnumerationResult(collections, McpSkip(args), McpMax(args));
                     break;
                 }
@@ -133,7 +146,7 @@ namespace Lattice.Server.API.REST
                 {
                     if (String.IsNullOrEmpty(args.CollectionId)) { await SendMcpErrorAsync(ctx, id, -32602, "collectionId is required.").ConfigureAwait(false); return; }
                     Collection collection = await _Client.Collection.ReadById(args.CollectionId, CancellationToken.None).ConfigureAwait(false);
-                    if (collection == null) { await SendMcpErrorAsync(ctx, id, -32000, "Collection not found.").ConfigureAwait(false); return; }
+                    if (collection == null || !CollectionVisibleToCaller(caller, collection)) { await SendMcpErrorAsync(ctx, id, -32000, "Collection not found.").ConfigureAwait(false); return; }
                     toolResult = collection;
                     break;
                 }
@@ -141,7 +154,7 @@ namespace Lattice.Server.API.REST
                 case "lattice_create_collection":
                 {
                     if (String.IsNullOrWhiteSpace(args.Name)) { await SendMcpErrorAsync(ctx, id, -32602, "name is required.").ConfigureAwait(false); return; }
-                    Collection created = await _Client.Collection.Create(args.Name, args.Description, labels: args.Labels, tags: args.Tags, token: CancellationToken.None).ConfigureAwait(false);
+                    Collection created = await _Client.Collection.Create(args.Name, args.Description, labels: args.Labels, tags: args.Tags, tenantId: caller?.TenantId, token: CancellationToken.None).ConfigureAwait(false);
                     toolResult = created;
                     break;
                 }
@@ -149,7 +162,7 @@ namespace Lattice.Server.API.REST
                 case "lattice_delete_collection":
                 {
                     if (String.IsNullOrEmpty(args.CollectionId)) { await SendMcpErrorAsync(ctx, id, -32602, "collectionId is required.").ConfigureAwait(false); return; }
-                    if (!await _Client.Collection.Exists(args.CollectionId, CancellationToken.None).ConfigureAwait(false)) { await SendMcpErrorAsync(ctx, id, -32000, "Collection not found.").ConfigureAwait(false); return; }
+                    if (!await CollectionAccessibleToCallerAsync(caller, args.CollectionId).ConfigureAwait(false)) { await SendMcpErrorAsync(ctx, id, -32000, "Collection not found.").ConfigureAwait(false); return; }
                     await _Client.Collection.Delete(args.CollectionId, CancellationToken.None).ConfigureAwait(false);
                     toolResult = new { deleted = true, collectionId = args.CollectionId };
                     break;
@@ -158,6 +171,7 @@ namespace Lattice.Server.API.REST
                 case "lattice_list_documents":
                 {
                     if (String.IsNullOrEmpty(args.CollectionId)) { await SendMcpErrorAsync(ctx, id, -32602, "collectionId is required.").ConfigureAwait(false); return; }
+                    if (!await CollectionAccessibleToCallerAsync(caller, args.CollectionId).ConfigureAwait(false)) { await SendMcpErrorAsync(ctx, id, -32000, "Collection not found.").ConfigureAwait(false); return; }
                     List<Document> documents = await _Client.Document.ReadAllInCollection(args.CollectionId, token: CancellationToken.None).ConfigureAwait(false);
                     toolResult = BuildEnumerationResult(documents, McpSkip(args), McpMax(args));
                     break;
@@ -166,6 +180,7 @@ namespace Lattice.Server.API.REST
                 case "lattice_get_document":
                 {
                     if (String.IsNullOrEmpty(args.CollectionId) || String.IsNullOrEmpty(args.DocumentId)) { await SendMcpErrorAsync(ctx, id, -32602, "collectionId and documentId are required.").ConfigureAwait(false); return; }
+                    if (!await CollectionAccessibleToCallerAsync(caller, args.CollectionId).ConfigureAwait(false)) { await SendMcpErrorAsync(ctx, id, -32000, "Document not found.").ConfigureAwait(false); return; }
                     Document document = await _Client.Document.ReadById(args.DocumentId, includeContent: args.IncludeContent ?? false, token: CancellationToken.None).ConfigureAwait(false);
                     if (document == null || document.CollectionId != args.CollectionId) { await SendMcpErrorAsync(ctx, id, -32000, "Document not found.").ConfigureAwait(false); return; }
                     toolResult = document;
@@ -176,7 +191,7 @@ namespace Lattice.Server.API.REST
                 {
                     if (String.IsNullOrEmpty(args.CollectionId)) { await SendMcpErrorAsync(ctx, id, -32602, "collectionId is required.").ConfigureAwait(false); return; }
                     if (args.Content == null) { await SendMcpErrorAsync(ctx, id, -32602, "content is required.").ConfigureAwait(false); return; }
-                    if (!await _Client.Collection.Exists(args.CollectionId, CancellationToken.None).ConfigureAwait(false)) { await SendMcpErrorAsync(ctx, id, -32000, "Collection not found.").ConfigureAwait(false); return; }
+                    if (!await CollectionAccessibleToCallerAsync(caller, args.CollectionId).ConfigureAwait(false)) { await SendMcpErrorAsync(ctx, id, -32000, "Collection not found.").ConfigureAwait(false); return; }
                     string json = SerializeDocumentContent(args.Content);
                     Document ingested = await _Client.Document.Ingest(args.CollectionId, json, args.Name, args.Labels, args.Tags, CancellationToken.None).ConfigureAwait(false);
                     toolResult = ingested;
@@ -186,7 +201,8 @@ namespace Lattice.Server.API.REST
                 case "lattice_delete_document":
                 {
                     if (String.IsNullOrEmpty(args.DocumentId)) { await SendMcpErrorAsync(ctx, id, -32602, "documentId is required.").ConfigureAwait(false); return; }
-                    if (!await _Client.Document.Exists(args.DocumentId, CancellationToken.None).ConfigureAwait(false)) { await SendMcpErrorAsync(ctx, id, -32000, "Document not found.").ConfigureAwait(false); return; }
+                    Document existing = await _Client.Document.ReadById(args.DocumentId, token: CancellationToken.None).ConfigureAwait(false);
+                    if (existing == null || !await CollectionAccessibleToCallerAsync(caller, existing.CollectionId).ConfigureAwait(false)) { await SendMcpErrorAsync(ctx, id, -32000, "Document not found.").ConfigureAwait(false); return; }
                     await _Client.Document.Delete(args.DocumentId, CancellationToken.None).ConfigureAwait(false);
                     toolResult = new { deleted = true, documentId = args.DocumentId };
                     break;
@@ -195,6 +211,7 @@ namespace Lattice.Server.API.REST
                 case "lattice_search_documents":
                 {
                     if (String.IsNullOrEmpty(args.CollectionId)) { await SendMcpErrorAsync(ctx, id, -32602, "collectionId is required.").ConfigureAwait(false); return; }
+                    if (!await CollectionAccessibleToCallerAsync(caller, args.CollectionId).ConfigureAwait(false)) { await SendMcpErrorAsync(ctx, id, -32000, "Collection not found.").ConfigureAwait(false); return; }
                     SearchQuery query = new SearchQuery
                     {
                         CollectionId = args.CollectionId,
@@ -359,6 +376,25 @@ namespace Lattice.Server.API.REST
         {
             if (caller != null && caller.IsAdmin && !String.IsNullOrEmpty(bodyTenantId)) return bodyTenantId;
             return caller?.TenantId;
+        }
+
+        // Whether a caller may see a collection: auth off, admin, a shared (no-tenant) collection, or same tenant.
+        private bool CollectionVisibleToCaller(CallerContext caller, Collection collection)
+        {
+            if (!_AuthEnabled) return true;
+            if (collection == null) return false;
+            if (caller != null && caller.IsAdmin) return true;
+            if (String.IsNullOrEmpty(collection.TenantId)) return true;
+            return String.Equals(collection.TenantId, caller?.TenantId, StringComparison.Ordinal);
+        }
+
+        // Load a collection and report whether the caller may access it (false when it does not exist).
+        private async Task<bool> CollectionAccessibleToCallerAsync(CallerContext caller, string collectionId)
+        {
+            if (!_AuthEnabled) return true;
+            if (String.IsNullOrEmpty(collectionId)) return false;
+            Collection collection = await _Client.Collection.ReadById(collectionId, CancellationToken.None).ConfigureAwait(false);
+            return CollectionVisibleToCaller(caller, collection);
         }
 
         private static int McpMax(McpToolArguments args)

@@ -27,6 +27,12 @@ namespace Lattice.Core.Repositories.Mysql
                 LastUpdateUtc = DateTime.Parse(row["lastupdateutc"].ToString())
             };
 
+            // Tenant ownership (multi-tenancy). Backwards compatible: older rows carry null.
+            if (row.Table.Columns.Contains("tenantid") && row["tenantid"] != DBNull.Value)
+            {
+                collection.TenantId = row["tenantid"]?.ToString();
+            }
+
             // Handle new columns with backwards compatibility for existing databases
             if (row.Table.Columns.Contains("schemaenforcementmode") && row["schemaenforcementmode"] != DBNull.Value)
             {

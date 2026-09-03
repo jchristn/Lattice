@@ -35,6 +35,7 @@ namespace Lattice.Core.Client.Interfaces
             List<FieldConstraint> fieldConstraints = null,
             IndexingMode indexingMode = IndexingMode.All,
             List<string> indexedFields = null,
+            string tenantId = null,
             CancellationToken token = default);
 
         /// <summary>

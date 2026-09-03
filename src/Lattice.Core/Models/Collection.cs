@@ -16,6 +16,12 @@ namespace Lattice.Core.Models
         public string Id { get; set; } = null;
 
         /// <summary>
+        /// Identifier of the tenant that owns this collection. Null for collections created before
+        /// multi-tenancy or when authentication is disabled; such collections are visible to all tenants.
+        /// </summary>
+        public string TenantId { get; set; } = null;
+
+        /// <summary>
         /// Name of the collection.
         /// </summary>
         public string Name { get; set; } = null;

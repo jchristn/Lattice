@@ -12,7 +12,9 @@
     access key** (`access_...`) presented directly. No `x-api-key`, no secret key, no request signing.
   - **Single-tier multi-tenancy**: the tenant is resolved from the principal; there is no tenant id in
     URLs. A system administrator may target another tenant via an explicit `tenantId` in the request body
-    (writes) or query (lists).
+    (writes) or query (lists). Collections carry an owning `tenantId` (new `tenantid` column across all four
+    backends, added by migration on existing databases); the REST and MCP data planes isolate collections
+    and, transitively, their documents by tenant, while a system administrator sees all tenants.
   - **RBAC** with deny-over-permit evaluation, resource types and operations (`Write` expands to
     Create/Update/Delete), built-in roles (TenantAdmin, SecurityAdmin, Auditor, CollectionAdmin, Editor,
     Viewer, TenantMember), and per-user/credential assignments. Passwords are hashed with SHA-256.

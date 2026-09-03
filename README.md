@@ -319,10 +319,11 @@ requires a bearer token. There are two ways to authenticate, both presented with
 
 On first run the server seeds a default tenant, an administrator (`admin@lattice` / `password`), and an
 access key, printing them to the console once — change them for any shared deployment via the `Auth` block
-in `lattice.json`. Access is governed by role-based access control (deny-over-permit) with built-in roles,
-and every request is scoped to the caller's tenant. Authentication and MCP are configured under the `Auth`
-and `Mcp` blocks in `lattice.json`. See [`REST_API.md`](REST_API.md) for the full auth surface and
-[`MCP_API.md`](MCP_API.md) for the Model Context Protocol endpoint.
+in `lattice.json`. Access is governed by role-based access control (deny-over-permit) with built-in roles.
+Collections and their documents are isolated by tenant — a principal sees and acts on only its own tenant's
+collections (and, transitively, their documents); a system administrator sees all tenants. Authentication
+and MCP are configured under the `Auth` and `Mcp` blocks in `lattice.json`. See [`REST_API.md`](REST_API.md)
+for the full auth surface and [`MCP_API.md`](MCP_API.md) for the Model Context Protocol endpoint.
 
 ## Horizontal Scaling
 

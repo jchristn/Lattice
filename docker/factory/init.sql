@@ -3,6 +3,7 @@ PRAGMA journal_mode=WAL;
 -- Collections table
 CREATE TABLE IF NOT EXISTS collections (
     id TEXT PRIMARY KEY,
+    tenantid TEXT,
     name TEXT NOT NULL,
     description TEXT,
     documentsdirectory TEXT,
@@ -11,6 +12,7 @@ CREATE TABLE IF NOT EXISTS collections (
     createdutc TEXT NOT NULL,
     lastupdateutc TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_collections_tenantid ON collections(tenantid);
 CREATE INDEX IF NOT EXISTS idx_collections_name ON collections(name);
 CREATE INDEX IF NOT EXISTS idx_collections_createdutc ON collections(createdutc);
 CREATE INDEX IF NOT EXISTS idx_collections_lastupdateutc ON collections(lastupdateutc);

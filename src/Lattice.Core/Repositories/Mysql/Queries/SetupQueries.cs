@@ -16,6 +16,7 @@ namespace Lattice.Core.Repositories.Mysql.Queries
                 -- Collections table
                 CREATE TABLE IF NOT EXISTS `collections` (
                     `id` VARCHAR(64) NOT NULL,
+                    `tenantid` VARCHAR(64),
                     `name` VARCHAR(512) NOT NULL,
                     `description` TEXT,
                     `documentsdirectory` VARCHAR(1024),
@@ -26,6 +27,7 @@ namespace Lattice.Core.Repositories.Mysql.Queries
                     PRIMARY KEY (`id`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+                CREATE INDEX IF NOT EXISTS `idx_collections_tenantid` ON `collections`(`tenantid`);
                 CREATE INDEX IF NOT EXISTS `idx_collections_name` ON `collections`(`name`(255));
                 CREATE INDEX IF NOT EXISTS `idx_collections_createdutc` ON `collections`(`createdutc`);
                 CREATE INDEX IF NOT EXISTS `idx_collections_lastupdateutc` ON `collections`(`lastupdateutc`);
@@ -461,7 +463,8 @@ namespace Lattice.Core.Repositories.Mysql.Queries
                 // Add contentlength column to documents table (use DEFAULT 0 for existing rows)
                 "ALTER TABLE `documents` ADD COLUMN `contentlength` BIGINT DEFAULT 0;",
                 // Add sha256hash column to documents table
-                "ALTER TABLE `documents` ADD COLUMN `sha256hash` VARCHAR(128);"
+                "ALTER TABLE `documents` ADD COLUMN `sha256hash` VARCHAR(128);",
+                "ALTER TABLE `collections` ADD COLUMN `tenantid` VARCHAR(64);"
             };
         }
 

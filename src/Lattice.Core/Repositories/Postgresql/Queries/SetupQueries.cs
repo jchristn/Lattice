@@ -15,6 +15,7 @@ namespace Lattice.Core.Repositories.Postgresql.Queries
                 -- Collections table
                 CREATE TABLE IF NOT EXISTS collections (
                     id VARCHAR(64) NOT NULL PRIMARY KEY,
+                    tenantid VARCHAR(64),
                     name VARCHAR(512) NOT NULL,
                     description TEXT,
                     documentsdirectory VARCHAR(1024),
@@ -24,6 +25,7 @@ namespace Lattice.Core.Repositories.Postgresql.Queries
                     lastupdateutc TIMESTAMP NOT NULL
                 );
 
+                CREATE INDEX IF NOT EXISTS idx_collections_tenantid ON collections(tenantid);
                 CREATE INDEX IF NOT EXISTS idx_collections_name ON collections(name);
                 CREATE INDEX IF NOT EXISTS idx_collections_createdutc ON collections(createdutc);
                 CREATE INDEX IF NOT EXISTS idx_collections_lastupdateutc ON collections(lastupdateutc);
@@ -410,7 +412,8 @@ namespace Lattice.Core.Repositories.Postgresql.Queries
             return new[]
             {
                 "ALTER TABLE documents ADD COLUMN IF NOT EXISTS contentlength BIGINT DEFAULT 0;",
-                "ALTER TABLE documents ADD COLUMN IF NOT EXISTS sha256hash VARCHAR(128);"
+                "ALTER TABLE documents ADD COLUMN IF NOT EXISTS sha256hash VARCHAR(128);",
+                "ALTER TABLE collections ADD COLUMN IF NOT EXISTS tenantid VARCHAR(64);"
             };
         }
 

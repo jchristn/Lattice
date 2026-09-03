@@ -290,6 +290,19 @@ namespace Test.Shared.Suites
                     "The granted role must not permit Collection:Delete.");
             });
 
+            builder.Add("Collections persist and read back their owning tenant", async client =>
+            {
+                Collection owned = await client.Collection.Create("tenant-owned", tenantId: "ten_owner");
+                TestAssert.NotNull(owned, "Collection must be created.");
+                Collection read = await client.Collection.ReadById(owned.Id);
+                TestAssert.NotNull(read, "Collection must read back.");
+                TestAssert.Equal("ten_owner", read.TenantId, "Collection must persist its owning tenant.");
+
+                Collection shared = await client.Collection.Create("shared");
+                Collection readShared = await client.Collection.ReadById(shared.Id);
+                TestAssert.Null(readShared.TenantId, "A collection created without a tenant must have a null owner.");
+            });
+
             builder.Add("Audit entries persist, search, and count within a tenant", async client =>
             {
                 Tenant tenant = await CreateTenantAsync(client, "audit-co");
