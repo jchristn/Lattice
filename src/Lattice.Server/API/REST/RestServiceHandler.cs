@@ -775,23 +775,30 @@ namespace Lattice.Server.API.REST
                 {
                     if (caller == null || !caller.IsAuthenticated)
                     {
+                        ServerTelemetry.RecordAuthRequest("bearer", false);
                         DateTime unauthUtc = DateTime.UtcNow;
                         ResponseContext unauth = new ResponseContext(false, 401, "Authentication required") { Guid = requestContext.Guid };
                         string unauthBody = await SendResponse(ctx, unauth).ConfigureAwait(false);
+                        await WriteSecurityAuditAsync(requestContext, required, "AuthFailure", "Unauthenticated", null, "No valid credentials presented", 401).ConfigureAwait(false);
                         await RecordRequestHistoryAsync(requestContext, unauth, unauthBody, unauthUtc).ConfigureAwait(false);
                         return;
                     }
+
+                    ServerTelemetry.RecordAuthRequest("bearer", true);
 
                     if (!required.AnyAuthenticated)
                     {
                         string resourceId = ResolveResourceId(requestContext, required.ResourceType);
                         AuthorizationVerdict verdict = await _AuthZ.AuthorizeAsync(caller, required.ResourceType, required.Operation, resourceId).ConfigureAwait(false);
+                        ServerTelemetry.RecordAuthzRequest(required.ResourceType.ToString(), required.Operation.ToString(), verdict.ToString());
                         if (verdict != AuthorizationVerdict.Permitted)
                         {
                             DateTime deniedUtc = DateTime.UtcNow;
                             ResponseContext forbidden = new ResponseContext(false, 403,
                                 "Authorization denied: requires " + required.ResourceType + ":" + required.Operation) { Guid = requestContext.Guid };
                             string forbiddenBody = await SendResponse(ctx, forbidden).ConfigureAwait(false);
+                            await WriteSecurityAuditAsync(requestContext, required, "AuthzDenied", "Success", verdict.ToString(),
+                                "Requires " + required.ResourceType + ":" + required.Operation, 403).ConfigureAwait(false);
                             await RecordRequestHistoryAsync(requestContext, forbidden, forbiddenBody, deniedUtc).ConfigureAwait(false);
                             return;
                         }

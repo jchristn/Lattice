@@ -59,6 +59,21 @@ namespace Lattice.Server.Telemetry
         private static readonly Counter<long> _RequestHistoryPruned = Meter.CreateCounter<long>(
             "lattice.requesthistory.pruned", "{record}", "Count of request-history records deleted by retention pruning.");
 
+        private static readonly Counter<long> _AuthRequests = Meter.CreateCounter<long>(
+            "lattice.auth.requests", "{request}", "Count of authentication attempts on protected surfaces by method and outcome.");
+
+        private static readonly Counter<long> _SessionEvents = Meter.CreateCounter<long>(
+            "lattice.auth.session.events", "{event}", "Count of session lifecycle events (created, revoked, expired).");
+
+        private static readonly Counter<long> _RbacMutations = Meter.CreateCounter<long>(
+            "lattice.auth.rbac.mutations", "{mutation}", "Count of RBAC/identity mutations by resource and operation.");
+
+        private static readonly Counter<long> _AuthzRequests = Meter.CreateCounter<long>(
+            "lattice.authz.requests", "{request}", "Count of authorization decisions by resource, operation, and verdict.");
+
+        private static readonly Counter<long> _AuthzDenials = Meter.CreateCounter<long>(
+            "lattice.authz.denials", "{denial}", "Count of authorization denials by resource and operation.");
+
         #endregion
 
         #region Public-Methods-Http
@@ -185,6 +200,60 @@ namespace Lattice.Server.Telemetry
         {
             _RequestHistoryPruneRuns.Add(1, new KeyValuePair<string, object>("outcome", outcome ?? "ok"));
             if (deleted > 0) _RequestHistoryPruned.Add(deleted);
+        }
+
+        #endregion
+
+        #region Public-Methods-Auth
+
+        /// <summary>
+        /// Record an authentication attempt on a protected surface.
+        /// </summary>
+        /// <param name="method">Authentication method: <c>session</c>, <c>credential</c>, or <c>bearer</c>.</param>
+        /// <param name="success">Whether authentication succeeded.</param>
+        public static void RecordAuthRequest(string method, bool success)
+        {
+            _AuthRequests.Add(1,
+                new KeyValuePair<string, object>("method", method ?? "bearer"),
+                new KeyValuePair<string, object>("outcome", success ? "success" : "failure"));
+        }
+
+        /// <summary>
+        /// Record a session lifecycle event.
+        /// </summary>
+        /// <param name="eventName">Event: <c>created</c>, <c>revoked</c>, or <c>expired</c>.</param>
+        public static void RecordSessionEvent(string eventName)
+        {
+            _SessionEvents.Add(1, new KeyValuePair<string, object>("event", eventName ?? "unknown"));
+        }
+
+        /// <summary>
+        /// Record an RBAC or identity mutation.
+        /// </summary>
+        /// <param name="resource">Resource type mutated (for example tenant, user, credential, assignment).</param>
+        /// <param name="operation">Operation performed (for example create, delete).</param>
+        public static void RecordRbacMutation(string resource, string operation)
+        {
+            _RbacMutations.Add(1,
+                new KeyValuePair<string, object>("resource", resource ?? "unknown"),
+                new KeyValuePair<string, object>("operation", operation ?? "unknown"));
+        }
+
+        /// <summary>
+        /// Record an authorization decision and, when denied, the denial counter.
+        /// </summary>
+        /// <param name="resource">Resource type evaluated.</param>
+        /// <param name="operation">Operation evaluated.</param>
+        /// <param name="verdict">The verdict (for example Permitted, DeniedExplicit, DeniedImplicit).</param>
+        public static void RecordAuthzRequest(string resource, string operation, string verdict)
+        {
+            KeyValuePair<string, object> resourceTag = new KeyValuePair<string, object>("resource", resource ?? "unknown");
+            KeyValuePair<string, object> operationTag = new KeyValuePair<string, object>("operation", operation ?? "unknown");
+
+            _AuthzRequests.Add(1, resourceTag, operationTag, new KeyValuePair<string, object>("verdict", verdict ?? "unknown"));
+
+            bool denied = !string.Equals(verdict, "Permitted", StringComparison.OrdinalIgnoreCase);
+            if (denied) _AuthzDenials.Add(1, resourceTag, operationTag);
         }
 
         #endregion

@@ -11,6 +11,8 @@ namespace Lattice.Server.API.REST
     using Lattice.Core.Models;
     using Lattice.Core.Security;
     using Lattice.Server.Classes;
+    using Lattice.Server.Security;
+    using Lattice.Server.Telemetry;
 
     /// <summary>
     /// Authentication, identity management, RBAC, and audit routes.
@@ -111,7 +113,14 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "email, password, and tenantId are required");
 
                 LoginResult login = await _AuthN.LoginAsync(request.TenantId, request.Email, request.Password, reqCtx.IpAddress, null).ConfigureAwait(false);
-                if (login == null) return new ResponseContext(false, 401, "Invalid credentials");
+                if (login == null)
+                {
+                    ServerTelemetry.RecordAuthRequest("session", false);
+                    return new ResponseContext(false, 401, "Invalid credentials");
+                }
+
+                ServerTelemetry.RecordAuthRequest("session", true);
+                ServerTelemetry.RecordSessionEvent("created");
 
                 AuthTokenResponse response = new AuthTokenResponse
                 {
@@ -161,6 +170,7 @@ namespace Lattice.Server.API.REST
                         session.RevocationReason = "logout";
                         session.Active = false;
                         await _Client.Sessions.Update(session, CancellationToken.None).ConfigureAwait(false);
+                        ServerTelemetry.RecordSessionEvent("revoked");
                     }
                 }
                 return new ResponseContext { Success = true, StatusCode = 200, Data = null };
@@ -191,6 +201,7 @@ namespace Lattice.Server.API.REST
                 request.CreatedUtc = DateTime.UtcNow;
                 request.LastUpdateUtc = DateTime.UtcNow;
                 Tenant created = await _Client.Tenants.Create(request, CancellationToken.None).ConfigureAwait(false);
+                ServerTelemetry.RecordRbacMutation("tenant", "create");
                 return new ResponseContext { Success = true, StatusCode = 201, Data = created };
             }).ConfigureAwait(false);
         }
@@ -215,6 +226,7 @@ namespace Lattice.Server.API.REST
                 if (tenant == null) return new ResponseContext(false, 404, "Tenant not found");
                 if (tenant.IsProtected) return new ResponseContext(false, 409, "Tenant is protected");
                 await _Client.Tenants.Delete(tenantId, CancellationToken.None).ConfigureAwait(false);
+                ServerTelemetry.RecordRbacMutation("tenant", "delete");
                 return new ResponseContext { Success = true, StatusCode = 200, Data = null };
             }).ConfigureAwait(false);
         }
@@ -258,6 +270,7 @@ namespace Lattice.Server.API.REST
                 };
                 User created = await _Client.Users.Create(user, CancellationToken.None).ConfigureAwait(false);
                 if (created != null) created.PasswordSha256 = null;
+                ServerTelemetry.RecordRbacMutation("user", "create");
                 return new ResponseContext { Success = true, StatusCode = 201, Data = created };
             }).ConfigureAwait(false);
         }
@@ -283,6 +296,7 @@ namespace Lattice.Server.API.REST
                 if (user == null || !TenantVisible(reqCtx, user.TenantId)) return new ResponseContext(false, 404, "User not found");
                 if (user.IsProtected) return new ResponseContext(false, 409, "User is protected");
                 await _Client.Users.Delete(userId, CancellationToken.None).ConfigureAwait(false);
+                ServerTelemetry.RecordRbacMutation("user", "delete");
                 return new ResponseContext { Success = true, StatusCode = 200, Data = null };
             }).ConfigureAwait(false);
         }
@@ -324,6 +338,7 @@ namespace Lattice.Server.API.REST
                 };
                 Credential created = await _Client.Credentials.Create(credential, CancellationToken.None).ConfigureAwait(false);
                 if (created != null) created.AccessKey = rawAccessKey; // shown once
+                ServerTelemetry.RecordRbacMutation("credential", "create");
                 return new ResponseContext { Success = true, StatusCode = 201, Data = created };
             }).ConfigureAwait(false);
         }
@@ -348,6 +363,7 @@ namespace Lattice.Server.API.REST
                 if (credential == null || !TenantVisible(reqCtx, credential.TenantId)) return new ResponseContext(false, 404, "Credential not found");
                 if (credential.IsProtected) return new ResponseContext(false, 409, "Credential is protected");
                 await _Client.Credentials.Delete(credentialId, CancellationToken.None).ConfigureAwait(false);
+                ServerTelemetry.RecordRbacMutation("credential", "delete");
                 return new ResponseContext { Success = true, StatusCode = 200, Data = null };
             }).ConfigureAwait(false);
         }
@@ -388,6 +404,7 @@ namespace Lattice.Server.API.REST
                 request.CreatedUtc = DateTime.UtcNow;
                 request.LastUpdateUtc = DateTime.UtcNow;
                 UserRoleAssignment created = await _Client.Roles.CreateUserRoleAssignment(request, CancellationToken.None).ConfigureAwait(false);
+                ServerTelemetry.RecordRbacMutation("assignment", "create");
                 return new ResponseContext { Success = true, StatusCode = 201, Data = created };
             }).ConfigureAwait(false);
         }
@@ -400,6 +417,7 @@ namespace Lattice.Server.API.REST
                 UserRoleAssignment assignment = await _Client.Roles.ReadUserRoleAssignmentById(assignmentId, CancellationToken.None).ConfigureAwait(false);
                 if (assignment == null || !TenantVisible(reqCtx, assignment.TenantId)) return new ResponseContext(false, 404, "Assignment not found");
                 await _Client.Roles.DeleteUserRoleAssignment(assignmentId, CancellationToken.None).ConfigureAwait(false);
+                ServerTelemetry.RecordRbacMutation("assignment", "delete");
                 return new ResponseContext { Success = true, StatusCode = 200, Data = null };
             }).ConfigureAwait(false);
         }
@@ -454,6 +472,46 @@ namespace Lattice.Server.API.REST
         {
             if (reqCtx.Caller != null && reqCtx.Caller.IsAdmin) return true;
             return String.Equals(reqCtx.TenantId, recordTenantId, StringComparison.Ordinal);
+        }
+
+        // Append a security audit entry for an authentication or authorization event. Audit writes must
+        // never break request handling, so failures are logged and swallowed.
+        private async Task WriteSecurityAuditAsync(RequestContext reqCtx, RequiredPermission required, string eventType, string authResult, string authzResult, string denialReason, int responseCode)
+        {
+            if (!_AuthEnabled || _Client?.Audit == null) return;
+
+            try
+            {
+                CallerContext caller = reqCtx?.Caller;
+                AuditEntry entry = new AuditEntry
+                {
+                    Id = IdGenerator.NewAuditId(),
+                    TenantId = caller?.TenantId,
+                    EventType = eventType,
+                    RequestId = reqCtx?.Guid,
+                    PrincipalType = caller?.PrincipalType,
+                    PrincipalId = caller?.PrincipalId,
+                    UserId = caller?.UserId,
+                    CredentialId = caller?.CredentialId,
+                    ResourceType = required?.ResourceType,
+                    ResourceId = required != null ? ResolveResourceId(reqCtx, required.ResourceType) : null,
+                    RequestType = reqCtx?.RequestType.ToString(),
+                    Method = reqCtx?.Method,
+                    Path = reqCtx?.Path,
+                    SourceIp = reqCtx?.IpAddress,
+                    AuthResult = authResult,
+                    AuthzResult = authzResult,
+                    DenialReason = denialReason,
+                    RequiredPermission = required != null ? (required.ResourceType + ":" + required.Operation) : null,
+                    ResponseCode = responseCode,
+                    CreatedUtc = DateTime.UtcNow
+                };
+                await _Client.Audit.Create(entry, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                _Logging?.Warn(_Header + "audit write failed: " + e.Message);
+            }
         }
 
         private static T Deserialize<T>(string body) where T : class

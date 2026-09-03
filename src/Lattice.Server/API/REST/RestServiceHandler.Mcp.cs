@@ -14,6 +14,7 @@ namespace Lattice.Server.API.REST
     using Lattice.Server.API.MCP;
     using Lattice.Server.API.MCP.Json;
     using Lattice.Server.Classes;
+    using Lattice.Server.Telemetry;
 
     /// <summary>
     /// Model Context Protocol (MCP) endpoint, served in-process over JSON-RPC 2.0 at the configured path
@@ -293,6 +294,7 @@ namespace Lattice.Server.API.REST
                     };
                     Credential created = await _Client.Credentials.Create(credential, CancellationToken.None).ConfigureAwait(false);
                     if (created != null) created.AccessKey = rawAccessKey; // shown once
+                    ServerTelemetry.RecordRbacMutation("credential", "create");
                     toolResult = created;
                     break;
                 }
