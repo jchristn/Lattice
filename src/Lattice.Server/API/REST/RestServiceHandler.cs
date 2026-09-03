@@ -934,6 +934,15 @@ namespace Lattice.Server.API.REST
             string origin = request.Headers?.Get("Origin");
             if (String.IsNullOrEmpty(origin)) return;
 
+            // Watson's OpenAPI/Swagger middleware stamps its own CORS headers on these paths; skip them
+            // here so responses do not carry a duplicate Access-Control-Allow-Origin (which browsers reject).
+            string rawPath = request.Url?.RawWithQuery ?? String.Empty;
+            if (rawPath.StartsWith("/openapi", StringComparison.OrdinalIgnoreCase)
+                || rawPath.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
             bool originAllowed = false;
             string allowedOriginValue = null;
 
