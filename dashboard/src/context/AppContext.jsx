@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useMemo } from 'react'
 import { LatticeApi } from '../utils/api'
 
 const AppContext = createContext(null)
@@ -10,7 +10,6 @@ export function AppProvider({ children }) {
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('lattice_theme') || 'light'
   })
-  const [api, setApi] = useState(null)
   const [error, setError] = useState(null)
   const [showTour, setShowTour] = useState(false)
   const [showSetupWizard, setShowSetupWizard] = useState(false)
@@ -20,13 +19,15 @@ export function AppProvider({ children }) {
     localStorage.setItem('lattice_theme', theme)
   }, [theme])
 
+  // Derive the API client synchronously from serverUrl so it is available on the same render
+  // (avoids a race where a view mounts and calls the API before an effect sets it).
+  const api = useMemo(() => (serverUrl ? new LatticeApi(serverUrl) : null), [serverUrl])
+
   useEffect(() => {
     if (serverUrl) {
       localStorage.setItem('lattice_server_url', serverUrl)
-      setApi(new LatticeApi(serverUrl))
     } else {
       localStorage.removeItem('lattice_server_url')
-      setApi(null)
     }
   }, [serverUrl])
 
@@ -56,7 +57,6 @@ export function AppProvider({ children }) {
 
   const disconnect = () => {
     setServerUrl('')
-    setApi(null)
   }
 
   const startTour = () => {
