@@ -55,6 +55,36 @@ namespace Lattice.Core
         /// </summary>
         public Repositories.Interfaces.IRequestHistoryMethods RequestHistory { get; }
 
+        /// <summary>
+        /// Tenant methods.
+        /// </summary>
+        public Repositories.Interfaces.ITenantMethods Tenants => _Repo.Tenants;
+
+        /// <summary>
+        /// User methods.
+        /// </summary>
+        public Repositories.Interfaces.IUserMethods Users => _Repo.Users;
+
+        /// <summary>
+        /// Credential methods.
+        /// </summary>
+        public Repositories.Interfaces.ICredentialMethods Credentials => _Repo.Credentials;
+
+        /// <summary>
+        /// Authentication session methods.
+        /// </summary>
+        public Repositories.Interfaces.IAuthSessionMethods Sessions => _Repo.AuthSessions;
+
+        /// <summary>
+        /// Role, permission, and assignment methods.
+        /// </summary>
+        public Repositories.Interfaces.IRoleMethods Roles => _Repo.Roles;
+
+        /// <summary>
+        /// Audit methods.
+        /// </summary>
+        public Repositories.Interfaces.IAuditMethods Audit => _Repo.Audit;
+
         #endregion
 
         #region Private-Members

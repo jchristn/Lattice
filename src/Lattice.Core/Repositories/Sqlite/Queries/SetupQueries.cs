@@ -223,6 +223,188 @@ namespace Lattice.Core.Repositories.Sqlite.Queries
                 CREATE INDEX IF NOT EXISTS idx_requesthistory_schemaid_createdutc ON requesthistory(schemaid, createdutc);
                 CREATE INDEX IF NOT EXISTS idx_requesthistory_tablename_createdutc ON requesthistory(tablename, createdutc);
                 CREATE INDEX IF NOT EXISTS idx_requesthistory_sourceip_createdutc ON requesthistory(sourceip, createdutc);
+
+                -- Tenants table
+                CREATE TABLE IF NOT EXISTS tenants (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    region TEXT,
+                    active INTEGER NOT NULL DEFAULT 1,
+                    isprotected INTEGER NOT NULL DEFAULT 0,
+                    createdutc TEXT NOT NULL,
+                    lastupdateutc TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_tenants_name ON tenants(name);
+                CREATE INDEX IF NOT EXISTS idx_tenants_createdutc ON tenants(createdutc);
+
+                -- Users table
+                CREATE TABLE IF NOT EXISTS users (
+                    id TEXT PRIMARY KEY,
+                    tenantid TEXT NOT NULL,
+                    firstname TEXT,
+                    lastname TEXT,
+                    email TEXT NOT NULL,
+                    passwordsha256 TEXT,
+                    isadmin INTEGER NOT NULL DEFAULT 0,
+                    istenantadmin INTEGER NOT NULL DEFAULT 0,
+                    active INTEGER NOT NULL DEFAULT 1,
+                    isprotected INTEGER NOT NULL DEFAULT 0,
+                    createdutc TEXT NOT NULL,
+                    lastupdateutc TEXT NOT NULL,
+                    FOREIGN KEY (tenantid) REFERENCES tenants(id) ON DELETE CASCADE
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_users_tenantid_email ON users(tenantid, email);
+                CREATE INDEX IF NOT EXISTS idx_users_tenantid ON users(tenantid);
+
+                -- Credentials table (access key used as bearer token)
+                CREATE TABLE IF NOT EXISTS credentials (
+                    id TEXT PRIMARY KEY,
+                    tenantid TEXT NOT NULL,
+                    userid TEXT NOT NULL,
+                    name TEXT,
+                    accesskeysha256 TEXT NOT NULL,
+                    accesskeylast4 TEXT,
+                    expiresutc TEXT,
+                    lastusedutc TEXT,
+                    active INTEGER NOT NULL DEFAULT 1,
+                    isprotected INTEGER NOT NULL DEFAULT 0,
+                    createdutc TEXT NOT NULL,
+                    lastupdateutc TEXT NOT NULL,
+                    FOREIGN KEY (tenantid) REFERENCES tenants(id) ON DELETE CASCADE,
+                    FOREIGN KEY (userid) REFERENCES users(id) ON DELETE CASCADE
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_credentials_accesskeysha256 ON credentials(accesskeysha256);
+                CREATE INDEX IF NOT EXISTS idx_credentials_tenantid ON credentials(tenantid);
+                CREATE INDEX IF NOT EXISTS idx_credentials_userid ON credentials(userid);
+
+                -- Authentication sessions table (user login sessions)
+                CREATE TABLE IF NOT EXISTS authsessions (
+                    id TEXT PRIMARY KEY,
+                    tenantid TEXT NOT NULL,
+                    principaltype INTEGER NOT NULL DEFAULT 0,
+                    userid TEXT,
+                    tokenid TEXT NOT NULL,
+                    sourceip TEXT,
+                    useragent TEXT,
+                    expiresutc TEXT NOT NULL,
+                    lastusedutc TEXT,
+                    revokedutc TEXT,
+                    revocationreason TEXT,
+                    active INTEGER NOT NULL DEFAULT 1,
+                    createdutc TEXT NOT NULL,
+                    lastupdateutc TEXT NOT NULL,
+                    FOREIGN KEY (tenantid) REFERENCES tenants(id) ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS idx_authsessions_tokenid ON authsessions(tokenid);
+                CREATE INDEX IF NOT EXISTS idx_authsessions_tenantid ON authsessions(tenantid);
+                CREATE INDEX IF NOT EXISTS idx_authsessions_userid ON authsessions(userid);
+
+                -- Roles table (built-in roles have null tenantid)
+                CREATE TABLE IF NOT EXISTS userroles (
+                    id TEXT PRIMARY KEY,
+                    tenantid TEXT,
+                    name TEXT NOT NULL,
+                    isbuiltin INTEGER NOT NULL DEFAULT 0,
+                    active INTEGER NOT NULL DEFAULT 1,
+                    isprotected INTEGER NOT NULL DEFAULT 0,
+                    createdutc TEXT NOT NULL,
+                    lastupdateutc TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_userroles_tenantid ON userroles(tenantid);
+                CREATE INDEX IF NOT EXISTS idx_userroles_name ON userroles(name);
+
+                -- Permissions table
+                CREATE TABLE IF NOT EXISTS permissions (
+                    id TEXT PRIMARY KEY,
+                    tenantid TEXT,
+                    name TEXT,
+                    resourcetypes TEXT,
+                    operationtypes TEXT,
+                    permissiontype INTEGER NOT NULL DEFAULT 0,
+                    active INTEGER NOT NULL DEFAULT 1,
+                    isprotected INTEGER NOT NULL DEFAULT 0,
+                    createdutc TEXT NOT NULL,
+                    lastupdateutc TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_permissions_tenantid ON permissions(tenantid);
+
+                -- Role/permission maps table
+                CREATE TABLE IF NOT EXISTS rolepermissionmaps (
+                    id TEXT PRIMARY KEY,
+                    tenantid TEXT,
+                    roleid TEXT NOT NULL,
+                    permissionid TEXT NOT NULL,
+                    active INTEGER NOT NULL DEFAULT 1,
+                    createdutc TEXT NOT NULL,
+                    lastupdateutc TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_rolepermissionmaps_roleid ON rolepermissionmaps(roleid);
+                CREATE INDEX IF NOT EXISTS idx_rolepermissionmaps_permissionid ON rolepermissionmaps(permissionid);
+
+                -- User role assignments table
+                CREATE TABLE IF NOT EXISTS userroleassignments (
+                    id TEXT PRIMARY KEY,
+                    tenantid TEXT NOT NULL,
+                    userid TEXT NOT NULL,
+                    roleid TEXT,
+                    rolename TEXT,
+                    resourcescope INTEGER NOT NULL DEFAULT 0,
+                    resourceid TEXT,
+                    inheritstochildren INTEGER NOT NULL DEFAULT 1,
+                    active INTEGER NOT NULL DEFAULT 1,
+                    createdutc TEXT NOT NULL,
+                    lastupdateutc TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_userroleassignments_tenantid ON userroleassignments(tenantid);
+                CREATE INDEX IF NOT EXISTS idx_userroleassignments_userid ON userroleassignments(userid);
+
+                -- Credential scope assignments table
+                CREATE TABLE IF NOT EXISTS credentialscopeassignments (
+                    id TEXT PRIMARY KEY,
+                    tenantid TEXT NOT NULL,
+                    credentialid TEXT NOT NULL,
+                    roleid TEXT,
+                    rolename TEXT,
+                    resourcescope INTEGER NOT NULL DEFAULT 0,
+                    resourceid TEXT,
+                    permissions TEXT,
+                    resourcetypes TEXT,
+                    active INTEGER NOT NULL DEFAULT 1,
+                    createdutc TEXT NOT NULL,
+                    lastupdateutc TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_credentialscopeassignments_tenantid ON credentialscopeassignments(tenantid);
+                CREATE INDEX IF NOT EXISTS idx_credentialscopeassignments_credentialid ON credentialscopeassignments(credentialid);
+
+                -- Audit table (append-only security events)
+                CREATE TABLE IF NOT EXISTS audit (
+                    id TEXT PRIMARY KEY,
+                    tenantid TEXT,
+                    eventtype TEXT,
+                    requestid TEXT,
+                    correlationid TEXT,
+                    traceid TEXT,
+                    principaltype INTEGER,
+                    principalid TEXT,
+                    userid TEXT,
+                    credentialid TEXT,
+                    resourcetype INTEGER,
+                    resourceid TEXT,
+                    requesttype TEXT,
+                    method TEXT,
+                    path TEXT,
+                    sourceip TEXT,
+                    authresult TEXT,
+                    authzresult TEXT,
+                    denialreason TEXT,
+                    bypassreason TEXT,
+                    requiredpermission TEXT,
+                    responsecode INTEGER NOT NULL DEFAULT 0,
+                    createdutc TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_audit_tenantid_createdutc ON audit(tenantid, createdutc);
+                CREATE INDEX IF NOT EXISTS idx_audit_createdutc ON audit(createdutc);
+                CREATE INDEX IF NOT EXISTS idx_audit_eventtype ON audit(eventtype);
             ";
         }
 

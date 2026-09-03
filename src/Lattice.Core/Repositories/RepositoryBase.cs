@@ -70,6 +70,36 @@ namespace Lattice.Core.Repositories
         /// </summary>
         public abstract IRequestHistoryMethods RequestHistory { get; }
 
+        /// <summary>
+        /// Tenant methods. Null on backends that have not yet implemented the security model.
+        /// </summary>
+        public virtual ITenantMethods Tenants => null;
+
+        /// <summary>
+        /// User methods. Null on backends that have not yet implemented the security model.
+        /// </summary>
+        public virtual IUserMethods Users => null;
+
+        /// <summary>
+        /// Credential methods. Null on backends that have not yet implemented the security model.
+        /// </summary>
+        public virtual ICredentialMethods Credentials => null;
+
+        /// <summary>
+        /// Authentication session methods. Null on backends that have not yet implemented the security model.
+        /// </summary>
+        public virtual IAuthSessionMethods AuthSessions => null;
+
+        /// <summary>
+        /// Role, permission, and assignment methods. Null on backends that have not yet implemented the security model.
+        /// </summary>
+        public virtual IRoleMethods Roles => null;
+
+        /// <summary>
+        /// Audit methods. Null on backends that have not yet implemented the security model.
+        /// </summary>
+        public virtual IAuditMethods Audit => null;
+
         #endregion
 
         #region Public-Methods

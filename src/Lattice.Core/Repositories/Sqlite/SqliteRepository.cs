@@ -53,6 +53,24 @@ namespace Lattice.Core.Repositories.Sqlite
         /// <inheritdoc />
         public override IRequestHistoryMethods RequestHistory { get; }
 
+        /// <inheritdoc />
+        public override ITenantMethods Tenants { get; }
+
+        /// <inheritdoc />
+        public override IUserMethods Users { get; }
+
+        /// <inheritdoc />
+        public override ICredentialMethods Credentials { get; }
+
+        /// <inheritdoc />
+        public override IAuthSessionMethods AuthSessions { get; }
+
+        /// <inheritdoc />
+        public override IRoleMethods Roles { get; }
+
+        /// <inheritdoc />
+        public override IAuditMethods Audit { get; }
+
         /// <summary>
         /// The number of connections in the pool.
         /// </summary>
@@ -124,6 +142,12 @@ namespace Lattice.Core.Repositories.Sqlite
             IndexedFields = new IndexedFieldMethods(this);
             ObjectLocks = new ObjectLockMethods(this);
             RequestHistory = new RequestHistoryMethods(this);
+            Tenants = new TenantMethods(this);
+            Users = new UserMethods(this);
+            Credentials = new CredentialMethods(this);
+            AuthSessions = new AuthSessionMethods(this);
+            Roles = new RoleMethods(this);
+            Audit = new AuditMethods(this);
         }
 
         #endregion
