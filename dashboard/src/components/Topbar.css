@@ -75,6 +75,7 @@
   color: var(--text-primary);
   cursor: pointer;
   border-radius: 6px;
+  text-decoration: none;
   transition: background-color 0.2s, border-color 0.2s;
 }
 

@@ -1,6 +1,6 @@
 import { useApp } from '../context/AppContext'
 import CopyButton from './CopyButton'
-import { MoonIcon, SunIcon } from './Icons'
+import { GithubIcon, LogoutIcon, MoonIcon, SunIcon } from './Icons'
 import './Topbar.css'
 
 export default function Topbar() {
@@ -23,6 +23,16 @@ export default function Topbar() {
       </div>
 
       <div className="topbar-actions">
+        <a
+          className="topbar-btn"
+          href="https://github.com/jchristn/lattice"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="GitHub"
+          aria-label="GitHub"
+        >
+          <GithubIcon size={16} />
+        </a>
         <button
           className="topbar-btn"
           onClick={toggleTheme}
@@ -35,9 +45,10 @@ export default function Topbar() {
           className="topbar-btn topbar-btn-disconnect"
           onClick={disconnect}
           title="Disconnect"
+          aria-label="Disconnect"
           type="button"
         >
-          Disconnect
+          <LogoutIcon size={16} />
         </button>
       </div>
     </header>

@@ -658,21 +658,19 @@ export default function RequestHistory() {
               <th>Method</th>
               <th>Path</th>
               <th>Status</th>
-              <th>Type</th>
               <th>Collection</th>
               <th>Duration</th>
-              <th>Request ID</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={9} className="empty-row">Loading request history...</td>
+                <td colSpan={7} className="empty-row">Loading request history...</td>
               </tr>
             ) : entries.length === 0 ? (
               <tr>
-                <td colSpan={9} className="empty-row">No requests match the current filters.</td>
+                <td colSpan={7} className="empty-row">No requests match the current filters.</td>
               </tr>
             ) : (
               entries.map((entry) => (
@@ -681,7 +679,7 @@ export default function RequestHistory() {
                   className="request-history-row"
                   onClick={() => loadDetail(entry)}
                 >
-                  <td>{formatDate(entry.createdUtc)}</td>
+                  <td className="request-history-time-cell">{formatDate(entry.createdUtc)}</td>
                   <td><span className={`request-history-method request-history-method-${entry.method.toLowerCase()}`}>{entry.method}</span></td>
                   <td>
                     <div className="request-history-path-cell">
@@ -690,10 +688,8 @@ export default function RequestHistory() {
                     </div>
                   </td>
                   <td><span className={`request-history-status request-history-status-${entry.statusCode >= 400 ? 'error' : 'success'}`}>{entry.statusCode}</span></td>
-                  <td>{formatRequestType(entry.requestType)}</td>
                   <td onClick={(e) => e.stopPropagation()}>{entry.collectionId ? <CopyableId value={entry.collectionId} /> : '-'}</td>
                   <td>{formatDuration(entry.processingTimeMs)}</td>
-                  <td onClick={(e) => e.stopPropagation()}><CopyableId value={entry.id} /></td>
                   <td onClick={(e) => e.stopPropagation()}>
                     <ActionMenu
                       items={[

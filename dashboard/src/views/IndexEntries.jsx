@@ -101,9 +101,12 @@ export default function IndexEntries() {
       const urlTable = searchParams.get('table')
       if (urlTable) {
         setSelectedTableKey(urlTable)
+      } else if (tables.length === 1) {
+        setSelectedTableKey(tables[0].key)
+        setSearchParams({ table: tables[0].key })
       }
     }
-  }, [tablesLoaded, selectedTableKey, tables, searchParams])
+  }, [tablesLoaded, selectedTableKey, tables, searchParams, setSearchParams])
 
   useEffect(() => {
     if (api && selectedTableKey) {

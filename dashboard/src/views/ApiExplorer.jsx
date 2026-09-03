@@ -4,12 +4,9 @@ import CopyButton from '../components/CopyButton'
 import CopyableId from '../components/CopyableId'
 import KeyValueEditor from '../components/KeyValueEditor'
 import { buildCodeSnippets, buildRequestPath, flattenOpenApiSpec, getParameterDefault, getRequestBodyTemplate } from '../utils/openApi'
-import { formatDate } from '../utils/api'
 import './ApiExplorer.css'
 
 const STORAGE_KEY = 'lattice_api_explorer_state'
-const HISTORY_KEY = 'lattice_api_explorer_history'
-const MAX_HISTORY_ITEMS = 12
 
 function loadState() {
   try {
@@ -24,19 +21,6 @@ function loadState() {
   return {
     selectedOperationKey: '',
   }
-}
-
-function loadHistory() {
-  try {
-    const saved = localStorage.getItem(HISTORY_KEY)
-    if (saved) {
-      return JSON.parse(saved)
-    }
-  } catch {
-    // Ignore localStorage failures.
-  }
-
-  return []
 }
 
 function buildDefaultParameterValues(spec, operation) {
@@ -88,7 +72,6 @@ function getResponseBodyText(response) {
 export default function ApiExplorer() {
   const { api, serverUrl, setError } = useApp()
   const savedState = useMemo(() => loadState(), [])
-  const [history, setHistory] = useState(() => loadHistory())
   const [spec, setSpec] = useState(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -148,10 +131,6 @@ export default function ApiExplorer() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ selectedOperationKey }))
   }, [selectedOperationKey])
-
-  useEffect(() => {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY_ITEMS)))
-  }, [history])
 
   useEffect(() => {
     const loadSpec = async (showRefreshing = false) => {
@@ -258,22 +237,6 @@ export default function ApiExplorer() {
       })
 
       setResponse(rawResponse)
-      setHistory((current) => [
-        {
-          id: `${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          operationKey: selectedOperation.key,
-          label: `${selectedOperation.method} ${selectedOperation.path}`,
-          requestPath,
-          parameterValues,
-          extraQueryValues,
-          headerValues,
-          requestBody,
-          status: rawResponse.status,
-          requestId: rawResponse.requestId,
-        },
-        ...current.filter((item) => !(item.operationKey === selectedOperation.key && item.requestPath === requestPath)).slice(0, MAX_HISTORY_ITEMS - 1),
-      ])
     } catch (err) {
       if (err.name === 'AbortError') {
         setSendError('Request canceled')
@@ -287,24 +250,6 @@ export default function ApiExplorer() {
     }
   }
 
-  const loadHistoryItem = (item) => {
-    restoreRef.current = true
-    setSelectedOperationKey(item.operationKey)
-    setParameterValues(item.parameterValues || {})
-    setExtraQueryValues(item.extraQueryValues || {})
-    setHeaderValues(item.headerValues || {})
-    setRequestBody(item.requestBody || '')
-    setSendError('')
-  }
-
-  const clearHistory = () => {
-    if (!window.confirm('Clear API Explorer history?')) {
-      return
-    }
-
-    setHistory([])
-  }
-
   if (loading) {
     return <div className="loading">Loading...</div>
   }
@@ -314,7 +259,7 @@ export default function ApiExplorer() {
       <div className="page-header">
         <div>
           <h1 className="page-title">API Explorer</h1>
-          <p className="page-subtitle">Drive any Lattice endpoint from the dashboard using the live OpenAPI document, recent request history, and response diagnostics modeled after the Conductor explorer flow.</p>
+          <p className="page-subtitle">Drive any Lattice endpoint from the dashboard using the live OpenAPI document and response diagnostics modeled after the Conductor explorer flow.</p>
         </div>
         <div className="page-actions">
           <button className="btn btn-secondary" onClick={resetRequest} disabled={!selectedOperation}>
@@ -323,21 +268,6 @@ export default function ApiExplorer() {
           <button className="btn btn-secondary" onClick={refreshSpec} disabled={refreshing}>
             {refreshing ? 'Refreshing...' : 'Refresh OpenAPI'}
           </button>
-        </div>
-      </div>
-
-      <div className="api-explorer-overview">
-        <div className="card api-overview-card">
-          <span className="api-overview-label">Server</span>
-          <strong className="api-overview-value">{serverUrl}</strong>
-        </div>
-        <div className="card api-overview-card">
-          <span className="api-overview-label">Operations</span>
-          <strong className="api-overview-value">{operations.length}</strong>
-        </div>
-        <div className="card api-overview-card">
-          <span className="api-overview-label">Recent Requests</span>
-          <strong className="api-overview-value">{history.length}</strong>
         </div>
       </div>
 
@@ -500,39 +430,6 @@ export default function ApiExplorer() {
                 </div>
               </>
             ) : null}
-          </div>
-
-          <div className="card api-explorer-card api-history-card">
-            <div className="api-explorer-card-header">
-              <div>
-                <h2>Recent Requests</h2>
-                <p>Reload a recent request configuration without leaving the explorer.</p>
-              </div>
-              <button className="btn btn-secondary" onClick={clearHistory} disabled={history.length === 0}>
-                Clear
-              </button>
-            </div>
-
-            {history.length === 0 ? (
-              <div className="empty-state">
-                <p>No requests sent from this browser yet.</p>
-              </div>
-            ) : (
-              <div className="api-history-list">
-                {history.map((item) => (
-                  <button key={item.id} type="button" className="api-history-item" onClick={() => loadHistoryItem(item)}>
-                    <div className="api-history-main">
-                      <span className={`api-method method-${item.label.split(' ')[0].toLowerCase()}`}>{item.label.split(' ')[0]}</span>
-                      <span className="api-history-path">{item.requestPath}</span>
-                    </div>
-                    <div className="api-history-meta">
-                      <span>{formatDate(item.timestamp)}</span>
-                      <span className={`history-status history-status-${item.status >= 400 ? 'error' : 'success'}`}>{item.status}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
         </section>
 
