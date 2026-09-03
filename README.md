@@ -317,13 +317,51 @@ requires a bearer token. There are two ways to authenticate, both presented with
    curl http://localhost:8000/v1.0/collections -H "Authorization: Bearer access_..."
    ```
 
-On first run the server seeds a default tenant, an administrator (`admin@lattice` / `password`), and an
-access key, printing them to the console once — change them for any shared deployment via the `Auth` block
-in `lattice.json`. Access is governed by role-based access control (deny-over-permit) with built-in roles.
-Collections and their documents are isolated by tenant — a principal sees and acts on only its own tenant's
-collections (and, transitively, their documents); a system administrator sees all tenants. Authentication
-and MCP are configured under the `Auth` and `Mcp` blocks in `lattice.json`. See [`REST_API.md`](REST_API.md)
-for the full auth surface and [`MCP_API.md`](MCP_API.md) for the Model Context Protocol endpoint.
+Access is governed by role-based access control (deny-over-permit) with built-in roles. Collections and
+their documents are isolated by tenant — a principal sees and acts on only its own tenant's collections
+(and, transitively, their documents); a system administrator sees all tenants. Authentication and MCP are
+configured under the `Auth` and `Mcp` blocks in `lattice.json`. See [`REST_API.md`](REST_API.md) for the
+full auth surface and [`MCP_API.md`](MCP_API.md) for the Model Context Protocol endpoint.
+
+### Default credentials (first run)
+
+On its first run against an empty database, the server seeds a default tenant, an administrator, and an
+access key, and prints them to the console **once**. The email and password are fixed defaults; the tenant
+id and access key are generated per install.
+
+| Credential | Value |
+|---|---|
+| Admin email | `admin@lattice` (configurable) |
+| Admin password | `password` (configurable) |
+| Tenant id | generated (`ten_...`) — shown in the log |
+| Access key | generated (`access_...`) — shown in the log, once |
+
+The email and password default to the `Auth` block in `lattice.json` (`DefaultAdminEmail`,
+`DefaultAdminPassword`); the tenant id and access key are printed only on the run that creates them.
+Retrieve them from the server log — for the Docker deployment:
+
+```bash
+docker logs lattice-server | grep -iE "First run|Tenant id|Admin|Access key"
+```
+
+```
+ First run: default credentials (store these now, shown only once)
+   Tenant id:    ten_...
+   Admin email:  admin@lattice
+   Admin passwd: password
+   Access key:   access_...
+```
+
+To sign in:
+
+- **Access key (quickest):** paste the `access_...` value into the dashboard's "Access key" login tab, or
+  send it as `Authorization: Bearer access_...`. No tenant id required.
+- **Email + password:** use `admin@lattice` / `password` together with the generated **tenant id**
+  (required by the email/password login).
+
+> **Change these for any shared deployment.** Set `DefaultAdminEmail`, `DefaultAdminPassword`, and
+> `TokenSecret` in `lattice.json` (for Docker, `docker/server/lattice.json`) before exposing the server —
+> the defaults are for local use only.
 
 ## Horizontal Scaling
 
