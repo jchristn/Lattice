@@ -65,6 +65,56 @@ namespace Lattice.Core.Helpers
         public const string ObjectLockPrefix = "lock_";
 
         /// <summary>
+        /// Prefix for tenant IDs.
+        /// </summary>
+        public const string TenantPrefix = "ten_";
+
+        /// <summary>
+        /// Prefix for user IDs.
+        /// </summary>
+        public const string UserPrefix = "usr_";
+
+        /// <summary>
+        /// Prefix for credential IDs.
+        /// </summary>
+        public const string CredentialPrefix = "crd_";
+
+        /// <summary>
+        /// Prefix for authentication session IDs.
+        /// </summary>
+        public const string AuthSessionPrefix = "ses_";
+
+        /// <summary>
+        /// Prefix for role IDs.
+        /// </summary>
+        public const string UserRolePrefix = "rol_";
+
+        /// <summary>
+        /// Prefix for permission IDs.
+        /// </summary>
+        public const string PermissionPrefix = "perm_";
+
+        /// <summary>
+        /// Prefix for role/permission map IDs.
+        /// </summary>
+        public const string RolePermissionMapPrefix = "rpm_";
+
+        /// <summary>
+        /// Prefix for user role assignment IDs.
+        /// </summary>
+        public const string UserRoleAssignmentPrefix = "ura_";
+
+        /// <summary>
+        /// Prefix for credential scope assignment IDs.
+        /// </summary>
+        public const string CredentialScopeAssignmentPrefix = "csa_";
+
+        /// <summary>
+        /// Prefix for audit entry IDs.
+        /// </summary>
+        public const string AuditPrefix = "aud_";
+
+        /// <summary>
         /// Default ID length (excluding prefix).
         /// </summary>
         private const int DefaultIdLength = 24;
@@ -144,6 +194,66 @@ namespace Lattice.Core.Helpers
         /// </summary>
         /// <returns>K-sortable object lock ID.</returns>
         public static string NewObjectLockId() => _Generator.GenerateKSortable(ObjectLockPrefix, DefaultIdLength + ObjectLockPrefix.Length);
+
+        /// <summary>
+        /// Generate a new tenant ID.
+        /// </summary>
+        /// <returns>K-sortable tenant ID.</returns>
+        public static string NewTenantId() => _Generator.GenerateKSortable(TenantPrefix, DefaultIdLength + TenantPrefix.Length);
+
+        /// <summary>
+        /// Generate a new user ID.
+        /// </summary>
+        /// <returns>K-sortable user ID.</returns>
+        public static string NewUserId() => _Generator.GenerateKSortable(UserPrefix, DefaultIdLength + UserPrefix.Length);
+
+        /// <summary>
+        /// Generate a new credential ID.
+        /// </summary>
+        /// <returns>K-sortable credential ID.</returns>
+        public static string NewCredentialId() => _Generator.GenerateKSortable(CredentialPrefix, DefaultIdLength + CredentialPrefix.Length);
+
+        /// <summary>
+        /// Generate a new authentication session ID.
+        /// </summary>
+        /// <returns>K-sortable session ID.</returns>
+        public static string NewAuthSessionId() => _Generator.GenerateKSortable(AuthSessionPrefix, DefaultIdLength + AuthSessionPrefix.Length);
+
+        /// <summary>
+        /// Generate a new role ID.
+        /// </summary>
+        /// <returns>K-sortable role ID.</returns>
+        public static string NewUserRoleId() => _Generator.GenerateKSortable(UserRolePrefix, DefaultIdLength + UserRolePrefix.Length);
+
+        /// <summary>
+        /// Generate a new permission ID.
+        /// </summary>
+        /// <returns>K-sortable permission ID.</returns>
+        public static string NewPermissionId() => _Generator.GenerateKSortable(PermissionPrefix, DefaultIdLength + PermissionPrefix.Length);
+
+        /// <summary>
+        /// Generate a new role/permission map ID.
+        /// </summary>
+        /// <returns>K-sortable role/permission map ID.</returns>
+        public static string NewRolePermissionMapId() => _Generator.GenerateKSortable(RolePermissionMapPrefix, DefaultIdLength + RolePermissionMapPrefix.Length);
+
+        /// <summary>
+        /// Generate a new user role assignment ID.
+        /// </summary>
+        /// <returns>K-sortable user role assignment ID.</returns>
+        public static string NewUserRoleAssignmentId() => _Generator.GenerateKSortable(UserRoleAssignmentPrefix, DefaultIdLength + UserRoleAssignmentPrefix.Length);
+
+        /// <summary>
+        /// Generate a new credential scope assignment ID.
+        /// </summary>
+        /// <returns>K-sortable credential scope assignment ID.</returns>
+        public static string NewCredentialScopeAssignmentId() => _Generator.GenerateKSortable(CredentialScopeAssignmentPrefix, DefaultIdLength + CredentialScopeAssignmentPrefix.Length);
+
+        /// <summary>
+        /// Generate a new audit entry ID.
+        /// </summary>
+        /// <returns>K-sortable audit entry ID.</returns>
+        public static string NewAuditId() => _Generator.GenerateKSortable(AuditPrefix, DefaultIdLength + AuditPrefix.Length);
 
         #endregion
     }
