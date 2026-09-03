@@ -1,0 +1,160 @@
+# Lattice v0.3.0 Plan — Authentication, Authorization, RBAC, Multi-Tenancy, and MCP
+
+v0.3.0 is still unreleased, which makes it the right — and last cheap — moment to add the two capabilities Lattice is missing before its API hardens: a real security model, and a Model Context Protocol surface. Both touch nearly every layer of the product, and both are far easier to add now than after external clients depend on the current shapes. This document is the build plan. It is written to be executed, so it names concrete files, tables, endpoints, tools, and the order the work has to happen in.
+
+The plan conforms to the requirements in `c:\code\agents\requirements` — chiefly `AUTHENTICATION.md` (the security model), `BACKEND_ARCHITECTURE.md` (pipeline, data layer, request context, testing), `REPOSITORY_REQUIREMENTS.md` (the REST_API.md / MCP_API.md / Postman deliverables), `BACKEND_TEST_ARCHITECTURE.md` (Touchstone test structure), `CODE_STYLE.md`, and `DASHBOARD_STYLE_AND_USABILITY.md`. Where the requirement docs contradict each other, Section 2 records the choice and why.
+
+Three sibling products by the same author already solve most of this on the same stack, and the plan leans on them deliberately. **Pneuma** is the primary template: it runs Watson Webserver 7.1.0 and Radiant 0.1.2 — Lattice's exact dependencies — and implements principal-resolved multi-tenancy, a full deny-over-permit RBAC engine, AES-256 opaque session tokens, and an in-process `/mcp` endpoint that authorizes through the same engine as REST. **AssistantHub** contributes the first-run provisioning pattern, the `AdminApiKeys` break-glass path, and the `AuthContext`/`HandlerBase` guard style. **LiteGraph** contributes the broadest MCP tool catalog and the `install` command that writes a client's `~/.claude.json`. Lattice should copy Pneuma's structure closely and borrow the other two where they are stronger.
+
+## 1. Scope
+
+v0.3.0 ships the full security model and the MCP server together, per the scoping decision. Concretely, that means: shared-schema multi-tenancy with a `tenant_id` on every row; five authentication schemes normalized into one principal tuple; a permission/role/assignment RBAC engine with seeded built-in roles and deny-over-permit evaluation; an append-only audit store; management APIs for tenants, users, credentials, roles, permissions, and assignments; an in-process MCP server that reuses the same authentication and authorization; and the downstream work that follows from all of it — the three SDKs, the dashboard, the test suites, and the docs.
+
+Two boundaries were set deliberately. Tenancy is single-tier — `Tenant` is the top isolation boundary, with no `Account` org layer above it — and a request's tenant is resolved from the authenticated principal rather than from the URL. Passwords are stored as SHA-256 hex per `AUTHENTICATION.md`, matching Pneuma and LiteGraph, with the known weakness noted in Section 21 for a later hardening pass. Everything else in the requirements is in scope for this release.
+
+## 2. Decisions and reconciliations
+
+`AUTHENTICATION.md` and `BACKEND_ARCHITECTURE.md` disagree on two conventions, and Lattice already has a house style that resolves both. Identifiers stay as PrettyId K-sortable prefixed strings (`col_`, `doc_`, `sch_` today; new prefixes below), not raw GUIDs — Lattice's models already use them, so the auth tables join the existing scheme rather than introducing a second one. Paths stay under `/v1.0/...`, the versioning Lattice already serves, not `/api/v1/...`. The logical contract from `AUTHENTICATION.md` — every table, column, enum, and rule — is honored; only the physical realization of identifiers and paths follows Lattice's existing conventions. Field names follow the C# style already in the codebase (`Id`, `TenantId`), not the doc's lowercase `guid`/`tenantguid`.
+
+Tenant resolution comes from the principal at authentication time, the way Pneuma does it, and the tenant id is carried on the request context into every repository call. LiteGraph's alternative — nesting every route under `/tenants/{tenantGuid}/...` and checking the URL against the credential — reshapes every route and every SDK method for no gain once the token already binds a tenant, and it does not translate cleanly to MCP. Principal resolution works identically for REST and MCP, which matters because both must run through the same gate.
+
+The MCP server is hosted in-process as `POST /v1.0/mcp` on the existing Lattice server, behind the same `AuthenticateRequest` hook, so each `tools/call` is authorized by the same engine and is tenant-scoped with no tenant argument. That is Pneuma's model, and it is the one design among the three references that gives per-caller tenancy and RBAC on MCP for free. AssistantHub and LiteGraph both run MCP as a separate process holding a single admin identity, which means their MCP surfaces are effectively admin gateways with tenancy expressed only through explicit arguments — weaker, and not what the requirements ask for ("every message type on other transports such as MCP" must map to the same `(ResourceType, Operation)` and authorize identically). Because it is in-process, MCP is already part of the Docker deployment: it rides the server container on port 8000 at `/v1.0/mcp`, and no new compose service is required.
+
+## 3. Data model
+
+Multi-tenancy is structural, not optional. Every tenant-owned row carries a `TenantId`, every query filters on it, and there is no per-tenant database. The eleven existing Lattice tables each gain a `tenant_id` column, and the dynamically generated per-field index tables gain it in their code-generation template. Ten new tables carry the security model. All of it is replicated across the four SQL backends and the Docker factory seed.
+
+New tables (single-tier; the `accounts` table from the requirements is dropped, and `admins` model system operators who have no tenant):
+
+| Table | PrettyId prefix | Purpose / key columns |
+|---|---|---|
+| `tenants` | `ten_` | isolation boundary — id, name, region, active, is_protected, timestamps |
+| `admins` | `adm_` | system operators (no tenant_id) — id, first_name, last_name, email (unique), password_sha256, active, is_protected, timestamps |
+| `users` | `usr_` | tenant_id, first_name, last_name, email (unique **per tenant**), password_sha256, is_admin, is_tenant_admin, active, is_protected, timestamps |
+| `credentials` | `crd_` | tenant_id, user_id, name, access_key (`access_`+≥32, unique per tenant), secret_key_encrypted, secret_key_last4, auth_mode, last_used_utc, expires_utc, active, is_protected, timestamps |
+| `authsessions` | `ses_` | tenant_id, principal_type, principal id (admin/user/credential), auth_scheme, token_id, source_ip, user_agent, expires_utc, last_used_utc, revoked_utc, revocation_reason, active, timestamps |
+| `userroles` | `rol_` | tenant_id (**null for built-ins**), name, is_builtin, active, is_protected, timestamps |
+| `permissions` | `perm_` | tenant_id, name, resource_types (JSON), operation_types (JSON), permission_type (Permit/Deny), active, is_protected, timestamps |
+| `rolepermissionmaps` | `rpm_` | tenant_id, role_id, permission_id, active, timestamps |
+| `userroleassignments` | `ura_` | tenant_id, user_id, role_id/role_name, resource_scope (Tenant/Resource), resource_id, inherits_to_children, active, timestamps |
+| `credentialscopeassignments` | `csa_` | tenant_id, credential_id, role_id/role_name, resource_scope, resource_id, permissions (JSON), resource_types (JSON), active, timestamps |
+| `audit` | `aud_` | append-only security events — id, created_utc, event_type, request/correlation/trace ids, scheme, principal_type/id, tenant_id, resource_type, resource_id, user_id, credential_id, request_type, method, path, source_ip, auth_result, authz_result, denial_reason, bypass_reason, required_permission, response_code |
+| `schema_migrations` | — | version, applied_utc — versioned, idempotent migrations |
+
+Every table keeps Lattice's existing conventions: a string id up to 64 chars, `created_utc`/`last_update_utc`, and an `active` flag. Uniqueness that was global becomes tenant-scoped with composite indexes: `(tenant_id, email)` on users, `(tenant_id, access_key)` on credentials, `(tenant_id, name)` on collections, `(tenant_id, hash)` on schemas, and the object-lock uniqueness `(tenant_id, collection_id, document_name)`. Deleting a parent cascades to children — deleting a user deletes its credentials, sessions, and assignments; deleting a tenant deletes everything under it.
+
+The concrete surface for this workstream: `SetupQueries.cs` in each of the four backends plus `docker/factory/init.sql` (twelve DDL definitions each), the row→model `Converters.cs` in each backend, roughly thirteen existing model classes under `Lattice.Core/Models` that gain a `TenantId`, and new model classes for the ten auth tables plus their enums (`AuthMode`, `PrincipalType`, `AuthScheme`, `PermissionType`, `ResourceScope`, `ResourceType`, `OperationType`). To keep first-run and local development frictionless, `tenant_id` defaults to the seeded default tenant's id rather than being null.
+
+## 4. Authentication
+
+Authentication collapses five schemes into one internal tuple — `(PrincipalType, PrincipalId, TenantId, SessionId?, AuthScheme)` — and everything downstream reasons about that tuple, never about the raw headers. A `Lattice.Core.Security.AuthenticationService` performs the resolution; the Watson `AuthenticateRequest` hook calls it and stashes the result on `ctx.Metadata`.
+
+The schemes and their headers:
+
+| Scheme | Headers | Resolves to |
+|---|---|---|
+| Bearer session token | `Authorization: Bearer <token>` or `x-token` | User or Credential session |
+| Header login | `x-email`, `x-password`, `x-tenant-guid` | User session (login route only) |
+| Direct access/secret | `x-access-key`, `x-secret-key`, `x-tenant-guid` | Credential |
+| Signed request | `x-access-key`, `x-date`, `x-nonce`, `x-signature`, `x-tenant-guid`, optional `x-session-token` | Credential |
+| System admin key | `x-api-key` | Administrator |
+
+Only one scheme may drive a request; if two are present they must be semantically identical (the same token in `Authorization` and `x-token`), or the request is rejected. `x-email`/`x-password` are accepted only on the token-creation route. The `x-api-key` admin key is never accepted as tenant data-plane material.
+
+Session tokens are opaque and server-controlled. A `SessionTokenCodec` builds a payload carrying only internal identifiers (session id, principal type and id, tenant id, issued/expiry timestamps, a random nonce), serializes it, encrypts it with AES-256 using a server key and a fresh random IV per token, prepends the IV, and base64-encodes the result. Validation decrypts, checks expiry, confirms the `authsessions` row is present, active, and unrevoked, confirms the principal and tenant are still active, and — the rule that prevents the classic cross-tenant bug — confirms the tenant in the token matches the tenant resolved for the request. Interactive sessions expire in 15–60 minutes; privileged sessions get tighter windows. Pneuma's `SessionTokenCodec` + `Aes256Cipher` are a direct model.
+
+Passwords are SHA-256 hex in `password_sha256`. Credential secret keys are generated as `secret_` plus ≥32 high-entropy characters, stored AES-encrypted and reversible (so a signed-request HMAC can be recomputed), with only the last four characters kept in the clear for display; the raw secret is shown exactly once, at creation. Every password and secret comparison uses a constant-time compare, never `==` or `.Equals()` — this covers passwords, the admin API key, and signed-request signatures. Auth routes are rate-limited and return 429 on limit; the signed-request path additionally enforces a bounded clock skew on `x-date` and nonce uniqueness within a replay window. External JWT/OIDC/SAML federation is explicitly out of scope; RBAC is based on platform-native users and credentials.
+
+## 5. Authorization and RBAC
+
+Every authorization decision evaluates the tuple `(TenantId, PrincipalType, PrincipalId, ResourceType, OperationType, ResourceId?)` against the principal's effective permissions. Permissions name a set of resource types, a set of operation types, and a `Permit` or `Deny` verdict; roles group permissions through `rolepermissionmaps`; principals receive roles through `userroleassignments` and `credentialscopeassignments` at either `Tenant` or `Resource` scope. A `PermissionEvaluator` (Pneuma's is the reference) applies the fixed order: an explicit `Deny` match denies, otherwise a `Permit` match permits, otherwise the request is denied implicitly. Deny always wins within the matched tenant and scope.
+
+Lattice's resource types are the document-store subset of the requirements' list: `Tenant`, `User`, `Credential`, `Session`, `Role`, `Permission`, `Assignment`, `Audit`, `Collection`, `Document`, `Schema`, `Index`, `RequestHistory`, plus the `All` wildcard. Operations are `All`, `Create`, `Read`, `Write` (expands to Create+Update+Delete), `Update`, `Delete`, `Execute`, `Admin`. Built-in roles are seeded at first boot with a null tenant id, marked protected, and refreshed on every startup while preserving their ids: `TenantAdmin`, `SecurityAdmin`, `Auditor`, `Editor`, `Viewer`, `TenantMember`, and `Custom`, plus a `ResourceAdmin` template realized for Lattice as `CollectionAdmin`. Custom roles created through the API are tenant-scoped.
+
+Three bypasses short-circuit RBAC, in order: an Administrator (system operator) has full access; a user with `is_admin` has full cross-tenant access; a user with `is_tenant_admin` skips RBAC within their own tenant only. Every bypass is still audited. For everyone else the evaluator runs, with an owner ceiling that intersects a credential's grants with its owning user's active access.
+
+The piece that keeps enforcement honest is a single, centralized map from request type to required permission. Every REST request type and every MCP tool declares the `(ResourceType, Operation)` it needs, in one place — a `RequiredPermission()` dictionary shared by the REST handler and the MCP invoker so the two cannot drift. Read routes need `Read`, writes need `Write`, deletes need `Delete`, index rebuild needs `Execute`, management routes need `Admin` on the relevant admin resource type. Lattice's search is the one case that needs care: the SQL-like query has to be parsed and classified before authorization, so a read query needs `Read` and a mutating one needs `Write`, and an unparseable payload must never default to `Read`. Effective permissions are cached per principal-and-tenant and invalidated by a monotonic version counter on any write to roles, permissions, assignments, credentials, users, or sessions. One hard exception the requirements call out and the plan keeps: admin-class endpoints — role/assignment/user/credential management, audit, and the effective-permission inspectors — never fall back to the "unassigned user keeps tenant access" compatibility rule; they require an explicit `Admin` grant or a bypass.
+
+## 6. Multi-tenancy
+
+A non-system request resolves to exactly one tenant before authorization runs, and that tenant comes from the authenticated material — the session claim, the credential record, or the user record. When a caller also supplies `x-tenant-guid`, it must agree with the resolved tenant; a conflict is rejected before authorization. A token, credential, or signed request issued for tenant A is never accepted against tenant B, regardless of headers. System administrators may authenticate without a tenant for platform-wide routes but must bind a tenant before any tenant-scoped operation.
+
+Isolation is enforced at the data layer, not hoped for at the handler. Every repository read filters on tenant id, every create stamps the tenant from context, and enumeration never returns another tenant's rows. Reads by primary key are constrained by tenant in the same query rather than loaded and checked afterward, so a leaked resource id cannot cross a tenant boundary. A request whose tenant cannot be determined is logged and rejected.
+
+## 7. Request pipeline
+
+Watson already exposes the hooks this needs; Lattice simply is not using them yet. The `AuthenticateRequest` hook runs the `AuthenticationService`, builds the request context, stashes it on `ctx.Metadata`, and returns 401 on failure. Routes that require authentication move from `Routes.PreAuthentication.*`, where all thirty currently live, to `Routes.PostAuthentication.*`; the handful that stay public — `GET /`, `GET /v1.0/health`, the OpenAPI and Swagger routes, and the token-creation route — remain in `PreAuthentication`. Authorization runs inside `WrappedRequestHandler` (or a thin guard it calls) using the request type's required permission, and returns 403 on denial. The existing `PreRouting`/`PostRouting`/`Preflight` hooks keep doing CORS, telemetry, and request-history capture.
+
+`RequestContext` grows the fields the rest of the system reads: `TenantId`, `UserId`, `CredentialId`, `PrincipalType`, `IsAuthenticated`, `IsAdmin`, `IsTenantAdmin`, an embedded authentication result (scheme, principal, session, resolved tenant) and authorization result (verdict, requested resource type and operation, denial reason). The status contract is exact: 401 means authentication failed, 403 means authorization was denied, and an authorization failure body carries `reason`, `requiredPermission`, `requestType`, `tenantId`, and the resource id when known — never the list of the caller's permissions, which belongs only in the audit store.
+
+## 8. REST surface
+
+Because tenant comes from the principal, management routes are flat and scoped to the caller's tenant rather than nested under `/tenants/{id}/...`; a system admin targets another tenant with `x-tenant-guid`. New endpoints, all under `/v1.0`:
+
+| Area | Endpoints |
+|---|---|
+| Token / session | `POST /token` (login → token), `GET /token` (validate), `GET /token/details` (decoded principal), `POST /token/refresh`, `DELETE /token` (logout) |
+| Who am I | `GET /whoami` (resolved principal, tenant, admin flags) |
+| Tenants | `PUT/GET /tenants`, `GET/PUT/DELETE/HEAD /tenants/{id}` (system admin) |
+| Admins | `PUT/GET /admins`, `GET/PUT/DELETE/HEAD /admins/{id}` (system admin) |
+| Users | `PUT/GET /users`, `GET/PUT/DELETE/HEAD /users/{id}` |
+| Credentials | `PUT/GET /credentials`, `GET/PUT/DELETE/HEAD /credentials/{id}` (secret shown once on create) |
+| Roles | `PUT/GET /roles`, `GET/PUT/DELETE/HEAD /roles/{id}` |
+| Permissions | `PUT/GET /permissions`, `GET/PUT/DELETE/HEAD /permissions/{id}` |
+| Assignments | `PUT/GET /assignments`, `GET/PUT/DELETE/HEAD /assignments/{id}` |
+| Effective perms | `GET /users/{id}/permissions`, `GET /credentials/{id}/permissions` |
+| Audit | `GET /audit` (filtered, paged), `GET /audit/{id}`, `DELETE /audit/{id}`, `DELETE /audit` (bulk), delete-older-than |
+
+The existing thirty routes stay where they are in the URL space but become gated and tenant-scoped. Each maps to a required permission: the collection/document/schema/index reads to `Read` on their resource type, the writes and constraint/indexing updates to `Write`, the deletes to `Delete`, index rebuild to `Execute` on `Index`, search to `Read` or `Write` after parsing, and request-history reads to `Read` on `RequestHistory`. List responses keep the `EnumerationResult<T>` shape introduced earlier in v0.3.0; the new management lists use it too. `REST_API.md` and the Postman collection gain an auth section and every new endpoint, per the deliverable requirement.
+
+## 9. MCP server
+
+The MCP server is a JSON-RPC 2.0 endpoint at `POST /v1.0/mcp`, registered in `PostAuthentication` so the same auth hook runs first and an unauthenticated call gets 401 before any tool executes. It implements `initialize` (advertising protocol version and server info), `ping`, `notifications/initialized`, `tools/list`, and `tools/call`. Neither Pneuma nor LiteGraph nor AssistantHub uses the official `ModelContextProtocol` SDK — Pneuma hand-rolls JSON-RPC and builds tool schemas with PolyPrompt — and Lattice follows Pneuma here rather than introducing a hosting model the codebase does not otherwise use.
+
+Tools mirror the product surface with `lattice_` names: the data plane (`lattice_list_collections`, `lattice_create_collection`, `lattice_get_collection`, `lattice_delete_collection`, `lattice_list_documents`, `lattice_ingest_document`, `lattice_ingest_batch`, `lattice_get_document`, `lattice_delete_document`, `lattice_search`, `lattice_list_schemas`, `lattice_get_schema`, `lattice_get_schema_elements`, `lattice_list_tables`, `lattice_get_table_entries`) and the management plane (`lattice_list_tenants`, `lattice_create_user`, `lattice_create_credential`, `lattice_list_roles`, `lattice_get_whoami`, and so on). Enumerate tools take and return the same `EnumerationQuery`/`EnumerationResult` envelope as REST. Each tool is authorized exactly like a REST route: a shared `McpToolAuthorization` map assigns every tool its `(ResourceType, Operation)` and calls the same `AuthorizationService`, and the tenant comes from the request context, so no tool takes a tenant argument. Responses run through a redactor that masks secret-named fields unless a tool opts in. A `lattice mcp install` helper writes the caller's `~/.claude.json` (`mcpServers.lattice = { type: "http", url: "http://localhost:8000/v1.0/mcp" }`), copying LiteGraph's convenience. `MCP_API.md` documents every tool — name, purpose, input schema, output shape, and an example — and is kept in sync with the catalog.
+
+## 10. Repository and client work
+
+This is the largest and least glamorous workstream, and it is the one most likely to slip if underestimated. Tenant scoping threads a `tenantId` argument through the twelve repository interfaces (~104 method signatures), the forty-eight backend implementations, and the roughly 686 hand-written SQL sites, each of which gains a `tenant_id` predicate or column. The SQL stays interpolated with the existing `Sanitize` helper rather than being converted to parameterized commands — the code-style guidance is to trust the deliberate use of prepared SQL strings — so the change at each site is additive: one more `AND tenant_id = '...'` in the WHERE, one more column in the INSERT. Five new repository method groups (tenants, users, credentials, roles/permissions/assignments, audit) follow the same per-backend pattern, adding five interfaces and twenty implementations.
+
+The client facade threads the same context. `LatticeClient` and its five method groups (`Collection`, `Document`, `Search`, `Schema`, `Index`) take the tenant id from the server's resolved request context and pass it into the repository calls. Settings gain an `AuthSettings` block (enable/enforce, `AdminApiKeys` defaulting to `["latticeadmin"]`, the token signing key and TTL, the secret-encryption key, rate limits, and a default-tenant seed of name, admin email, and admin password) and an `McpSettings` block (enable, path, advertised server info). First-run provisioning — modeled on AssistantHub's `InitializeFirstRunAsync` and Pneuma's `FirstBootSeeder` — seeds the built-in roles, creates the default tenant, a default admin user, and a default credential whose secret is printed once, and is idempotent so a restart refreshes definitions without changing ids.
+
+## 11. SDKs, dashboard, telemetry, and tests
+
+The three SDKs each gain an auth surface: a token/credential login that returns and stores a session token, an `Authorization` header on every subsequent call, a `whoami`, tenant and user and credential and role model groups with their CRUD methods, and 401/403 handling that surfaces as the SDK's existing exception types. Their test harnesses gain auth flows — login, scoped access, cross-tenant rejection — and the existing calls run as an authenticated principal.
+
+The dashboard changes from a server-URL connect screen to a real product login. `Login.jsx` collects an email and password (or an access/secret pair), exchanges them for a token, and stores it in `AppContext`; `api.js` injects the `Authorization` header and handles 401 by returning to login and 403 with a clear forbidden state. New administrative views cover tenants, users, credentials, roles, permissions, assignments, and the audit log, and a tenant switcher appears for system administrators. The existing data views become tenant-scoped transparently through the token. All of it follows `DASHBOARD_STYLE_AND_USABILITY.md` and `FRONTEND_ARCHITECTURE.md`.
+
+Telemetry extends the Radiant-based instrumentation already in place with the required security counters — `auth_requests_total{scheme,result}`, `session_events_total{event,principal_type}`, `rbac_mutations_total{mutation}`, `authz_requests_total{result,request_type}`, and `authz_denials_total{reason,required_permission,resource_type}` — and the audit store captures the mandatory events, with authorization denials persisted without exception. Testing follows the Touchstone structure: new shared suites for tenant isolation, authentication, RBAC (deny-over-permit, implicit deny, the three bypasses, owner ceiling, built-in seeding and id preservation), cross-tenant token rejection, token lifecycle and revocation, credentials, and audit, all run across the four-provider matrix, plus route-and-authentication tests. The fourteen existing suites are updated to seed a tenant and run as an authenticated principal, since every CRUD signature now carries tenant context. Loopback in tests is `127.0.0.1`, never `localhost`.
+
+## 12. Sequencing
+
+"Everything in v0.3.0" still has a dependency order, and getting it wrong wastes weeks. The work runs in eleven streams, each gated on the ones before it.
+
+1. **Data model and migrations** — the twelve DDL definitions per backend, `init.sql`, the model classes and enums, PrettyId prefixes, tenant-scoped indexes, and a versioned migration runner. Nothing else compiles against tenancy until this lands.
+2. **Repository tenant propagation** — interfaces, forty-eight implementations, converters; the 686 SQL sites.
+3. **Security core** — `Lattice.Core.Security`: request context, token codec and cipher, password hashing, permission evaluator, built-in role definitions, the authentication and authorization services, and the five new auth repositories.
+4. **Request pipeline and client** — the `AuthenticateRequest` hook, the PreAuth→PostAuth move, the required-permission map, 401/403, and tenant threading through `LatticeClient`.
+5. **Management REST endpoints** — token, tenants, admins, users, credentials, roles, permissions, assignments, audit, whoami, effective permissions, and first-run seeding.
+6. **MCP server** — the `/v1.0/mcp` endpoint, the JSON-RPC methods, the tool catalog, and `McpToolAuthorization` sharing the required-permission map.
+7. **Audit and telemetry counters.**
+8. **SDKs** — C#, JavaScript, Python, and their harnesses.
+9. **Dashboard** — login, tenant switch, the admin views, 401/403 handling.
+10. **Tests** — the new suites and the provider matrix, plus updates to the fourteen existing suites and the SDK tests; this stream runs alongside 1–9, not after.
+11. **Docs** — `REST_API.md`, the new `MCP_API.md`, `README.md`, the Postman collection, `CHANGELOG.md`, and the SDK READMEs.
+
+Streams 1 through 6 are strictly ordered. The SDKs and dashboard follow once the REST and MCP surfaces are stable. Documentation trails the surface it describes but must ship in the same release.
+
+## 13. Risks and open questions
+
+The SQL blast radius is the real risk. Roughly 686 hand-edited query sites across four backends is where a tenant-isolation bug hides, and where the schedule is most likely to slip. The mitigation is a single tenant-predicate convention applied uniformly, a cross-tenant-leakage suite that runs against all four providers, and treating any enumeration that returns a foreign tenant's row as a release blocker rather than a bug.
+
+Gating every route is a breaking change — every call now needs a token — but v0.3.0 is unreleased, so there is nothing to migrate, and the seeded default tenant plus default credential keep local development a single header away. The SHA-256 password choice is conformant with the requirement and consistent with the sibling products, and it is also the weakest link in the design; salting and stretching is the obvious first hardening item once v0.3.0 is out, and the token and secret encryption keys should not be reused for password hashing so that the upgrade is isolated. Among the five auth schemes, the AWS-style signed request is the most complex to implement correctly — canonicalization, clock-skew tolerance, and nonce replay tracking — and if the timeline compresses, it is the one item whose deferral would not weaken the core model, since the direct access/secret path already covers non-interactive principals.
+
+One decision was made on the reader's behalf and is worth surfacing: management routes are flat and principal-scoped rather than nested under `/tenants/{id}`, which reads more cleanly but means a system admin acting across tenants does so through `x-tenant-guid` rather than the URL. If cross-tenant administration should instead be explicit in the path, that reshapes the management routes and is cheaper to change now than later.
+
+## 14. Conformance check
+
+Each requirement area maps to a section of this plan: the entity/table model and cascading delete to Section 3; the five schemes, token encryption, SHA-256 storage, and constant-time comparison to Section 4; deny-over-permit, built-in roles, the owner ceiling, operation-scope mapping, and the admin no-fallback exception to Section 5; tenant resolution and cross-tenant rejection to Section 6; the Watson pipeline, 401-versus-403, and the request context to Section 7; the token, effective-permission, and audit endpoints to Section 8; the "same engine on every transport" rule and `MCP_API.md` to Section 9; the security counters and mandatory denial auditing to Section 11; and the four-provider Touchstone matrix to Section 11. The two places the requirement docs left open — the exact management CRUD paths and the identifier/path convention — are resolved in Sections 8 and 2 respectively, in favor of Lattice's existing style.
+
+The single most important property to hold onto through all of this is the one that is easy to lose in 686 query edits and a dozen new endpoints: a principal authenticated for one tenant can never read, write, or authorize against another. Build the cross-tenant rejection tests first, run them on every provider, and let them fail loudly. Everything else in the plan is scaffolding around that guarantee.
