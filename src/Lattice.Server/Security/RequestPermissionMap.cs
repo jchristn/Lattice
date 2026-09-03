@@ -24,6 +24,9 @@ namespace Lattice.Server.Security
 
             if (p == "/" || p.StartsWith("/v1.0/health", StringComparison.Ordinal)) return RequiredPermission.ForPublic();
             if (p.StartsWith("/openapi", StringComparison.Ordinal) || p.StartsWith("/swagger", StringComparison.Ordinal)) return RequiredPermission.ForPublic();
+            // The Prometheus scrape endpoint is unauthenticated. It is normally served on a separate
+            // telemetry listener, but if it is ever routed through this server it must stay public.
+            if (p == "/metrics" || p.StartsWith("/metrics/", StringComparison.Ordinal)) return RequiredPermission.ForPublic();
             if (p.StartsWith("/v1.0/token", StringComparison.Ordinal))
             {
                 // Creating or logging in is public; validating/refreshing/revoking a token needs the token itself.

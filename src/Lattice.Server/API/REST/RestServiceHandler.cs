@@ -763,6 +763,10 @@ namespace Lattice.Server.API.REST
             if (_AuthEnabled)
             {
                 RequiredPermission required = RequestPermissionMap.Resolve(requestContext.Method, requestContext.Path);
+
+                // The Prometheus scrape endpoint is always unauthenticated, including a custom configured path.
+                if (IsMetricsPath(requestContext.Path)) required = RequiredPermission.ForPublic();
+
                 CallerContext caller = await AuthenticateAsync(ctx).ConfigureAwait(false);
 
                 if (caller != null && caller.IsAuthenticated)
@@ -1161,6 +1165,20 @@ namespace Lattice.Server.API.REST
         {
             if (headers == null || String.IsNullOrWhiteSpace(name)) return null;
             return headers.TryGetValue(name, out string? value) ? value : null;
+        }
+
+        // Whether a request path targets the (unauthenticated) Prometheus scrape endpoint, honoring the
+        // configured path and the conventional /metrics default.
+        private bool IsMetricsPath(string? path)
+        {
+            if (String.IsNullOrEmpty(path)) return false;
+
+            string? configured = _Settings?.Telemetry?.Prometheus?.Path;
+            if (!String.IsNullOrEmpty(configured) && String.Equals(path, configured, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return String.Equals(path, "/metrics", StringComparison.OrdinalIgnoreCase)
+                || path.StartsWith("/metrics/", StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool ShouldRecordRequestHistory(string? path)
