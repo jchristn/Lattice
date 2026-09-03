@@ -333,8 +333,9 @@ Each instance connects to the same database, allowing:
 // Create a collection
 await client.Collection.CreateAsync("products");
 
-// List collections
-List<Collection> collections = await client.Collection.ListAsync();
+// List collections (returns an EnumerationResult; items are in .Objects)
+EnumerationResult<Collection> collections = await client.Collection.ReadAllAsync();
+foreach (Collection collection in collections.Objects) { /* ... */ }
 
 // Delete a collection
 await client.Collection.DeleteAsync("products");
