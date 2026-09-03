@@ -914,6 +914,45 @@ namespace Lattice.Server.API.REST
             return content == null ? null : JsonSerializer.Serialize(content);
         }
 
+        private static int ParseQueryInt(RequestContext requestContext, string name, int defaultValue, int minValue, int maxValue)
+        {
+            string raw = requestContext?.QueryParams?[name];
+            if (String.IsNullOrEmpty(raw)) return defaultValue;
+            if (!Int32.TryParse(raw, out int parsed)) return defaultValue;
+            if (parsed < minValue) return minValue;
+            if (parsed > maxValue) return maxValue;
+            return parsed;
+        }
+
+        private static EnumerationResult<T> BuildEnumerationResult<T>(List<T> allItems, RequestContext requestContext)
+        {
+            int maxResults = ParseQueryInt(requestContext, "maxResults", 100, 1, 1000);
+            int skip = ParseQueryInt(requestContext, "skip", 0, 0, Int32.MaxValue);
+            return BuildEnumerationResult(allItems, skip, maxResults);
+        }
+
+        private static EnumerationResult<T> BuildEnumerationResult<T>(List<T> allItems, int skip, int maxResults, long? totalRecords = null)
+        {
+            List<T> source = allItems ?? new List<T>();
+            long total = totalRecords ?? source.Count;
+
+            // When a caller supplies totalRecords, source is already the requested page; otherwise page here.
+            List<T> page = totalRecords.HasValue ? source : source.Skip(skip).Take(maxResults).ToList();
+
+            EnumerationResult<T> result = new EnumerationResult<T>();
+            result.Success = true;
+            result.MaxResults = maxResults;
+            result.Skip = skip;
+            result.TotalRecords = total;
+            result.Objects = page;
+
+            long remaining = total - skip - page.Count;
+            result.RecordsRemaining = remaining < 0 ? 0 : remaining;
+            result.EndOfResults = result.RecordsRemaining == 0;
+            result.Timestamp.End = DateTime.UtcNow;
+            return result;
+        }
+
         private static void EnsureStandardResponseHeaders(Dictionary<string, string> headers, string? requestId, string contentType)
         {
             if (headers == null) return;
@@ -1184,7 +1223,7 @@ namespace Lattice.Server.API.REST
                 {
                     Success = true,
                     StatusCode = 200,
-                    Data = collections
+                    Data = BuildEnumerationResult(collections, reqCtx)
                 };
             }).ConfigureAwait(false);
         }
@@ -1541,7 +1580,7 @@ namespace Lattice.Server.API.REST
                 {
                     Success = true,
                     StatusCode = 200,
-                    Data = documents
+                    Data = BuildEnumerationResult(documents, reqCtx)
                 };
             }).ConfigureAwait(false);
         }
@@ -2082,7 +2121,7 @@ namespace Lattice.Server.API.REST
                 {
                     Success = true,
                     StatusCode = 200,
-                    Data = schemas
+                    Data = BuildEnumerationResult(schemas, reqCtx)
                 };
             }).ConfigureAwait(false);
         }
@@ -2133,7 +2172,7 @@ namespace Lattice.Server.API.REST
                 {
                     Success = true,
                     StatusCode = 200,
-                    Data = elements
+                    Data = BuildEnumerationResult(elements, reqCtx)
                 };
             }).ConfigureAwait(false);
         }
@@ -2151,7 +2190,7 @@ namespace Lattice.Server.API.REST
                 {
                     Success = true,
                     StatusCode = 200,
-                    Data = mappings
+                    Data = BuildEnumerationResult(mappings, reqCtx)
                 };
             }).ConfigureAwait(false);
         }
@@ -2166,21 +2205,9 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Table name is required");
                 }
 
-                // Parse pagination parameters
-                int skip = 0;
-                int limit = 100;
-
-                string? skipParam = ctx.Request.Query.Elements["skip"];
-                if (!String.IsNullOrEmpty(skipParam) && Int32.TryParse(skipParam, out int parsedSkip))
-                {
-                    skip = Math.Max(0, parsedSkip);
-                }
-
-                string? limitParam = ctx.Request.Query.Elements["limit"];
-                if (!String.IsNullOrEmpty(limitParam) && Int32.TryParse(limitParam, out int parsedLimit))
-                {
-                    limit = Math.Clamp(parsedLimit, 1, 1000);
-                }
+                // Parse enumeration parameters (accept legacy "limit" as an alias for "maxResults")
+                int skip = ParseQueryInt(reqCtx, "skip", 0, 0, Int32.MaxValue);
+                int maxResults = ParseQueryInt(reqCtx, "maxResults", ParseQueryInt(reqCtx, "limit", 100, 1, 1000), 1, 1000);
 
                 // Verify table exists
                 IndexTableMapping? mapping = await _Client.Index.GetMappingByKey(tableName, CancellationToken.None).ConfigureAwait(false);
@@ -2196,22 +2223,14 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 404, "Index table not found");
                 }
 
-                List<IndexTableEntry> entries = await _Client.Index.GetTableEntries(mapping.TableName, skip, limit, CancellationToken.None).ConfigureAwait(false);
+                List<IndexTableEntry> entries = await _Client.Index.GetTableEntries(mapping.TableName, skip, maxResults, CancellationToken.None).ConfigureAwait(false);
                 long totalCount = await _Client.Index.GetTableEntryCount(mapping.TableName, CancellationToken.None).ConfigureAwait(false);
 
                 return new ResponseContext
                 {
                     Success = true,
                     StatusCode = 200,
-                    Data = new
-                    {
-                        TableName = mapping.TableName,
-                        FieldKey = mapping.Key,
-                        Entries = entries,
-                        TotalCount = totalCount,
-                        Skip = skip,
-                        Limit = limit
-                    }
+                    Data = BuildEnumerationResult(entries, skip, maxResults, totalCount)
                 };
             }).ConfigureAwait(false);
         }
