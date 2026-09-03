@@ -1,8 +1,8 @@
-using System.Runtime.Serialization;
-using System.Text.Json.Serialization;
-
 namespace Lattice.Sdk.Models
 {
+    using System.Runtime.Serialization;
+    using System.Text.Json.Serialization;
+
     /// <summary>
     /// Schema enforcement mode for collections.
     /// </summary>

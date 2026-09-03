@@ -1,7 +1,7 @@
-using Lattice.Sdk.Models;
-
 namespace Lattice.Sdk.Methods
 {
+    using Lattice.Sdk.Models;
+
     /// <summary>
     /// Implementation of search methods.
     /// </summary>

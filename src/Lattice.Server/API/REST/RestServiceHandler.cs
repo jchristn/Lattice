@@ -907,6 +907,13 @@ namespace Lattice.Server.API.REST
             }
         }
 
+        private static string SerializeDocumentContent(object content)
+        {
+            // Content is arbitrary user JSON deserialized into a JSON value; re-serialize it verbatim.
+            // Naming policies do not apply to an already-parsed JSON value, so field casing is preserved.
+            return content == null ? null : JsonSerializer.Serialize(content);
+        }
+
         private static void EnsureStandardResponseHeaders(Dictionary<string, string> headers, string? requestId, string contentType)
         {
             if (headers == null) return;
@@ -1563,16 +1570,8 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, errorMessage);
                 }
 
-                // Serialize the content to JSON
-                string jsonContent;
-                if (request.Content is JsonElement element)
-                {
-                    jsonContent = element.GetRawText();
-                }
-                else
-                {
-                    jsonContent = JsonSerializer.Serialize(request.Content);
-                }
+                // Serialize the content to its raw JSON string, preserving field casing.
+                string jsonContent = SerializeDocumentContent(request.Content);
 
                 Document document = await _Client.Document.Ingest(
                     collectionId,
@@ -1627,15 +1626,7 @@ namespace Lattice.Server.API.REST
                 List<Lattice.Core.Models.BatchDocument> batchDocs = new List<Lattice.Core.Models.BatchDocument>();
                 foreach (BatchIngestDocumentEntry entry in request.Documents)
                 {
-                    string jsonContent;
-                    if (entry.Content is JsonElement element)
-                    {
-                        jsonContent = element.GetRawText();
-                    }
-                    else
-                    {
-                        jsonContent = JsonSerializer.Serialize(entry.Content);
-                    }
+                    string jsonContent = SerializeDocumentContent(entry.Content);
 
                     batchDocs.Add(new Lattice.Core.Models.BatchDocument(
                         jsonContent,
@@ -1725,7 +1716,7 @@ namespace Lattice.Server.API.REST
                     statusCode = 400;
                     success = false;
                     errorMessage = "Collection ID is required";
-                    responseBody = JsonSerializer.Serialize(new { error = errorMessage });
+                    responseBody = JsonSerializer.Serialize(new ErrorResponse { Error = errorMessage }, _JsonOptions);
                     await SendRawResponse(ctx, requestContext, statusCode, responseBody, startTime, success, errorMessage);
                     return;
                 }
@@ -1735,7 +1726,7 @@ namespace Lattice.Server.API.REST
                     statusCode = 400;
                     success = false;
                     errorMessage = "Document ID is required";
-                    responseBody = JsonSerializer.Serialize(new { error = errorMessage });
+                    responseBody = JsonSerializer.Serialize(new ErrorResponse { Error = errorMessage }, _JsonOptions);
                     await SendRawResponse(ctx, requestContext, statusCode, responseBody, startTime, success, errorMessage);
                     return;
                 }
@@ -1746,7 +1737,7 @@ namespace Lattice.Server.API.REST
                     statusCode = 404;
                     success = false;
                     errorMessage = "Document not found";
-                    responseBody = JsonSerializer.Serialize(new { error = errorMessage });
+                    responseBody = JsonSerializer.Serialize(new ErrorResponse { Error = errorMessage }, _JsonOptions);
                     await SendRawResponse(ctx, requestContext, statusCode, responseBody, startTime, success, errorMessage);
                     return;
                 }
@@ -1760,7 +1751,7 @@ namespace Lattice.Server.API.REST
                 statusCode = 500;
                 success = false;
                 errorMessage = e.Message;
-                responseBody = JsonSerializer.Serialize(new { error = e.Message });
+                responseBody = JsonSerializer.Serialize(new ErrorResponse { Error = e.Message }, _JsonOptions);
                 await SendRawResponse(ctx, requestContext, statusCode, responseBody, startTime, success, errorMessage);
             }
         }

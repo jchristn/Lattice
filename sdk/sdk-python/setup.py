@@ -9,7 +9,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="lattice-sdk",
-    version="0.1.3",
+    version="0.3.0",
     author="Lattice",
     description="A comprehensive REST SDK for consuming a Lattice server",
     long_description=long_description,

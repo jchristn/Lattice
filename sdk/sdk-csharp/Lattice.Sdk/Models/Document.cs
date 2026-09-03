@@ -1,8 +1,7 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
-
 namespace Lattice.Sdk.Models
 {
+    using System.Text.Json.Serialization;
+
     /// <summary>
     /// Represents a Lattice document.
     /// </summary>
@@ -57,10 +56,11 @@ namespace Lattice.Sdk.Models
         public DateTime? LastUpdateUtc { get; set; }
 
         /// <summary>
-        /// Gets or sets the JSON content of the document.
+        /// Gets or sets the raw JSON content of the document, as a JSON string. Null unless the
+        /// document was read with content included.
         /// </summary>
         [JsonPropertyName("content")]
-        public JsonElement? Content { get; set; }
+        public string? Content { get; set; }
 
         /// <summary>
         /// Gets or sets the length of the document content in bytes.

@@ -1,7 +1,7 @@
-using System.Text.Json.Serialization;
-
 namespace Lattice.Sdk.Models
 {
+    using System.Text.Json.Serialization;
+
     /// <summary>
     /// Represents the result of an index rebuild operation.
     /// </summary>

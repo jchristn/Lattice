@@ -1,8 +1,8 @@
-using System.Text.Json;
-using Lattice.Sdk.Models;
-
 namespace Lattice.Sdk.Methods
 {
+    using System.Text.Json;
+    using Lattice.Sdk.Models;
+
     /// <summary>
     /// Implementation of document management methods.
     /// </summary>
@@ -29,11 +29,10 @@ namespace Lattice.Sdk.Methods
                 DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
             };
             string contentJson = JsonSerializer.Serialize(content, contentOptions);
-            using JsonDocument contentDoc = JsonDocument.Parse(contentJson);
 
             Dictionary<string, object> data = new Dictionary<string, object>
             {
-                ["content"] = contentDoc.RootElement.Clone()
+                ["content"] = JsonSerializer.Deserialize<object>(contentJson)!
             };
 
             if (!string.IsNullOrEmpty(name))
@@ -60,11 +59,10 @@ namespace Lattice.Sdk.Methods
             foreach (BatchIngestDocument doc in documents)
             {
                 string contentJson = JsonSerializer.Serialize(doc.Content, contentOptions);
-                using JsonDocument contentDocument = JsonDocument.Parse(contentJson);
 
                 Dictionary<string, object> entry = new Dictionary<string, object>
                 {
-                    ["content"] = contentDocument.RootElement.Clone()
+                    ["content"] = JsonSerializer.Deserialize<object>(contentJson)!
                 };
 
                 if (!string.IsNullOrEmpty(doc.Name))
@@ -129,10 +127,10 @@ namespace Lattice.Sdk.Methods
             // If content is requested, make a separate call to get the raw content
             if (includeContent)
             {
-                JsonElement? content = await _client.RequestRawContentAsync("GET", $"/v1.0/collections/{collectionId}/documents/{documentId}?includeContent=true", cancellationToken);
-                if (content.HasValue)
+                string? content = await _client.RequestRawContentAsync("GET", $"/v1.0/collections/{collectionId}/documents/{documentId}?includeContent=true", cancellationToken);
+                if (content != null)
                 {
-                    document.Content = content.Value;
+                    document.Content = content;
                 }
             }
 

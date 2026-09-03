@@ -1,7 +1,7 @@
-using Lattice.Sdk.Models;
-
 namespace Lattice.Sdk.Methods
 {
+    using Lattice.Sdk.Models;
+
     /// <summary>
     /// Interface for index management methods.
     /// </summary>

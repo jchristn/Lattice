@@ -1,9 +1,9 @@
-using System.Diagnostics;
-using Lattice.Sdk;
-using Lattice.Sdk.Models;
-
 namespace Lattice.Sdk.Tests
 {
+    using System.Diagnostics;
+    using Lattice.Sdk;
+    using Lattice.Sdk.Models;
+
     /// <summary>
     /// Lattice SDK Test Harness for C#
     ///

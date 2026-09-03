@@ -1,12 +1,11 @@
-using System.Net.Http.Json;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using Lattice.Sdk.Exceptions;
-using Lattice.Sdk.Models;
-using Lattice.Sdk.Methods;
-
 namespace Lattice.Sdk
 {
+    using System.Text.Json;
+    using System.Text.Json.Serialization;
+    using Lattice.Sdk.Exceptions;
+    using Lattice.Sdk.Methods;
+    using Lattice.Sdk.Models;
+
     /// <summary>
     /// Client for interacting with the Lattice REST API.
     /// </summary>
@@ -248,9 +247,9 @@ namespace Lattice.Sdk
         internal JsonSerializerOptions JsonOptions => _jsonOptions;
 
         /// <summary>
-        /// Make an HTTP request and return the raw JSON body as a <see cref="JsonElement"/> (null on empty body or non-2xx).
+        /// Make an HTTP request and return the raw JSON body as a string (null on empty body or non-2xx).
         /// </summary>
-        internal async Task<JsonElement?> RequestRawContentAsync(
+        internal async Task<string?> RequestRawContentAsync(
             string method,
             string url,
             CancellationToken cancellationToken = default)
@@ -260,22 +259,16 @@ namespace Lattice.Sdk
             try
             {
                 HttpRequestMessage request = new HttpRequestMessage(new HttpMethod(method), fullUrl);
-                HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
+                HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
 
                 if (!response.IsSuccessStatusCode)
                 {
                     return null;
                 }
 
-                string responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                string responseContent = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
-                if (!string.IsNullOrEmpty(responseContent))
-                {
-                    using JsonDocument doc = JsonDocument.Parse(responseContent);
-                    return doc.RootElement.Clone();
-                }
-
-                return null;
+                return string.IsNullOrEmpty(responseContent) ? null : responseContent;
             }
             catch (HttpRequestException ex)
             {

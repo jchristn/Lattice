@@ -40,13 +40,21 @@
   collection, `REST_API.md`, and `README.md`.
 - **Docker**: dashboard `LATTICE_SERVER_URL` defaults to `http://localhost:8000` (the published host port)
   so the browser can reach the API; `docker/compose.yaml` images pinned to `v0.2.1`.
-- **Code quality**: eliminated sync-over-async (`.GetAwaiter().GetResult()`) — `LatticeServer.Main` is now
-  `async`, `RequestHistoryService` is `IAsyncDisposable`, and shutdown is fully awaited; server responses
-  and SDK error parsing use named types instead of `System.Text.Json` DOM types; one-class-per-file and
-  using-order cleanups per the code style guide.
+- **Code quality / code-style compliance**: eliminated sync-over-async (`.GetAwaiter().GetResult()`) —
+  `LatticeServer.Main` is now `async`, `RequestHistoryService` is `IAsyncDisposable`, and shutdown is fully
+  awaited; server responses, SDK error parsing, and error bodies use named types (`ErrorResponse`,
+  `ApiErrorResponse`) instead of `System.Text.Json` DOM types; document content is represented as a raw
+  JSON `string` end-to-end (the C# SDK's `Document.Content` is now `string?` rather than `JsonElement?`),
+  removing DOM types from the request/response paths (the Core flatten/schema/validation engine still uses
+  a JSON DOM to traverse arbitrary document JSON, which is required there); one-class-per-file split of the
+  telemetry settings; `System.*`-first using ordering, usings moved inside the namespace in the C# SDK; no
+  `var`; `ConfigureAwait(false)` on new awaits.
 
 ### Version bumps
 - `Lattice.Core`: 0.2.0 -> 0.2.1
+- `Lattice.Sdk` (C#): 0.2.0 -> 0.3.0 (breaking: raw responses, `Document.Content` is `string?`)
+- `lattice-sdk` (npm): 0.1.3 -> 0.3.0 (breaking: raw responses)
+- `lattice-sdk` (pip): 0.1.3 -> 0.3.0 (breaking: raw responses)
 
 ## Previous versions
 
