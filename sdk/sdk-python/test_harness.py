@@ -308,8 +308,8 @@ class TestHarness:
             if col1 is None or col2 is None:
                 return TestOutcome.failed("Setup: Collection creation failed")
 
-            collections = self.client.collection.read_all()
-            found_ids = {c.id for c in collections}
+            result = self.client.collection.read_all()
+            found_ids = {c.id for c in result.objects}
 
             if col1.id not in found_ids or col2.id not in found_ids:
                 self.client.collection.delete(col1.id)
@@ -556,9 +556,9 @@ class TestHarness:
 
             # GetDocuments: multiple
             def test_get_multiple():
-                docs = self.client.document.read_all_in_collection(collection.id)
-                if len(docs) < 5:
-                    return TestOutcome.failed(f"Expected at least 5 docs, got {len(docs)}")
+                result = self.client.document.read_all_in_collection(collection.id)
+                if len(result.objects) < 5:
+                    return TestOutcome.failed(f"Expected at least 5 docs, got {len(result.objects)}")
                 return TestOutcome.passed()
 
             self.run_test("GetDocuments: multiple documents", test_get_multiple)
@@ -1069,8 +1069,8 @@ class TestHarness:
 
             # GetSchemas: returns schemas
             def test_get_schemas():
-                schemas = self.client.schema.read_all()
-                if len(schemas) == 0:
+                result = self.client.schema.read_all()
+                if len(result.objects) == 0:
                     return TestOutcome.failed("No schemas returned")
                 return TestOutcome.passed()
 
@@ -1102,8 +1102,8 @@ class TestHarness:
             def test_get_schema_elements():
                 if doc1 is None:
                     return TestOutcome.failed("Setup: doc1 is None")
-                elements = self.client.schema.get_elements(doc1.schema_id)
-                if len(elements) == 0:
+                result = self.client.schema.get_elements(doc1.schema_id)
+                if len(result.objects) == 0:
                     return TestOutcome.failed("No elements returned")
                 return TestOutcome.passed()
 
@@ -1113,8 +1113,8 @@ class TestHarness:
             def test_get_schema_elements_keys():
                 if doc1 is None:
                     return TestOutcome.failed("Setup: doc1 is None")
-                elements = self.client.schema.get_elements(doc1.schema_id)
-                keys = {e.key for e in elements}
+                result = self.client.schema.get_elements(doc1.schema_id)
+                keys = {e.key for e in result.objects}
                 expected = {"name", "value", "active"}
                 if not expected.issubset(keys):
                     return TestOutcome.failed(f"Missing expected keys. Found: {keys}")
@@ -1132,9 +1132,9 @@ class TestHarness:
 
         # GetIndexTableMappings: returns mappings
         def test_get_mappings():
-            mappings = self.client.index.get_mappings()
+            result = self.client.index.get_mappings()
             # Mappings may be empty if no indexes exist yet
-            if mappings is None:
+            if result is None:
                 return TestOutcome.failed("GetMappings returned None")
             return TestOutcome.passed()
 
@@ -1462,10 +1462,10 @@ class TestHarness:
             # GetDocuments for 100 documents
             def test_get_docs_100():
                 start = time.time()
-                docs = self.client.document.read_all_in_collection(collection.id)
+                result = self.client.document.read_all_in_collection(collection.id)
                 elapsed = time.time() - start
-                if len(docs) != 100:
-                    return TestOutcome.failed(f"Expected 100 docs, got {len(docs)}")
+                if len(result.objects) != 100:
+                    return TestOutcome.failed(f"Expected 100 docs, got {len(result.objects)}")
                 print(f"({elapsed * 1000:.1f}ms) ", end="")
                 return TestOutcome.passed()
 

@@ -29,11 +29,20 @@ namespace Lattice.Sdk.Methods
         /// <summary>
         /// Get all documents in a collection.
         /// </summary>
-        Task<List<Document>> ReadAllInCollectionAsync(
+        /// <param name="collectionId">The collection identifier.</param>
+        /// <param name="includeContent">Whether to include document content.</param>
+        /// <param name="includeLabels">Whether to include document labels.</param>
+        /// <param name="includeTags">Whether to include document tags.</param>
+        /// <param name="maxResults">Optional maximum number of results to return per page.</param>
+        /// <param name="skip">Optional number of records to skip.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        Task<EnumerationResult<Document>?> ReadAllInCollectionAsync(
             string collectionId,
             bool includeContent = false,
             bool includeLabels = true,
             bool includeTags = true,
+            int? maxResults = null,
+            int? skip = null,
             CancellationToken cancellationToken = default);
 
         /// <summary>

@@ -9,6 +9,7 @@ Comprehensive reference for the Lattice Server REST API. Lattice is a JSON docum
 - [Base URL](#base-url)
 - [Authentication](#authentication)
 - [Response Format](#response-format)
+- [Enumeration & Pagination](#enumeration--pagination)
 - [Error Handling](#error-handling)
 - [CORS](#cors)
 - [Endpoints](#endpoints)
@@ -69,14 +70,18 @@ Lattice returns **raw payloads**. There is no response envelope -- the body of a
 
 **Success (HTTP 2xx):** The response body is the payload directly.
 
-- List endpoints return a JSON array (e.g. `GET /v1.0/collections` → `[ { ... }, ... ]`).
+- List/enumeration endpoints return an **EnumerationResult** object with the items under `objects` (e.g. `GET /v1.0/collections` → `{ ..., "objects": [ { ... }, ... ] }`). See [Enumeration & Pagination](#enumeration--pagination).
 - Single-resource endpoints return a JSON object (e.g. `GET /v1.0/collections/{id}` → `{ ... }`).
 - Operations with no payload (e.g. some `DELETE`s) return an **empty body** (zero length) with a 2xx status.
 
 ```json
-[
-  { "id": "d4e5f6a7-b8c9-0123-4567-89abcdef0123", "name": "customers" }
-]
+{
+  "success": true,
+  "totalRecords": 1,
+  "objects": [
+    { "id": "d4e5f6a7-b8c9-0123-4567-89abcdef0123", "name": "customers" }
+  ]
+}
 ```
 
 **Error (HTTP 4xx/5xx):** The response body is an error object. The HTTP status code carries the status.
@@ -111,6 +116,68 @@ Request correlation and timing metadata are returned in response headers (previo
 | `X-Lattice-Processing-Time-Ms` | Server-side processing time in milliseconds. Previously the envelope `processingTimeMs`. |
 
 All JSON property names use **camelCase**. Both success and error bodies use `Content-Type: application/json` (an empty success body still uses this content type).
+
+---
+
+## Enumeration & Pagination
+
+All GET endpoints that list a set of resources return an **EnumerationResult** object rather than a bare JSON array. The items live in the `objects` array, and the surrounding fields carry pagination metadata.
+
+**EnumerationResult shape (camelCase JSON):**
+
+```json
+{
+  "success": true,
+  "timestamp": {
+    "start": "2024-01-15T12:00:00.000Z",
+    "end": "2024-01-15T12:00:00.001Z",
+    "totalMs": 0.67
+  },
+  "maxResults": 100,
+  "skip": 0,
+  "iterationsRequired": 1,
+  "endOfResults": true,
+  "totalRecords": 1,
+  "recordsRemaining": 0,
+  "objects": [ /* the items -- Collection, Document, Schema, etc. */ ]
+}
+```
+
+**Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | boolean | Whether the enumeration completed successfully. |
+| `timestamp` | object | Timing information with `start`, `end`, and `totalMs`. |
+| `maxResults` | integer | The page size that was applied. |
+| `skip` | integer | The number of records that were skipped. |
+| `iterationsRequired` | integer | Number of internal iterations required to build the page. |
+| `endOfResults` | boolean | `true` when no further records remain after this page. |
+| `totalRecords` | integer | Total number of records available (across all pages). |
+| `recordsRemaining` | integer | Number of records still available after this page. |
+| `objects` | T[] | The array of returned items. |
+
+**Query parameters (all optional):**
+
+| Parameter | Type | Default | Max | Description |
+|-----------|------|---------|-----|-------------|
+| `maxResults` | integer | 100 | 1000 | Page size (minimum 1). |
+| `skip` | integer | 0 | -- | Number of records to skip before returning results. |
+
+To page through results, increment `skip` by `maxResults` until `endOfResults` is `true` (or `recordsRemaining` reaches `0`).
+
+The following six GET endpoints return an EnumerationResult:
+
+| Endpoint | `objects` item type |
+|----------|---------------------|
+| `GET /v1.0/collections` | Collection |
+| `GET /v1.0/collections/{collectionId}/documents` | Document |
+| `GET /v1.0/schemas` | Schema |
+| `GET /v1.0/schemas/{schemaId}/elements` | SchemaElement |
+| `GET /v1.0/tables` | IndexTableMapping |
+| `GET /v1.0/tables/{tableName}/entries` | IndexTableEntry |
+
+> Single-object GETs (e.g. `GET /v1.0/collections/{id}`), configuration objects (constraints, indexing), the `POST` search endpoint (which returns a `SearchResult`), and the request-history endpoints are **not** EnumerationResult and are documented with their own shapes.
 
 ---
 
@@ -283,31 +350,48 @@ curl -X PUT http://localhost:8000/v1.0/collections \
 
 #### GET /v1.0/collections -- List Collections
 
-Retrieves all collections.
+Retrieves all collections. Returns an [EnumerationResult](#enumeration--pagination) with `Collection` items in `objects`.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Max | Description |
+|-----------|------|---------|-----|-------------|
+| `maxResults` | integer | 100 | 1000 | Page size (minimum 1). |
+| `skip` | integer | 0 | -- | Number of records to skip. |
 
 **cURL:**
 
 ```bash
-curl http://localhost:8000/v1.0/collections
+curl "http://localhost:8000/v1.0/collections?maxResults=100&skip=0"
 ```
 
 **Response (200 OK):**
 
 ```json
-[
-  {
-    "id": "d4e5f6a7-b8c9-0123-4567-89abcdef0123",
-    "name": "customers",
-    "description": "Customer records",
-    "documentsDirectory": null,
-    "labels": ["production", "crm"],
-    "tags": { "department": "sales" },
-    "createdUtc": "2024-01-15T12:00:00.000Z",
-    "lastUpdateUtc": "2024-01-15T12:00:00.000Z",
-    "schemaEnforcementMode": "none",
-    "indexingMode": "all"
-  }
-]
+{
+  "success": true,
+  "timestamp": { "start": "2024-01-15T12:00:00.000Z", "end": "2024-01-15T12:00:00.001Z", "totalMs": 0.67 },
+  "maxResults": 100,
+  "skip": 0,
+  "iterationsRequired": 1,
+  "endOfResults": true,
+  "totalRecords": 1,
+  "recordsRemaining": 0,
+  "objects": [
+    {
+      "id": "d4e5f6a7-b8c9-0123-4567-89abcdef0123",
+      "name": "customers",
+      "description": "Customer records",
+      "documentsDirectory": null,
+      "labels": ["production", "crm"],
+      "tags": { "department": "sales" },
+      "createdUtc": "2024-01-15T12:00:00.000Z",
+      "lastUpdateUtc": "2024-01-15T12:00:00.000Z",
+      "schemaEnforcementMode": "none",
+      "indexingMode": "all"
+    }
+  ]
+}
 ```
 
 > On first server start (when no collections exist), Lattice automatically creates a collection named `default` (indexing mode `all`, schema enforcement `none`), so this list is never empty on a fresh install.
@@ -619,7 +703,7 @@ curl -X POST http://localhost:8000/v1.0/collections/d4e5f6a7-b8c9-0123-4567-89ab
 
 #### GET /v1.0/collections/{collectionId}/documents -- List Documents
 
-Retrieves metadata for all documents in a collection.
+Retrieves metadata for all documents in a collection. Returns an [EnumerationResult](#enumeration--pagination) with `Document` items in `objects`.
 
 **Path Parameters:**
 
@@ -627,29 +711,46 @@ Retrieves metadata for all documents in a collection.
 |-----------|------|-------------|
 | `collectionId` | string (UUID) | The unique identifier of the collection. |
 
+**Query Parameters:**
+
+| Parameter | Type | Default | Max | Description |
+|-----------|------|---------|-----|-------------|
+| `maxResults` | integer | 100 | 1000 | Page size (minimum 1). |
+| `skip` | integer | 0 | -- | Number of records to skip. |
+
 **cURL:**
 
 ```bash
-curl http://localhost:8000/v1.0/collections/d4e5f6a7-b8c9-0123-4567-89abcdef0123/documents
+curl "http://localhost:8000/v1.0/collections/d4e5f6a7-b8c9-0123-4567-89abcdef0123/documents?maxResults=100&skip=0"
 ```
 
 **Response (200 OK):**
 
 ```json
-[
-  {
-    "id": "a1b2c3d4-...",
-    "collectionId": "d4e5f6a7-...",
-    "schemaId": "f0e1d2c3-...",
-    "name": "john-doe",
-    "labels": ["active"],
-    "tags": { "source": "import" },
-    "createdUtc": "2024-01-15T12:00:00.000Z",
-    "lastUpdateUtc": "2024-01-15T12:00:00.000Z",
-    "contentLength": 256,
-    "sha256Hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-  }
-]
+{
+  "success": true,
+  "timestamp": { "start": "2024-01-15T12:00:00.000Z", "end": "2024-01-15T12:00:00.001Z", "totalMs": 0.67 },
+  "maxResults": 100,
+  "skip": 0,
+  "iterationsRequired": 1,
+  "endOfResults": true,
+  "totalRecords": 1,
+  "recordsRemaining": 0,
+  "objects": [
+    {
+      "id": "a1b2c3d4-...",
+      "collectionId": "d4e5f6a7-...",
+      "schemaId": "f0e1d2c3-...",
+      "name": "john-doe",
+      "labels": ["active"],
+      "tags": { "source": "import" },
+      "createdUtc": "2024-01-15T12:00:00.000Z",
+      "lastUpdateUtc": "2024-01-15T12:00:00.000Z",
+      "contentLength": 256,
+      "sha256Hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}
 ```
 
 **Errors:**
@@ -1106,25 +1207,42 @@ Schemas are automatically detected from JSON document structure during ingestion
 
 #### GET /v1.0/schemas -- List Schemas
 
-Retrieves all discovered schemas.
+Retrieves all discovered schemas. Returns an [EnumerationResult](#enumeration--pagination) with `Schema` items in `objects`.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Max | Description |
+|-----------|------|---------|-----|-------------|
+| `maxResults` | integer | 100 | 1000 | Page size (minimum 1). |
+| `skip` | integer | 0 | -- | Number of records to skip. |
 
 **cURL:**
 
 ```bash
-curl http://localhost:8000/v1.0/schemas
+curl "http://localhost:8000/v1.0/schemas?maxResults=100&skip=0"
 ```
 
 **Response (200 OK):**
 
 ```json
-[
-  {
-    "id": "f0e1d2c3-b4a5-6789-0123-456789abcdef",
-    "hash": "a1b2c3d4e5f6...",
-    "createdUtc": "2024-01-15T12:00:00.000Z",
-    "lastUpdateUtc": "2024-01-15T12:00:00.000Z"
-  }
-]
+{
+  "success": true,
+  "timestamp": { "start": "2024-01-15T12:00:00.000Z", "end": "2024-01-15T12:00:00.001Z", "totalMs": 0.67 },
+  "maxResults": 100,
+  "skip": 0,
+  "iterationsRequired": 1,
+  "endOfResults": true,
+  "totalRecords": 1,
+  "recordsRemaining": 0,
+  "objects": [
+    {
+      "id": "f0e1d2c3-b4a5-6789-0123-456789abcdef",
+      "hash": "a1b2c3d4e5f6...",
+      "createdUtc": "2024-01-15T12:00:00.000Z",
+      "lastUpdateUtc": "2024-01-15T12:00:00.000Z"
+    }
+  ]
+}
 ```
 
 ---
@@ -1164,7 +1282,7 @@ curl http://localhost:8000/v1.0/schemas/f0e1d2c3-b4a5-6789-0123-456789abcdef
 
 #### GET /v1.0/schemas/{schemaId}/elements -- Get Schema Elements
 
-Retrieves the elements (fields) defined in a schema. Each element represents a discovered field path with its detected data type.
+Retrieves the elements (fields) defined in a schema. Each element represents a discovered field path with its detected data type. Returns an [EnumerationResult](#enumeration--pagination) with `SchemaElement` items in `objects`.
 
 **Path Parameters:**
 
@@ -1172,47 +1290,64 @@ Retrieves the elements (fields) defined in a schema. Each element represents a d
 |-----------|------|-------------|
 | `schemaId` | string (UUID) | The unique identifier of the schema. |
 
+**Query Parameters:**
+
+| Parameter | Type | Default | Max | Description |
+|-----------|------|---------|-----|-------------|
+| `maxResults` | integer | 100 | 1000 | Page size (minimum 1). |
+| `skip` | integer | 0 | -- | Number of records to skip. |
+
 **cURL:**
 
 ```bash
-curl http://localhost:8000/v1.0/schemas/f0e1d2c3-b4a5-6789-0123-456789abcdef/elements
+curl "http://localhost:8000/v1.0/schemas/f0e1d2c3-b4a5-6789-0123-456789abcdef/elements?maxResults=100&skip=0"
 ```
 
 **Response (200 OK):**
 
 ```json
-[
-  {
-    "id": "...",
-    "schemaId": "f0e1d2c3-...",
-    "position": 0,
-    "key": "firstName",
-    "dataType": "string",
-    "nullable": false,
-    "createdUtc": "2024-01-15T12:00:00.000Z",
-    "lastUpdateUtc": "2024-01-15T12:00:00.000Z"
-  },
-  {
-    "id": "...",
-    "schemaId": "f0e1d2c3-...",
-    "position": 1,
-    "key": "age",
-    "dataType": "integer",
-    "nullable": true,
-    "createdUtc": "2024-01-15T12:00:00.000Z",
-    "lastUpdateUtc": "2024-01-15T12:00:00.000Z"
-  },
-  {
-    "id": "...",
-    "schemaId": "f0e1d2c3-...",
-    "position": 2,
-    "key": "address.city",
-    "dataType": "string",
-    "nullable": false,
-    "createdUtc": "2024-01-15T12:00:00.000Z",
-    "lastUpdateUtc": "2024-01-15T12:00:00.000Z"
-  }
-]
+{
+  "success": true,
+  "timestamp": { "start": "2024-01-15T12:00:00.000Z", "end": "2024-01-15T12:00:00.001Z", "totalMs": 0.67 },
+  "maxResults": 100,
+  "skip": 0,
+  "iterationsRequired": 1,
+  "endOfResults": true,
+  "totalRecords": 3,
+  "recordsRemaining": 0,
+  "objects": [
+    {
+      "id": "...",
+      "schemaId": "f0e1d2c3-...",
+      "position": 0,
+      "key": "firstName",
+      "dataType": "string",
+      "nullable": false,
+      "createdUtc": "2024-01-15T12:00:00.000Z",
+      "lastUpdateUtc": "2024-01-15T12:00:00.000Z"
+    },
+    {
+      "id": "...",
+      "schemaId": "f0e1d2c3-...",
+      "position": 1,
+      "key": "age",
+      "dataType": "integer",
+      "nullable": true,
+      "createdUtc": "2024-01-15T12:00:00.000Z",
+      "lastUpdateUtc": "2024-01-15T12:00:00.000Z"
+    },
+    {
+      "id": "...",
+      "schemaId": "f0e1d2c3-...",
+      "position": 2,
+      "key": "address.city",
+      "dataType": "string",
+      "nullable": false,
+      "createdUtc": "2024-01-15T12:00:00.000Z",
+      "lastUpdateUtc": "2024-01-15T12:00:00.000Z"
+    }
+  ]
+}
 ```
 
 **Errors:**
@@ -1227,36 +1362,55 @@ Index tables are the underlying storage for searchable field values. Each unique
 
 #### GET /v1.0/tables -- List Index Tables
 
-Retrieves all index table mappings.
+Retrieves all index table mappings. Returns an [EnumerationResult](#enumeration--pagination) with `IndexTableMapping` items in `objects`.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Max | Description |
+|-----------|------|---------|-----|-------------|
+| `maxResults` | integer | 100 | 1000 | Page size (minimum 1). |
+| `skip` | integer | 0 | -- | Number of records to skip. |
 
 **cURL:**
 
 ```bash
-curl http://localhost:8000/v1.0/tables
+curl "http://localhost:8000/v1.0/tables?maxResults=100&skip=0"
 ```
 
 **Response (200 OK):**
 
 ```json
-[
-  {
-    "id": "...",
-    "key": "firstName:string",
-    "tableName": "idx_a1b2c3d4"
-  },
-  {
-    "id": "...",
-    "key": "address.city:string",
-    "tableName": "idx_e5f6a7b8"
-  }
-]
+{
+  "success": true,
+  "timestamp": { "start": "2024-01-15T12:00:00.000Z", "end": "2024-01-15T12:00:00.001Z", "totalMs": 0.67 },
+  "maxResults": 100,
+  "skip": 0,
+  "iterationsRequired": 1,
+  "endOfResults": true,
+  "totalRecords": 2,
+  "recordsRemaining": 0,
+  "objects": [
+    {
+      "id": "...",
+      "key": "firstName:string",
+      "tableName": "idx_a1b2c3d4"
+    },
+    {
+      "id": "...",
+      "key": "address.city:string",
+      "tableName": "idx_e5f6a7b8"
+    }
+  ]
+}
 ```
 
 ---
 
 #### GET /v1.0/tables/{tableName}/entries -- Get Index Entries
 
-Retrieves entries from a specific index table with pagination.
+Retrieves entries from a specific index table with pagination. Returns an [EnumerationResult](#enumeration--pagination) with `IndexTableEntry` items in `objects`.
+
+> **Changed:** this endpoint previously returned `{ tableName, fieldKey, entries, totalCount, skip, limit }`. It now returns a plain EnumerationResult: the entries are in `objects`, the count is in `totalRecords`, and `tableName`/`fieldKey` are no longer included (the caller already knows the selected table and can obtain the field key from `GET /v1.0/tables`).
 
 **Path Parameters:**
 
@@ -1268,36 +1422,47 @@ Retrieves entries from a specific index table with pagination.
 
 | Parameter | Type | Default | Max | Description |
 |-----------|------|---------|-----|-------------|
+| `maxResults` | integer | 100 | 1000 | Page size (minimum 1). |
 | `skip` | integer | 0 | -- | Number of entries to skip. |
-| `limit` | integer | 100 | 1000 | Maximum number of entries to return. |
+| `limit` | integer | 100 | 1000 | **Legacy** alias for `maxResults`, still accepted for backward compatibility. |
 
 **cURL:**
 
 ```bash
-curl "http://localhost:8000/v1.0/tables/idx_a1b2c3d4/entries?skip=0&limit=50"
+curl "http://localhost:8000/v1.0/tables/idx_a1b2c3d4/entries?skip=0&maxResults=50"
 ```
 
 **Response (200 OK):**
 
 ```json
-[
-  {
-    "id": "...",
-    "documentId": "a1b2c3d4-...",
-    "schemaId": "f0e1d2c3-...",
-    "schemaElementId": "...",
-    "position": 0,
-    "value": "John"
-  },
-  {
-    "id": "...",
-    "documentId": "b2c3d4e5-...",
-    "schemaId": "f0e1d2c3-...",
-    "schemaElementId": "...",
-    "position": 0,
-    "value": "Jane"
-  }
-]
+{
+  "success": true,
+  "timestamp": { "start": "2024-01-15T12:00:00.000Z", "end": "2024-01-15T12:00:00.001Z", "totalMs": 0.67 },
+  "maxResults": 50,
+  "skip": 0,
+  "iterationsRequired": 1,
+  "endOfResults": true,
+  "totalRecords": 2,
+  "recordsRemaining": 0,
+  "objects": [
+    {
+      "id": "...",
+      "documentId": "a1b2c3d4-...",
+      "schemaId": "f0e1d2c3-...",
+      "schemaElementId": "...",
+      "position": 0,
+      "value": "John"
+    },
+    {
+      "id": "...",
+      "documentId": "b2c3d4e5-...",
+      "schemaId": "f0e1d2c3-...",
+      "schemaElementId": "...",
+      "position": 0,
+      "value": "Jane"
+    }
+  ]
+}
 ```
 
 **Errors:**
@@ -1410,6 +1575,22 @@ curl "http://localhost:8000/v1.0/tables/idx_a1b2c3d4/entries?skip=0&limit=50"
 | `schemaElementId` | string (UUID) | Schema element (field) this entry indexes. |
 | `position` | integer | Position within the document (relevant for array elements). |
 | `value` | string | The indexed value (stored as string). |
+
+### EnumerationResult&lt;T&gt;
+
+Returned by all list/enumeration GET endpoints. See [Enumeration & Pagination](#enumeration--pagination).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | boolean | Whether the enumeration completed successfully. |
+| `timestamp` | object | Timing information with `start`, `end`, and `totalMs`. |
+| `maxResults` | integer | The page size that was applied. |
+| `skip` | integer | The number of records that were skipped. |
+| `iterationsRequired` | integer | Number of internal iterations required to build the page. |
+| `endOfResults` | boolean | `true` when no further records remain after this page. |
+| `totalRecords` | integer | Total number of records available across all pages. |
+| `recordsRemaining` | integer | Number of records still available after this page. |
+| `objects` | T[] | The array of returned items. |
 
 ### IndexRebuildResult
 

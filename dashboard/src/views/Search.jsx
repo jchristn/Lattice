@@ -28,9 +28,10 @@ export default function Search() {
   useEffect(() => {
     const loadCollections = async () => {
       try {
-        const data = await api.getCollections()
-        setCollections(data || [])
-        if (data?.length > 0) {
+        const result = await api.getCollections({ maxResults: 1000 })
+        const data = result?.objects || []
+        setCollections(data)
+        if (data.length > 0) {
           setSelectedCollection(data[0].id)
         }
       } catch (err) {

@@ -287,7 +287,7 @@ class TestHarness {
             if (!col1 || !col2) return failed("Setup: Collection creation failed");
 
             const collections = await this.client.collection.readAll();
-            const foundIds = new Set(collections.map((c) => c.id));
+            const foundIds = new Set(collections.objects.map((c) => c.id));
 
             if (!foundIds.has(col1.id) || !foundIds.has(col2.id)) {
                 await this.client.collection.delete(col1.id);
@@ -485,8 +485,8 @@ class TestHarness {
 
             // GetDocuments: multiple
             await this.runTest("GetDocuments: multiple documents", async () => {
-                const docs = await this.client.document.readAllInCollection(collection.id);
-                if (docs.length < 5) return failed(`Expected at least 5 docs, got ${docs.length}`);
+                const result = await this.client.document.readAllInCollection(collection.id);
+                if (result.totalRecords < 5) return failed(`Expected at least 5 docs, got ${result.totalRecords}`);
                 return passed();
             });
 
@@ -893,7 +893,7 @@ class TestHarness {
             // GetSchemas: returns schemas
             await this.runTest("GetSchemas: returns schemas", async () => {
                 const schemas = await this.client.schema.readAll();
-                if (schemas.length === 0) return failed("No schemas returned");
+                if (schemas.objects.length === 0) return failed("No schemas returned");
                 return passed();
             });
 
@@ -917,7 +917,7 @@ class TestHarness {
             await this.runTest("GetSchemaElements: returns elements", async () => {
                 if (!doc1) return failed("Setup: doc1 is null");
                 const elements = await this.client.schema.getElements(doc1.schemaId);
-                if (elements.length === 0) return failed("No elements returned");
+                if (elements.objects.length === 0) return failed("No elements returned");
                 return passed();
             });
 
@@ -925,7 +925,7 @@ class TestHarness {
             await this.runTest("GetSchemaElements: correct keys", async () => {
                 if (!doc1) return failed("Setup: doc1 is null");
                 const elements = await this.client.schema.getElements(doc1.schemaId);
-                const keys = new Set(elements.map((e) => e.key));
+                const keys = new Set(elements.objects.map((e) => e.key));
                 const expected = ["name", "value", "active"];
                 for (const key of expected) {
                     if (!keys.has(key)) return failed(`Missing expected key: ${key}. Found: ${Array.from(keys)}`);
@@ -943,7 +943,7 @@ class TestHarness {
         // GetIndexTableMappings: returns mappings
         await this.runTest("GetIndexTableMappings: returns mappings", async () => {
             const mappings = await this.client.index.getMappings();
-            if (mappings === null) return failed("GetMappings returned null");
+            if (!Array.isArray(mappings.objects)) return failed("GetMappings did not return objects array");
             return passed();
         });
     }
@@ -1232,9 +1232,9 @@ class TestHarness {
             // GetDocuments for 100 documents
             await this.runTest("Perf: GetDocuments for 100 documents", async () => {
                 const start = Date.now();
-                const docs = await this.client.document.readAllInCollection(collection.id);
+                const result = await this.client.document.readAllInCollection(collection.id);
                 const elapsed = Date.now() - start;
-                if (docs.length !== 100) return failed(`Expected 100 docs, got ${docs.length}`);
+                if (result.totalRecords !== 100) return failed(`Expected 100 docs, got ${result.totalRecords}`);
                 process.stdout.write(`(${elapsed}ms) `);
                 return passed();
             });

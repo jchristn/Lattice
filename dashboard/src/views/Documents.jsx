@@ -26,6 +26,7 @@ export default function Documents() {
   const [collections, setCollections] = useState([])
   const [collection, setCollection] = useState(null)
   const [documents, setDocuments] = useState([])
+  const [totalRecords, setTotalRecords] = useState(0)
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showMetadataModal, setShowMetadataModal] = useState(false)
@@ -50,9 +51,10 @@ export default function Documents() {
 
   const loadCollections = async () => {
     try {
-      const data = await api.getCollections()
-      setCollections(data || [])
-      if (!collectionId && data?.length > 0) {
+      const result = await api.getCollections({ maxResults: 1000 })
+      const data = result?.objects || []
+      setCollections(data)
+      if (!collectionId && data.length > 0) {
         navigate(`/collections/${data[0].id}/documents`, { replace: true })
       }
     } catch (err) {
@@ -68,12 +70,13 @@ export default function Documents() {
 
     try {
       setLoading(true)
-      const [collectionData, documentsData] = await Promise.all([
+      const [collectionData, documentsResult] = await Promise.all([
         api.getCollection(collectionId),
-        api.getDocuments(collectionId),
+        api.getDocuments(collectionId, { skip: page * pageSize, maxResults: pageSize }),
       ])
       setCollection(collectionData)
-      setDocuments(documentsData || [])
+      setDocuments(documentsResult?.objects || [])
+      setTotalRecords(documentsResult?.totalRecords ?? 0)
     } catch (err) {
       setError('Failed to load data: ' + err.message)
     } finally {
@@ -122,8 +125,11 @@ export default function Documents() {
     return result
   }, [documents, filters, sort])
 
-  const totalPages = Math.max(1, Math.ceil(filteredDocuments.length / pageSize))
-  const pagedDocuments = filteredDocuments.slice(page * pageSize, (page + 1) * pageSize)
+  // Pagination is server-side: `documents` holds only the current page and
+  // `totalRecords` is the full count. Column filters/sort apply to the loaded page.
+  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize))
+  const showingFrom = totalRecords ? page * pageSize + 1 : 0
+  const showingTo = totalRecords ? Math.min((page + 1) * pageSize, totalRecords) : 0
 
   useEffect(() => {
     if (api) {
@@ -133,7 +139,7 @@ export default function Documents() {
 
   useEffect(() => {
     loadData()
-  }, [api, collectionId])
+  }, [api, collectionId, page, pageSize])
 
   useEffect(() => {
     setPage(0)
@@ -287,18 +293,18 @@ export default function Documents() {
         <div className="empty-state">
           <p>Select a collection to view its documents.</p>
         </div>
-      ) : documents.length === 0 ? (
+      ) : totalRecords === 0 ? (
         <div className="empty-state">
           <p>No documents in this collection. Add your first document.</p>
         </div>
       ) : (
         <div className="card">
           <div className="table-results-count">
-            Showing {filteredDocuments.length} of {documents.length} documents
+            Showing {showingFrom.toLocaleString()}-{showingTo.toLocaleString()} of {totalRecords.toLocaleString()} documents
             {collection ? ` in ${collection.name}` : ''}
           </div>
           <TablePagination
-            totalRecords={filteredDocuments.length}
+            totalRecords={totalRecords}
             currentPage={page}
             totalPages={totalPages}
             onPageChange={setPage}
@@ -340,12 +346,12 @@ export default function Documents() {
               </tr>
             </thead>
             <tbody>
-              {pagedDocuments.length === 0 ? (
+              {filteredDocuments.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="empty-row">No documents match your filters.</td>
                 </tr>
               ) : (
-                pagedDocuments.map((document) => (
+                filteredDocuments.map((document) => (
                   <tr key={document.id}>
                     <td><CopyableId value={document.id} /></td>
                     <td>{document.name || '-'}</td>

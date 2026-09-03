@@ -83,11 +83,13 @@ namespace Lattice.Sdk.Methods
             return await _client.RequestJsonAsync<List<Document>>("PUT", $"/v1.0/collections/{collectionId}/documents/batch", data, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
-        public async Task<List<Document>> ReadAllInCollectionAsync(
+        public async Task<EnumerationResult<Document>?> ReadAllInCollectionAsync(
             string collectionId,
             bool includeContent = false,
             bool includeLabels = true,
             bool includeTags = true,
+            int? maxResults = null,
+            int? skip = null,
             CancellationToken cancellationToken = default)
         {
             Dictionary<string, string> queryParams = new Dictionary<string, string>
@@ -97,8 +99,12 @@ namespace Lattice.Sdk.Methods
                 ["includeTags"] = includeTags.ToString().ToLower()
             };
 
-            List<Document>? documents = await _client.RequestJsonAsync<List<Document>>("GET", $"/v1.0/collections/{collectionId}/documents", queryParams: queryParams, cancellationToken: cancellationToken).ConfigureAwait(false);
-            return documents ?? new List<Document>();
+            if (maxResults != null)
+                queryParams["maxResults"] = maxResults.Value.ToString();
+            if (skip != null)
+                queryParams["skip"] = skip.Value.ToString();
+
+            return await _client.RequestJsonAsync<EnumerationResult<Document>>("GET", $"/v1.0/collections/{collectionId}/documents", queryParams: queryParams, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<Document?> ReadByIdAsync(

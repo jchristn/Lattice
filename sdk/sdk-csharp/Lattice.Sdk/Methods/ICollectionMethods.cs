@@ -25,7 +25,13 @@ namespace Lattice.Sdk.Methods
         /// <summary>
         /// Get all collections.
         /// </summary>
-        Task<List<Collection>> ReadAllAsync(CancellationToken cancellationToken = default);
+        /// <param name="maxResults">Optional maximum number of results to return per page.</param>
+        /// <param name="skip">Optional number of records to skip.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        Task<EnumerationResult<Collection>?> ReadAllAsync(
+            int? maxResults = null,
+            int? skip = null,
+            CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Get a collection by ID.

@@ -57,8 +57,8 @@ export default function SchemaElements() {
   useEffect(() => {
     const loadSchemas = async () => {
       try {
-        const data = await api.getSchemas()
-        setSchemas(data || [])
+        const result = await api.getSchemas({ maxResults: 1000 })
+        setSchemas(result?.objects || [])
       } catch (err) {
         console.error('Failed to load schemas:', err)
       } finally {
@@ -86,8 +86,8 @@ export default function SchemaElements() {
 
     try {
       setLoading(true)
-      const elementsData = await api.getSchemaElements(schemaId)
-      setElements(elementsData || [])
+      const result = await api.getSchemaElements(schemaId, { maxResults: 1000 })
+      setElements(result?.objects || [])
     } catch (err) {
       setError('Failed to load schema elements: ' + err.message)
     } finally {

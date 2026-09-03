@@ -7,7 +7,9 @@ Data models for the Lattice REST API.
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Callable, Generic, TypeVar
+
+T = TypeVar("T")
 
 
 class SchemaEnforcementMode(str, Enum):
@@ -460,6 +462,93 @@ class IndexTableMapping:
         return cls(
             key=data.get("key", ""),
             table_name=data.get("tableName", "")
+        )
+
+
+@dataclass
+class IndexTableEntry:
+    """Represents an entry in an index table."""
+    id: str = ""
+    document_id: str = ""
+    position: Optional[int] = None
+    value: Optional[str] = None
+    created_utc: Optional[datetime] = None
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "IndexTableEntry":
+        """Create an IndexTableEntry from a dictionary."""
+        if data is None:
+            return None
+        return cls(
+            id=data.get("id", ""),
+            document_id=data.get("documentId", ""),
+            position=data.get("position"),
+            value=data.get("value"),
+            created_utc=_parse_datetime(data.get("createdUtc"))
+        )
+
+
+@dataclass
+class EnumerationResult(Generic[T]):
+    """Represents a paginated enumeration result.
+
+    Returned by the GET list endpoints (collections, documents, schemas,
+    schema elements, index tables, and table entries). The enumerated items
+    live in ``objects``; the remaining fields describe pagination state.
+    """
+    success: bool = False
+    timestamp: Optional[datetime] = None
+    max_results: int = 100
+    skip: int = 0
+    iterations_required: int = 1
+    continuation_token: Optional[str] = None
+    end_of_results: bool = True
+    total_records: int = 0
+    records_remaining: int = 0
+    objects: List[T] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(
+        cls,
+        data: Dict[str, Any],
+        item_parser: Optional[Callable[[Any], T]] = None
+    ) -> "EnumerationResult[T]":
+        """Create an EnumerationResult from a dictionary.
+
+        Args:
+            data: The parsed EnumerationResult JSON body.
+            item_parser: Optional callable used to convert each raw item in
+                ``objects`` into a typed model (e.g. ``Collection.from_dict``).
+                When omitted, the raw items are returned unchanged.
+        """
+        if data is None:
+            return None
+
+        raw_objects = data.get("objects", []) or []
+        if item_parser is not None:
+            objects = [item_parser(o) for o in raw_objects]
+        else:
+            objects = list(raw_objects)
+
+        timestamp = None
+        if data.get("timestamp"):
+            ts = data["timestamp"]
+            if isinstance(ts, dict):
+                timestamp = _parse_datetime(ts.get("utc") or ts.get("start"))
+            else:
+                timestamp = _parse_datetime(ts)
+
+        return cls(
+            success=data.get("success", False),
+            timestamp=timestamp,
+            max_results=data.get("maxResults", 100),
+            skip=data.get("skip", 0),
+            iterations_required=data.get("iterationsRequired", 1),
+            continuation_token=data.get("continuationToken"),
+            end_of_results=data.get("endOfResults", True),
+            total_records=data.get("totalRecords", 0),
+            records_remaining=data.get("recordsRemaining", 0),
+            objects=objects
         )
 
 

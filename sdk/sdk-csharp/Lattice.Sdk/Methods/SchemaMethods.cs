@@ -14,10 +14,18 @@ namespace Lattice.Sdk.Methods
             _client = client;
         }
 
-        public async Task<List<Schema>> ReadAllAsync(CancellationToken cancellationToken = default)
+        public async Task<EnumerationResult<Schema>?> ReadAllAsync(
+            int? maxResults = null,
+            int? skip = null,
+            CancellationToken cancellationToken = default)
         {
-            List<Schema>? schemas = await _client.RequestJsonAsync<List<Schema>>("GET", "/v1.0/schemas", cancellationToken: cancellationToken).ConfigureAwait(false);
-            return schemas ?? new List<Schema>();
+            Dictionary<string, string> queryParams = new Dictionary<string, string>();
+            if (maxResults != null)
+                queryParams["maxResults"] = maxResults.Value.ToString();
+            if (skip != null)
+                queryParams["skip"] = skip.Value.ToString();
+
+            return await _client.RequestJsonAsync<EnumerationResult<Schema>>("GET", "/v1.0/schemas", queryParams: queryParams, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<Schema?> ReadByIdAsync(string schemaId, CancellationToken cancellationToken = default)
@@ -25,10 +33,19 @@ namespace Lattice.Sdk.Methods
             return await _client.RequestJsonAsync<Schema>("GET", $"/v1.0/schemas/{schemaId}", nullOnNotFound: true, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
-        public async Task<List<SchemaElement>> GetElementsAsync(string schemaId, CancellationToken cancellationToken = default)
+        public async Task<EnumerationResult<SchemaElement>?> GetElementsAsync(
+            string schemaId,
+            int? maxResults = null,
+            int? skip = null,
+            CancellationToken cancellationToken = default)
         {
-            List<SchemaElement>? elements = await _client.RequestJsonAsync<List<SchemaElement>>("GET", $"/v1.0/schemas/{schemaId}/elements", cancellationToken: cancellationToken).ConfigureAwait(false);
-            return elements ?? new List<SchemaElement>();
+            Dictionary<string, string> queryParams = new Dictionary<string, string>();
+            if (maxResults != null)
+                queryParams["maxResults"] = maxResults.Value.ToString();
+            if (skip != null)
+                queryParams["skip"] = skip.Value.ToString();
+
+            return await _client.RequestJsonAsync<EnumerationResult<SchemaElement>>("GET", $"/v1.0/schemas/{schemaId}/elements", queryParams: queryParams, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
     }
 }

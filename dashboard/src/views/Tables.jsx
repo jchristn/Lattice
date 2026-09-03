@@ -28,8 +28,8 @@ export default function Tables() {
   const loadTables = async () => {
     try {
       setLoading(true)
-      const data = await api.getIndexTables()
-      setTables(data || [])
+      const result = await api.getIndexTables({ maxResults: 1000 })
+      setTables(result?.objects || [])
     } catch (err) {
       setError('Failed to load tables: ' + err.message)
     } finally {

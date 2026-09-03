@@ -126,8 +126,9 @@ export class LatticeApi {
   }
 
   // Collections
-  async getCollections() {
-    return this.request('GET', '/v1.0/collections')
+  // Returns an EnumerationResult<Collection>: { ...pagination, objects: Collection[] }.
+  async getCollections({ maxResults, skip } = {}) {
+    return this.request('GET', '/v1.0/collections', null, { query: { maxResults, skip } })
   }
 
   async createCollection(data) {
@@ -152,8 +153,11 @@ export class LatticeApi {
   }
 
   // Documents
-  async getDocuments(collectionId) {
-    return this.request('GET', `/v1.0/collections/${collectionId}/documents`)
+  // Returns an EnumerationResult<Document>: { ...pagination, objects: Document[] }.
+  async getDocuments(collectionId, { maxResults, skip } = {}) {
+    return this.request('GET', `/v1.0/collections/${collectionId}/documents`, null, {
+      query: { maxResults, skip },
+    })
   }
 
   async createDocument(collectionId, data) {
@@ -180,26 +184,32 @@ export class LatticeApi {
   }
 
   // Schemas
-  async getSchemas() {
-    return this.request('GET', '/v1.0/schemas')
+  // Returns an EnumerationResult<Schema>: { ...pagination, objects: Schema[] }.
+  async getSchemas({ maxResults, skip } = {}) {
+    return this.request('GET', '/v1.0/schemas', null, { query: { maxResults, skip } })
   }
 
   async getSchema(id) {
     return this.request('GET', `/v1.0/schemas/${id}`)
   }
 
-  async getSchemaElements(schemaId) {
-    return this.request('GET', `/v1.0/schemas/${schemaId}/elements`)
+  // Returns an EnumerationResult<SchemaElement>: { ...pagination, objects: SchemaElement[] }.
+  async getSchemaElements(schemaId, { maxResults, skip } = {}) {
+    return this.request('GET', `/v1.0/schemas/${schemaId}/elements`, null, {
+      query: { maxResults, skip },
+    })
   }
 
   // Index Tables
-  async getIndexTables() {
-    return this.request('GET', '/v1.0/tables')
+  // Returns an EnumerationResult<IndexTableMapping>: { ...pagination, objects: IndexTableMapping[] }.
+  async getIndexTables({ maxResults, skip } = {}) {
+    return this.request('GET', '/v1.0/tables', null, { query: { maxResults, skip } })
   }
 
-  async getTableEntries(tableName, skip = 0, limit = 100) {
+  // Returns an EnumerationResult<IndexTableEntry>: { ...pagination, objects: IndexTableEntry[] }.
+  async getTableEntries(tableName, skip = 0, maxResults = 100) {
     return this.request('GET', `/v1.0/tables/${encodeURIComponent(tableName)}/entries`, null, {
-      query: { skip, limit },
+      query: { skip, maxResults },
     })
   }
 

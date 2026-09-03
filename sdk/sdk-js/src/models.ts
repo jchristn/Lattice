@@ -217,6 +217,53 @@ export interface IndexTableMapping {
 }
 
 /**
+ * Represents an entry in an index table.
+ */
+export interface IndexTableEntry {
+    id: string;
+    documentId: string;
+    position?: number | null;
+    value?: string | null;
+    createdUtc?: Date;
+}
+
+/**
+ * Timing metadata included on an EnumerationResult.
+ */
+export interface EnumerationTimestamp {
+    start?: Date;
+    end?: Date;
+    totalMs?: number;
+}
+
+/**
+ * Paginated result envelope returned by the GET list endpoints.
+ *
+ * The items live in {@link objects}; the remaining fields describe the
+ * pagination window and totals.
+ */
+export interface EnumerationResult<T> {
+    success: boolean;
+    timestamp?: EnumerationTimestamp;
+    maxResults: number;
+    skip: number;
+    iterationsRequired: number;
+    continuationToken?: string | null;
+    endOfResults: boolean;
+    totalRecords: number;
+    recordsRemaining: number;
+    objects: T[];
+}
+
+/**
+ * Optional pagination parameters accepted by the list endpoints.
+ */
+export interface PaginationOptions {
+    maxResults?: number;
+    skip?: number;
+}
+
+/**
  * Options for creating a collection.
  */
 export interface CreateCollectionOptions {
@@ -426,6 +473,57 @@ export function parseIndexTableMapping(data: any): IndexTableMapping | null {
     return {
         key: data.key || "",
         tableName: data.tableName || ""
+    };
+}
+
+/**
+ * Parse an IndexTableEntry from API response data.
+ */
+export function parseIndexTableEntry(data: any): IndexTableEntry | null {
+    if (!data) return null;
+    return {
+        id: data.id || "",
+        documentId: data.documentId || "",
+        position: data.position ?? null,
+        value: data.value ?? null,
+        createdUtc: parseDate(data.createdUtc)
+    };
+}
+
+/**
+ * Parse an EnumerationResult envelope from API response data, mapping each
+ * item in `objects` through the supplied element parser.
+ */
+export function parseEnumerationResult<T>(
+    data: any,
+    parseItem: (item: any) => T | null
+): EnumerationResult<T> {
+    const src = data && typeof data === "object" ? data : {};
+
+    let timestamp: EnumerationTimestamp | undefined;
+    if (src.timestamp && typeof src.timestamp === "object") {
+        timestamp = {
+            start: parseDate(src.timestamp.start),
+            end: parseDate(src.timestamp.end),
+            totalMs: src.timestamp.totalMs
+        };
+    }
+
+    const objects: T[] = Array.isArray(src.objects)
+        ? src.objects.map((o: any) => parseItem(o)).filter((o: any): o is T => o !== null)
+        : [];
+
+    return {
+        success: src.success ?? false,
+        timestamp,
+        maxResults: src.maxResults ?? 0,
+        skip: src.skip ?? 0,
+        iterationsRequired: src.iterationsRequired ?? 0,
+        continuationToken: src.continuationToken ?? null,
+        endOfResults: src.endOfResults ?? false,
+        totalRecords: src.totalRecords ?? 0,
+        recordsRemaining: src.recordsRemaining ?? 0,
+        objects
     };
 }
 

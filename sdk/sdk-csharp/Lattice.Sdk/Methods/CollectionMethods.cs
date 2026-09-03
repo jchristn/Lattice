@@ -51,10 +51,18 @@ namespace Lattice.Sdk.Methods
             return await _client.RequestJsonAsync<Collection>("PUT", "/v1.0/collections", data, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
-        public async Task<List<Collection>> ReadAllAsync(CancellationToken cancellationToken = default)
+        public async Task<EnumerationResult<Collection>?> ReadAllAsync(
+            int? maxResults = null,
+            int? skip = null,
+            CancellationToken cancellationToken = default)
         {
-            List<Collection>? collections = await _client.RequestJsonAsync<List<Collection>>("GET", "/v1.0/collections", cancellationToken: cancellationToken).ConfigureAwait(false);
-            return collections ?? new List<Collection>();
+            Dictionary<string, string> queryParams = new Dictionary<string, string>();
+            if (maxResults != null)
+                queryParams["maxResults"] = maxResults.Value.ToString();
+            if (skip != null)
+                queryParams["skip"] = skip.Value.ToString();
+
+            return await _client.RequestJsonAsync<EnumerationResult<Collection>>("GET", "/v1.0/collections", queryParams: queryParams, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<Collection?> ReadByIdAsync(string collectionId, CancellationToken cancellationToken = default)

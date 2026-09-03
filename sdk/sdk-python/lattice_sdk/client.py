@@ -21,6 +21,8 @@ from .models import (
     SearchQuery,
     SearchFilter,
     IndexTableMapping,
+    IndexTableEntry,
+    EnumerationResult,
     SchemaEnforcementMode,
     IndexingMode,
     EnumerationOrder,
@@ -239,18 +241,34 @@ class CollectionMethods:
             return Collection.from_dict(payload)
         return None
 
-    def read_all(self) -> List[Collection]:
+    def read_all(
+        self,
+        max_results: Optional[int] = None,
+        skip: Optional[int] = None
+    ) -> EnumerationResult:
         """
         Get all collections.
 
+        Args:
+            max_results: Optional page size (maxResults query param)
+            skip: Optional number of records to skip (skip query param)
+
         Returns:
-            List of all collections
+            An EnumerationResult whose ``objects`` are Collection instances
         """
-        payload = self._client._request("GET", "/v1.0/collections")
+        params: Dict[str, Any] = {}
+        if max_results is not None:
+            params["maxResults"] = max_results
+        if skip is not None:
+            params["skip"] = skip
+
+        payload = self._client._request(
+            "GET", "/v1.0/collections", params=params or None
+        )
 
         if payload:
-            return [Collection.from_dict(c) for c in payload]
-        return []
+            return EnumerationResult.from_dict(payload, Collection.from_dict)
+        return EnumerationResult()
 
     def read_by_id(self, collection_id: str) -> Optional[Collection]:
         """
@@ -504,8 +522,10 @@ class DocumentMethods:
         collection_id: str,
         include_content: bool = False,
         include_labels: bool = True,
-        include_tags: bool = True
-    ) -> List[Document]:
+        include_tags: bool = True,
+        max_results: Optional[int] = None,
+        skip: Optional[int] = None
+    ) -> EnumerationResult:
         """
         Get all documents in a collection.
 
@@ -514,23 +534,29 @@ class DocumentMethods:
             include_content: Whether to include document content
             include_labels: Whether to include labels
             include_tags: Whether to include tags
+            max_results: Optional page size (maxResults query param)
+            skip: Optional number of records to skip (skip query param)
 
         Returns:
-            List of documents
+            An EnumerationResult whose ``objects`` are Document instances
         """
-        params = {
+        params: Dict[str, Any] = {
             "includeContent": str(include_content).lower(),
             "includeLabels": str(include_labels).lower(),
             "includeTags": str(include_tags).lower()
         }
+        if max_results is not None:
+            params["maxResults"] = max_results
+        if skip is not None:
+            params["skip"] = skip
 
         payload = self._client._request(
             "GET", f"/v1.0/collections/{collection_id}/documents", params=params
         )
 
         if payload:
-            return [Document.from_dict(d) for d in payload]
-        return []
+            return EnumerationResult.from_dict(payload, Document.from_dict)
+        return EnumerationResult()
 
     def read_by_id(
         self,
@@ -694,18 +720,34 @@ class SchemaMethods:
     def __init__(self, client: LatticeClient):
         self._client = client
 
-    def read_all(self) -> List[Schema]:
+    def read_all(
+        self,
+        max_results: Optional[int] = None,
+        skip: Optional[int] = None
+    ) -> EnumerationResult:
         """
         Get all schemas.
 
+        Args:
+            max_results: Optional page size (maxResults query param)
+            skip: Optional number of records to skip (skip query param)
+
         Returns:
-            List of all schemas
+            An EnumerationResult whose ``objects`` are Schema instances
         """
-        payload = self._client._request("GET", "/v1.0/schemas")
+        params: Dict[str, Any] = {}
+        if max_results is not None:
+            params["maxResults"] = max_results
+        if skip is not None:
+            params["skip"] = skip
+
+        payload = self._client._request(
+            "GET", "/v1.0/schemas", params=params or None
+        )
 
         if payload:
-            return [Schema.from_dict(s) for s in payload]
-        return []
+            return EnumerationResult.from_dict(payload, Schema.from_dict)
+        return EnumerationResult()
 
     def read_by_id(self, schema_id: str) -> Optional[Schema]:
         """
@@ -728,21 +770,36 @@ class SchemaMethods:
             return Schema.from_dict(payload)
         return None
 
-    def get_elements(self, schema_id: str) -> List[SchemaElement]:
+    def get_elements(
+        self,
+        schema_id: str,
+        max_results: Optional[int] = None,
+        skip: Optional[int] = None
+    ) -> EnumerationResult:
         """
         Get elements for a schema.
 
         Args:
             schema_id: The schema ID
+            max_results: Optional page size (maxResults query param)
+            skip: Optional number of records to skip (skip query param)
 
         Returns:
-            List of schema elements
+            An EnumerationResult whose ``objects`` are SchemaElement instances
         """
-        payload = self._client._request("GET", f"/v1.0/schemas/{schema_id}/elements")
+        params: Dict[str, Any] = {}
+        if max_results is not None:
+            params["maxResults"] = max_results
+        if skip is not None:
+            params["skip"] = skip
+
+        payload = self._client._request(
+            "GET", f"/v1.0/schemas/{schema_id}/elements", params=params or None
+        )
 
         if payload:
-            return [SchemaElement.from_dict(e) for e in payload]
-        return []
+            return EnumerationResult.from_dict(payload, SchemaElement.from_dict)
+        return EnumerationResult()
 
 
 class IndexMethods:
@@ -751,15 +808,65 @@ class IndexMethods:
     def __init__(self, client: LatticeClient):
         self._client = client
 
-    def get_mappings(self) -> List[IndexTableMapping]:
+    def get_mappings(
+        self,
+        max_results: Optional[int] = None,
+        skip: Optional[int] = None
+    ) -> EnumerationResult:
         """
         Get all index table mappings.
 
+        Args:
+            max_results: Optional page size (maxResults query param)
+            skip: Optional number of records to skip (skip query param)
+
         Returns:
-            List of index table mappings
+            An EnumerationResult whose ``objects`` are IndexTableMapping instances
         """
-        payload = self._client._request("GET", "/v1.0/tables")
+        params: Dict[str, Any] = {}
+        if max_results is not None:
+            params["maxResults"] = max_results
+        if skip is not None:
+            params["skip"] = skip
+
+        payload = self._client._request(
+            "GET", "/v1.0/tables", params=params or None
+        )
 
         if payload:
-            return [IndexTableMapping.from_dict(m) for m in payload]
-        return []
+            return EnumerationResult.from_dict(payload, IndexTableMapping.from_dict)
+        return EnumerationResult()
+
+    def get_table_entries(
+        self,
+        table_name: str,
+        max_results: Optional[int] = None,
+        skip: Optional[int] = None
+    ) -> EnumerationResult:
+        """
+        Get entries from a specific index table.
+
+        The entries are returned in the ``objects`` field and the total number
+        of entries in the table is available via ``total_records``.
+
+        Args:
+            table_name: The name of the index table
+            max_results: Optional page size (maxResults query param)
+            skip: Optional number of records to skip (skip query param)
+
+        Returns:
+            An EnumerationResult whose ``objects`` are IndexTableEntry instances
+        """
+        params: Dict[str, Any] = {}
+        if max_results is not None:
+            params["maxResults"] = max_results
+        if skip is not None:
+            params["skip"] = skip
+
+        payload = self._client._request(
+            "GET", f"/v1.0/tables/{table_name}/entries", params=params or None
+        )
+
+        if payload:
+            return EnumerationResult.from_dict(payload, IndexTableEntry.from_dict)
+        return EnumerationResult()

@@ -117,8 +117,8 @@ export default function Collections() {
   const loadCollections = async () => {
     try {
       setLoading(true)
-      const data = await api.getCollections()
-      setCollections(data || [])
+      const result = await api.getCollections({ maxResults: 1000 })
+      setCollections(result?.objects || [])
     } catch (err) {
       setError('Failed to load collections: ' + err.message)
     } finally {

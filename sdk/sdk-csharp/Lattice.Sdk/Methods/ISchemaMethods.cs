@@ -10,7 +10,13 @@ namespace Lattice.Sdk.Methods
         /// <summary>
         /// Get all schemas.
         /// </summary>
-        Task<List<Schema>> ReadAllAsync(CancellationToken cancellationToken = default);
+        /// <param name="maxResults">Optional maximum number of results to return per page.</param>
+        /// <param name="skip">Optional number of records to skip.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        Task<EnumerationResult<Schema>?> ReadAllAsync(
+            int? maxResults = null,
+            int? skip = null,
+            CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Get a schema by ID.
@@ -20,6 +26,14 @@ namespace Lattice.Sdk.Methods
         /// <summary>
         /// Get elements for a schema.
         /// </summary>
-        Task<List<SchemaElement>> GetElementsAsync(string schemaId, CancellationToken cancellationToken = default);
+        /// <param name="schemaId">The schema identifier.</param>
+        /// <param name="maxResults">Optional maximum number of results to return per page.</param>
+        /// <param name="skip">Optional number of records to skip.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        Task<EnumerationResult<SchemaElement>?> GetElementsAsync(
+            string schemaId,
+            int? maxResults = null,
+            int? skip = null,
+            CancellationToken cancellationToken = default);
     }
 }

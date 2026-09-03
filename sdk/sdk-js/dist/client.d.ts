@@ -3,7 +3,7 @@
  *
  * Main client for interacting with the Lattice REST API.
  */
-import { Collection, Document, Schema, SchemaElement, FieldConstraint, IndexedField, SearchResult, IndexRebuildResult, SearchQuery, IndexTableMapping, SchemaEnforcementMode, IndexingMode, CreateCollectionOptions, IngestDocumentOptions, BatchIngestDocumentEntry } from "./models";
+import { Collection, Document, Schema, SchemaElement, FieldConstraint, IndexedField, SearchResult, IndexRebuildResult, SearchQuery, IndexTableMapping, IndexTableEntry, EnumerationResult, PaginationOptions, SchemaEnforcementMode, IndexingMode, CreateCollectionOptions, IngestDocumentOptions, BatchIngestDocumentEntry } from "./models";
 /**
  * HTTP request options.
  */
@@ -64,7 +64,7 @@ declare class CollectionMethods {
     /**
      * Get all collections.
      */
-    readAll(): Promise<Collection[]>;
+    readAll(options?: PaginationOptions): Promise<EnumerationResult<Collection>>;
     /**
      * Get a collection by ID.
      */
@@ -115,7 +115,7 @@ declare class DocumentMethods {
     /**
      * Get all documents in a collection.
      */
-    readAllInCollection(collectionId: string, includeContent?: boolean, includeLabels?: boolean, includeTags?: boolean): Promise<Document[]>;
+    readAllInCollection(collectionId: string, includeContent?: boolean, includeLabels?: boolean, includeTags?: boolean, options?: PaginationOptions): Promise<EnumerationResult<Document>>;
     /**
      * Get a document by ID.
      */
@@ -157,7 +157,7 @@ declare class SchemaMethods {
     /**
      * Get all schemas.
      */
-    readAll(): Promise<Schema[]>;
+    readAll(options?: PaginationOptions): Promise<EnumerationResult<Schema>>;
     /**
      * Get a schema by ID.
      */
@@ -165,7 +165,7 @@ declare class SchemaMethods {
     /**
      * Get elements for a schema.
      */
-    getElements(schemaId: string): Promise<SchemaElement[]>;
+    getElements(schemaId: string, options?: PaginationOptions): Promise<EnumerationResult<SchemaElement>>;
 }
 /**
  * Methods for managing indexes.
@@ -176,6 +176,12 @@ declare class IndexMethods {
     /**
      * Get all index table mappings.
      */
-    getMappings(): Promise<IndexTableMapping[]>;
+    getMappings(options?: PaginationOptions): Promise<EnumerationResult<IndexTableMapping>>;
+    /**
+     * Get the entries for an index table. The entries are returned in the
+     * `objects` array of the {@link EnumerationResult}; the total number of
+     * entries is available on `totalRecords`.
+     */
+    getEntries(tableName: string, options?: PaginationOptions): Promise<EnumerationResult<IndexTableEntry>>;
 }
 export {};

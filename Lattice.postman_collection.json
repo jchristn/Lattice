@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
 		"name": "Lattice",
-		"description": "Lattice Document Store API\n\nLattice is a JSON document store with automatic schema detection, dynamic indexing, and SQL-like query capabilities.\n\n## Features\n- Automatic JSON schema detection and deduplication\n- Dynamic per-field indexing for fast queries\n- SQL-like DSL for document queries\n- Labels and tags for document organization\n- Full document content storage and retrieval\n\n## Getting Started\n1. Create a collection to organize your documents\n2. Ingest JSON documents into the collection\n3. Search and retrieve documents using filters or SQL expressions\n\n## Response Format\nLattice returns raw payloads with no response envelope.\n- **Success (2xx):** the body is the payload directly (an array for list endpoints, an object for single-resource endpoints, empty for operations with no payload). Status is the HTTP status code.\n- **Error (4xx/5xx):** the body is `{ \"error\": \"<message>\" }`, plus a `detail` object when structured information is available (e.g. validation errors, lock info).\n- **Metadata headers:** `X-Lattice-Request-Id` (request/response id) and `X-Lattice-Processing-Time-Ms` (server processing time).\n\nOn first server start a collection named `default` is auto-created.\n\n## Variables\n- `protocol`: HTTP protocol (default: http)\n- `hostname`: Server hostname (default: localhost)\n- `port`: Server port (default: 8000)",
+		"description": "Lattice Document Store API\n\nLattice is a JSON document store with automatic schema detection, dynamic indexing, and SQL-like query capabilities.\n\n## Features\n- Automatic JSON schema detection and deduplication\n- Dynamic per-field indexing for fast queries\n- SQL-like DSL for document queries\n- Labels and tags for document organization\n- Full document content storage and retrieval\n\n## Getting Started\n1. Create a collection to organize your documents\n2. Ingest JSON documents into the collection\n3. Search and retrieve documents using filters or SQL expressions\n\n## Response Format\nLattice returns raw payloads with no response envelope.\n- **Success (2xx):** the body is the payload directly. List/enumeration endpoints return an **EnumerationResult** object with the items under `objects` (and pagination metadata such as `totalRecords`, `skip`, `maxResults`, `endOfResults`); single-resource endpoints return an object; operations with no payload return an empty body. Status is the HTTP status code.\n- **Error (4xx/5xx):** the body is `{ \"error\": \"<message>\" }`, plus a `detail` object when structured information is available (e.g. validation errors, lock info).\n- **Metadata headers:** `X-Lattice-Request-Id` (request/response id) and `X-Lattice-Processing-Time-Ms` (server processing time).\n\n## Enumeration & Pagination\nGET endpoints that list resources (collections, documents, schemas, schema elements, index tables, index entries) return an EnumerationResult:\n```json\n{ \"success\": true, \"timestamp\": { \"start\": \"...\", \"end\": \"...\", \"totalMs\": 0.67 }, \"maxResults\": 100, \"skip\": 0, \"iterationsRequired\": 1, \"endOfResults\": true, \"totalRecords\": 1, \"recordsRemaining\": 0, \"objects\": [ /* items */ ] }\n```\nAll accept optional `maxResults` (default 100, max 1000) and `skip` (default 0) query parameters.\n\nOn first server start a collection named `default` is auto-created.\n\n## Variables\n- `protocol`: HTTP protocol (default: http)\n- `hostname`: Server hostname (default: localhost)\n- `port`: Server port (default: 8000)",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"variable": [
@@ -94,7 +94,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["v1.0", "collections"]
 						},
-						"description": "Retrieve all collections in the system.\n\nThe response body is the array of collections directly.\n\n**Response:**\n```json\n[\n  {\n    \"id\": \"col_abc123\",\n    \"name\": \"My Collection\",\n    \"description\": \"Collection description\",\n    \"documentsDirectory\": \"/path/to/docs\",\n    \"labels\": [\"production\"],\n    \"tags\": {\"env\": \"prod\"},\n    \"createdUtc\": \"2024-01-15T12:00:00Z\"\n  }\n]\n```\n\n**Note:** On first server start a collection named `default` is auto-created, so this list is never empty on a fresh install."
+						"description": "Retrieve all collections in the system.\n\nReturns an EnumerationResult with the collections under `objects`.\n\n**Query Parameters:**\n- `maxResults` (default 100, max 1000): page size\n- `skip` (default 0): number of records to skip\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"maxResults\": 100,\n  \"skip\": 0,\n  \"endOfResults\": true,\n  \"totalRecords\": 1,\n  \"recordsRemaining\": 0,\n  \"objects\": [\n    {\n      \"id\": \"col_abc123\",\n      \"name\": \"My Collection\",\n      \"description\": \"Collection description\",\n      \"documentsDirectory\": \"/path/to/docs\",\n      \"labels\": [\"production\"],\n      \"tags\": {\"env\": \"prod\"},\n      \"createdUtc\": \"2024-01-15T12:00:00Z\"\n    }\n  ]\n}\n```\n\n**Note:** On first server start a collection named `default` is auto-created, so this list is never empty on a fresh install."
 					},
 					"response": []
 				},
@@ -333,7 +333,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["v1.0", "collections", "{{collectionId}}", "documents"]
 						},
-						"description": "Retrieve all documents in a collection.\n\n**Path Parameters:**\n- `collectionId`: The unique identifier of the collection\n\n**Response:**\n```json\n[\n  {\n    \"id\": \"doc_xyz789\",\n    \"collectionId\": \"col_abc123\",\n    \"schemaId\": \"sch_def456\",\n    \"name\": \"customer_001.json\",\n    \"labels\": [\"active\"],\n    \"tags\": {\"priority\": \"high\"},\n    \"createdUtc\": \"2024-01-15T12:00:00Z\"\n  }\n]\n```\n\n**Note:** Document content is not included by default. Use Get Document with `includeContent=true` to retrieve content."
+						"description": "Retrieve all documents in a collection.\n\nReturns an EnumerationResult with the documents under `objects`.\n\n**Path Parameters:**\n- `collectionId`: The unique identifier of the collection\n\n**Query Parameters:**\n- `maxResults` (default 100, max 1000): page size\n- `skip` (default 0): number of records to skip\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"maxResults\": 100,\n  \"skip\": 0,\n  \"endOfResults\": true,\n  \"totalRecords\": 1,\n  \"recordsRemaining\": 0,\n  \"objects\": [\n    {\n      \"id\": \"doc_xyz789\",\n      \"collectionId\": \"col_abc123\",\n      \"schemaId\": \"sch_def456\",\n      \"name\": \"customer_001.json\",\n      \"labels\": [\"active\"],\n      \"tags\": {\"priority\": \"high\"},\n      \"createdUtc\": \"2024-01-15T12:00:00Z\"\n    }\n  ]\n}\n```\n\n**Note:** Document content is not included by default. Use Get Document with `includeContent=true` to retrieve content."
 					},
 					"response": []
 				},
@@ -686,7 +686,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["v1.0", "schemas"]
 						},
-						"description": "Retrieve all schemas in the system.\n\nSchemas are automatically created when documents are ingested. Documents with identical JSON structures share the same schema (deduplicated by hash).\n\n**Response:**\n```json\n[\n  {\n    \"id\": \"sch_def456\",\n    \"hash\": \"a1b2c3d4...\",\n    \"createdUtc\": \"2024-01-15T12:00:00Z\"\n  }\n]\n```"
+						"description": "Retrieve all schemas in the system.\n\nSchemas are automatically created when documents are ingested. Documents with identical JSON structures share the same schema (deduplicated by hash).\n\nReturns an EnumerationResult with the schemas under `objects`.\n\n**Query Parameters:**\n- `maxResults` (default 100, max 1000): page size\n- `skip` (default 0): number of records to skip\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"maxResults\": 100,\n  \"skip\": 0,\n  \"endOfResults\": true,\n  \"totalRecords\": 1,\n  \"recordsRemaining\": 0,\n  \"objects\": [\n    {\n      \"id\": \"sch_def456\",\n      \"hash\": \"a1b2c3d4...\",\n      \"createdUtc\": \"2024-01-15T12:00:00Z\"\n    }\n  ]\n}\n```"
 					},
 					"response": []
 				},
@@ -714,7 +714,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["v1.0", "schemas", "{{schemaId}}", "elements"]
 						},
-						"description": "Retrieve the elements (fields) of a schema.\n\nSchema elements describe each field in the JSON structure, including:\n- Key name (dot notation for nested fields)\n- Data type (string, integer, number, boolean, null, array<T>)\n- Position in the schema\n- Nullability\n\n**Response:**\n```json\n[\n  {\n    \"id\": \"sel_001\",\n    \"schemaId\": \"sch_def456\",\n    \"position\": 0,\n    \"key\": \"Person.First\",\n    \"dataType\": \"string\",\n    \"nullable\": false\n  },\n  {\n    \"id\": \"sel_002\",\n    \"schemaId\": \"sch_def456\",\n    \"position\": 1,\n    \"key\": \"Person.Last\",\n    \"dataType\": \"string\",\n    \"nullable\": false\n  }\n]\n```"
+						"description": "Retrieve the elements (fields) of a schema.\n\nSchema elements describe each field in the JSON structure, including:\n- Key name (dot notation for nested fields)\n- Data type (string, integer, number, boolean, null, array<T>)\n- Position in the schema\n- Nullability\n\nReturns an EnumerationResult with the schema elements under `objects`.\n\n**Query Parameters:**\n- `maxResults` (default 100, max 1000): page size\n- `skip` (default 0): number of records to skip\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"maxResults\": 100,\n  \"skip\": 0,\n  \"endOfResults\": true,\n  \"totalRecords\": 2,\n  \"recordsRemaining\": 0,\n  \"objects\": [\n    {\n      \"id\": \"sel_001\",\n      \"schemaId\": \"sch_def456\",\n      \"position\": 0,\n      \"key\": \"Person.First\",\n      \"dataType\": \"string\",\n      \"nullable\": false\n    },\n    {\n      \"id\": \"sel_002\",\n      \"schemaId\": \"sch_def456\",\n      \"position\": 1,\n      \"key\": \"Person.Last\",\n      \"dataType\": \"string\",\n      \"nullable\": false\n    }\n  ]\n}\n```"
 					},
 					"response": []
 				}
@@ -734,7 +734,58 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["v1.0", "tables"]
 						},
-						"description": "Retrieve all index table mappings.\n\nLattice creates a dedicated database table for each unique field (key) found in documents. This enables fast equality and range queries on any indexed field.\n\n**Response:**\n```json\n[\n  {\n    \"id\": \"itm_001\",\n    \"key\": \"Person.First\",\n    \"tableName\": \"idx_a1b2c3d4\",\n    \"createdUtc\": \"2024-01-15T12:00:00Z\"\n  },\n  {\n    \"id\": \"itm_002\",\n    \"key\": \"Person.Last\",\n    \"tableName\": \"idx_e5f6g7h8\",\n    \"createdUtc\": \"2024-01-15T12:00:00Z\"\n  }\n]\n```\n\n**Note:** Table names are MD5 hashes of the key names to ensure valid SQL identifiers."
+						"description": "Retrieve all index table mappings.\n\nLattice creates a dedicated database table for each unique field (key) found in documents. This enables fast equality and range queries on any indexed field.\n\nReturns an EnumerationResult with the index table mappings under `objects`.\n\n**Query Parameters:**\n- `maxResults` (default 100, max 1000): page size\n- `skip` (default 0): number of records to skip\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"maxResults\": 100,\n  \"skip\": 0,\n  \"endOfResults\": true,\n  \"totalRecords\": 2,\n  \"recordsRemaining\": 0,\n  \"objects\": [\n    {\n      \"id\": \"itm_001\",\n      \"key\": \"Person.First\",\n      \"tableName\": \"idx_a1b2c3d4\",\n      \"createdUtc\": \"2024-01-15T12:00:00Z\"\n    },\n    {\n      \"id\": \"itm_002\",\n      \"key\": \"Person.Last\",\n      \"tableName\": \"idx_e5f6g7h8\",\n      \"createdUtc\": \"2024-01-15T12:00:00Z\"\n    }\n  ]\n}\n```\n\n**Note:** Table names are MD5 hashes of the key names to ensure valid SQL identifiers."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Index Entries",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.test(\"response is an EnumerationResult\", function () {",
+									"        pm.expect(jsonData).to.have.property(\"objects\");",
+									"        pm.expect(jsonData.objects).to.be.an(\"array\");",
+									"        pm.expect(jsonData).to.have.property(\"totalRecords\");",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/tables/idx_a1b2c3d4/entries?maxResults=100&skip=0",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"tables",
+								"idx_a1b2c3d4",
+								"entries"
+							],
+							"query": [
+								{
+									"key": "maxResults",
+									"value": "100",
+									"description": "Page size (default 100, max 1000)"
+								},
+								{
+									"key": "skip",
+									"value": "0",
+									"description": "Number of entries to skip (default 0)"
+								}
+							]
+						},
+						"description": "Retrieve entries from a specific index table with pagination.\n\nReturns an EnumerationResult with the index entries under `objects`.\n\n**Path Parameters:**\n- `tableName`: The name of the index table (e.g., `idx_a1b2c3d4`, obtained from List Index Tables)\n\n**Query Parameters:**\n- `maxResults` (default 100, max 1000): page size\n- `skip` (default 0): number of entries to skip\n- `limit`: **legacy** alias for `maxResults`, still accepted for backward compatibility\n\n**Changed:** this endpoint previously returned `{ tableName, fieldKey, entries, totalCount, skip, limit }`. It now returns a plain EnumerationResult (entries are under `objects`, the count is in `totalRecords`, and `tableName`/`fieldKey` are no longer included).\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"maxResults\": 100,\n  \"skip\": 0,\n  \"endOfResults\": true,\n  \"totalRecords\": 2,\n  \"recordsRemaining\": 0,\n  \"objects\": [\n    {\n      \"id\": \"ite_001\",\n      \"documentId\": \"doc_xyz789\",\n      \"schemaId\": \"sch_def456\",\n      \"schemaElementId\": \"sel_001\",\n      \"position\": 0,\n      \"value\": \"Joel\"\n    },\n    {\n      \"id\": \"ite_002\",\n      \"documentId\": \"doc_abc123\",\n      \"schemaId\": \"sch_def456\",\n      \"schemaElementId\": \"sel_001\",\n      \"position\": 0,\n      \"value\": \"Alice\"\n    }\n  ]\n}\n```\n\n**Errors:** `404 Not Found` returns `{ \"error\": \"Index table not found\" }`."
 					},
 					"response": []
 				}

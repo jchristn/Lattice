@@ -298,8 +298,9 @@ namespace Lattice.Sdk.Tests
                 Collection? col2 = await _client.Collection.CreateAsync("test_multi_2").ConfigureAwait(false);
                 if (col1 == null || col2 == null) return TestOutcome.Fail("Setup: Collection creation failed");
 
-                List<Collection> collections = await _client.Collection.ReadAllAsync().ConfigureAwait(false);
-                HashSet<string> foundIds = new HashSet<string>(collections.Select(c => c.Id));
+                EnumerationResult<Collection>? collections = await _client.Collection.ReadAllAsync().ConfigureAwait(false);
+                if (collections == null) return TestOutcome.Fail("ReadAllAsync returned null");
+                HashSet<string> foundIds = new HashSet<string>(collections.Objects.Select(c => c.Id));
 
                 if (!foundIds.Contains(col1.Id) || !foundIds.Contains(col2.Id))
                 {
@@ -498,8 +499,9 @@ namespace Lattice.Sdk.Tests
 
                 await RunTest("GetDocuments: multiple documents", async () =>
                 {
-                    List<Document> docs = await _client.Document.ReadAllInCollectionAsync(collection.Id).ConfigureAwait(false);
-                    if (docs.Count < 5) return TestOutcome.Fail($"Expected at least 5 docs, got {docs.Count}");
+                    EnumerationResult<Document>? docs = await _client.Document.ReadAllInCollectionAsync(collection.Id).ConfigureAwait(false);
+                    if (docs == null) return TestOutcome.Fail("ReadAllInCollectionAsync returned null");
+                    if (docs.TotalRecords < 5) return TestOutcome.Fail($"Expected at least 5 docs, got {docs.TotalRecords}");
                     return TestOutcome.Pass();
                 }).ConfigureAwait(false);
 
@@ -948,8 +950,9 @@ namespace Lattice.Sdk.Tests
 
                 await RunTest("GetSchemas: returns schemas", async () =>
                 {
-                    List<Schema> schemas = await _client.Schema.ReadAllAsync().ConfigureAwait(false);
-                    if (schemas.Count == 0) return TestOutcome.Fail("No schemas returned");
+                    EnumerationResult<Schema>? schemas = await _client.Schema.ReadAllAsync().ConfigureAwait(false);
+                    if (schemas == null) return TestOutcome.Fail("ReadAllAsync returned null");
+                    if (schemas.Objects.Count == 0) return TestOutcome.Fail("No schemas returned");
                     return TestOutcome.Pass();
                 }).ConfigureAwait(false);
 
@@ -972,16 +975,18 @@ namespace Lattice.Sdk.Tests
                 await RunTest("GetSchemaElements: returns elements", async () =>
                 {
                     if (doc1 == null) return TestOutcome.Fail("Setup: doc1 is null");
-                    List<SchemaElement> elements = await _client.Schema.GetElementsAsync(doc1.SchemaId).ConfigureAwait(false);
-                    if (elements.Count == 0) return TestOutcome.Fail("No elements returned");
+                    EnumerationResult<SchemaElement>? elements = await _client.Schema.GetElementsAsync(doc1.SchemaId).ConfigureAwait(false);
+                    if (elements == null) return TestOutcome.Fail("GetElementsAsync returned null");
+                    if (elements.Objects.Count == 0) return TestOutcome.Fail("No elements returned");
                     return TestOutcome.Pass();
                 }).ConfigureAwait(false);
 
                 await RunTest("GetSchemaElements: correct keys", async () =>
                 {
                     if (doc1 == null) return TestOutcome.Fail("Setup: doc1 is null");
-                    List<SchemaElement> elements = await _client.Schema.GetElementsAsync(doc1.SchemaId).ConfigureAwait(false);
-                    HashSet<string> keys = new HashSet<string>(elements.Select(e => e.Key));
+                    EnumerationResult<SchemaElement>? elements = await _client.Schema.GetElementsAsync(doc1.SchemaId).ConfigureAwait(false);
+                    if (elements == null) return TestOutcome.Fail("GetElementsAsync returned null");
+                    HashSet<string> keys = new HashSet<string>(elements.Objects.Select(e => e.Key));
                     string[] expected = { "name", "value", "active" };
                     foreach (string key in expected)
                     {
@@ -1002,7 +1007,8 @@ namespace Lattice.Sdk.Tests
         {
             await RunTest("GetIndexTableMappings: returns mappings", async () =>
             {
-                List<IndexTableMapping> mappings = await _client.Index.GetMappingsAsync().ConfigureAwait(false);
+                EnumerationResult<IndexTableMapping>? mappings = await _client.Index.GetMappingsAsync().ConfigureAwait(false);
+                if (mappings == null) return TestOutcome.Fail("GetMappingsAsync returned null");
                 // Mappings may be empty if no indexes exist yet
                 return TestOutcome.Pass();
             }).ConfigureAwait(false);
@@ -1311,9 +1317,10 @@ namespace Lattice.Sdk.Tests
                 await RunTest("Perf: GetDocuments for 100 documents", async () =>
                 {
                     Stopwatch sw = Stopwatch.StartNew();
-                    List<Document> docs = await _client.Document.ReadAllInCollectionAsync(collection.Id).ConfigureAwait(false);
+                    EnumerationResult<Document>? docs = await _client.Document.ReadAllInCollectionAsync(collection.Id, maxResults: 1000).ConfigureAwait(false);
                     sw.Stop();
-                    if (docs.Count != 100) return TestOutcome.Fail($"Expected 100 docs, got {docs.Count}");
+                    if (docs == null) return TestOutcome.Fail("ReadAllInCollectionAsync returned null");
+                    if (docs.TotalRecords != 100) return TestOutcome.Fail($"Expected 100 docs, got {docs.TotalRecords}");
                     Console.Write($"({sw.ElapsedMilliseconds}ms) ");
                     return TestOutcome.Pass();
                 }).ConfigureAwait(false);

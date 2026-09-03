@@ -26,8 +26,8 @@ export default function Schemas() {
   const loadSchemas = async () => {
     try {
       setLoading(true)
-      const data = await api.getSchemas()
-      setSchemas(data || [])
+      const result = await api.getSchemas({ maxResults: 1000 })
+      setSchemas(result?.objects || [])
     } catch (err) {
       setError('Failed to load schemas: ' + err.message)
     } finally {

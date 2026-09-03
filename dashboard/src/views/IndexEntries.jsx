@@ -29,8 +29,8 @@ export default function IndexEntries() {
 
   const loadTables = async () => {
     try {
-      const data = await api.getIndexTables()
-      setTables(data || [])
+      const result = await api.getIndexTables({ maxResults: 1000 })
+      setTables(result?.objects || [])
     } catch (err) {
       console.error('Failed to load index tables:', err)
     } finally {
@@ -58,9 +58,10 @@ export default function IndexEntries() {
   }
 
   const filteredEntries = useMemo(() => {
-    if (!entriesData?.entries) return []
+    // EnumerationResult: entries live in `objects` (was `entries`).
+    if (!entriesData?.objects) return []
 
-    let result = [...entriesData.entries]
+    let result = [...entriesData.objects]
 
     if (filters.documentId) {
       const query = filters.documentId.toLowerCase()
@@ -86,9 +87,11 @@ export default function IndexEntries() {
     return result
   }, [entriesData, filters, sort])
 
-  const totalPages = entriesData ? Math.max(1, Math.ceil(entriesData.totalCount / pageSize)) : 1
-  const showingFrom = entriesData?.totalCount ? (page * pageSize + 1) : 0
-  const showingTo = entriesData?.totalCount ? Math.min((page + 1) * pageSize, entriesData.totalCount) : 0
+  // EnumerationResult: total count is `totalRecords` (was `totalCount`).
+  const totalRecords = entriesData?.totalRecords ?? 0
+  const totalPages = entriesData ? Math.max(1, Math.ceil(totalRecords / pageSize)) : 1
+  const showingFrom = totalRecords ? (page * pageSize + 1) : 0
+  const showingTo = totalRecords ? Math.min((page + 1) * pageSize, totalRecords) : 0
 
   useEffect(() => {
     if (api) {
@@ -225,17 +228,17 @@ export default function IndexEntries() {
         <div className="empty-state">
           <p>No data found for this index table.</p>
         </div>
-      ) : entriesData.totalCount === 0 ? (
+      ) : totalRecords === 0 ? (
         <div className="empty-state">
           <p>No entries found in this index table.</p>
         </div>
       ) : (
         <div className="card">
           <div className="table-results-count">
-            Showing {showingFrom.toLocaleString()}-{showingTo.toLocaleString()} of {entriesData.totalCount.toLocaleString()} entries
+            Showing {showingFrom.toLocaleString()}-{showingTo.toLocaleString()} of {totalRecords.toLocaleString()} entries
           </div>
           <TablePagination
-            totalRecords={entriesData.totalCount}
+            totalRecords={totalRecords}
             currentPage={page}
             totalPages={totalPages}
             onPageChange={setPage}

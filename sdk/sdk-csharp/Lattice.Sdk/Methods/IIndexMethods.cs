@@ -10,6 +10,25 @@ namespace Lattice.Sdk.Methods
         /// <summary>
         /// Get all index table mappings.
         /// </summary>
-        Task<List<IndexTableMapping>> GetMappingsAsync(CancellationToken cancellationToken = default);
+        /// <param name="maxResults">Optional maximum number of results to return per page.</param>
+        /// <param name="skip">Optional number of records to skip.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        Task<EnumerationResult<IndexTableMapping>?> GetMappingsAsync(
+            int? maxResults = null,
+            int? skip = null,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Get the entries stored in an index table.
+        /// </summary>
+        /// <param name="tableName">The name of the index table.</param>
+        /// <param name="maxResults">Optional maximum number of results to return per page.</param>
+        /// <param name="skip">Optional number of records to skip.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        Task<EnumerationResult<IndexTableEntry>?> GetTableEntriesAsync(
+            string tableName,
+            int? maxResults = null,
+            int? skip = null,
+            CancellationToken cancellationToken = default);
     }
 }

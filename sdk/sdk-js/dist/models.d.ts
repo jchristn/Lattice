@@ -200,6 +200,49 @@ export interface IndexTableMapping {
     tableName: string;
 }
 /**
+ * Represents an entry in an index table.
+ */
+export interface IndexTableEntry {
+    id: string;
+    documentId: string;
+    position?: number | null;
+    value?: string | null;
+    createdUtc?: Date;
+}
+/**
+ * Timing metadata included on an EnumerationResult.
+ */
+export interface EnumerationTimestamp {
+    start?: Date;
+    end?: Date;
+    totalMs?: number;
+}
+/**
+ * Paginated result envelope returned by the GET list endpoints.
+ *
+ * The items live in {@link objects}; the remaining fields describe the
+ * pagination window and totals.
+ */
+export interface EnumerationResult<T> {
+    success: boolean;
+    timestamp?: EnumerationTimestamp;
+    maxResults: number;
+    skip: number;
+    iterationsRequired: number;
+    continuationToken?: string | null;
+    endOfResults: boolean;
+    totalRecords: number;
+    recordsRemaining: number;
+    objects: T[];
+}
+/**
+ * Optional pagination parameters accepted by the list endpoints.
+ */
+export interface PaginationOptions {
+    maxResults?: number;
+    skip?: number;
+}
+/**
  * Options for creating a collection.
  */
 export interface CreateCollectionOptions {
@@ -272,6 +315,15 @@ export declare function parseIndexRebuildResult(data: any): IndexRebuildResult |
  * Parse an IndexTableMapping from API response data.
  */
 export declare function parseIndexTableMapping(data: any): IndexTableMapping | null;
+/**
+ * Parse an IndexTableEntry from API response data.
+ */
+export declare function parseIndexTableEntry(data: any): IndexTableEntry | null;
+/**
+ * Parse an EnumerationResult envelope from API response data, mapping each
+ * item in `objects` through the supplied element parser.
+ */
+export declare function parseEnumerationResult<T>(data: any, parseItem: (item: any) => T | null): EnumerationResult<T>;
 /**
  * Convert a FieldConstraint to API request format.
  */

@@ -15,6 +15,9 @@ import {
     IndexRebuildResult,
     SearchQuery,
     IndexTableMapping,
+    IndexTableEntry,
+    EnumerationResult,
+    PaginationOptions,
     SchemaEnforcementMode,
     IndexingMode,
     CreateCollectionOptions,
@@ -29,6 +32,8 @@ import {
     parseSearchResult,
     parseIndexRebuildResult,
     parseIndexTableMapping,
+    parseIndexTableEntry,
+    parseEnumerationResult,
     fieldConstraintToRequest,
     searchQueryToRequest
 } from "./models";
@@ -42,6 +47,20 @@ interface RequestOptions {
     path: string;
     data?: any;
     params?: Record<string, string>;
+}
+
+/**
+ * Build query params for the optional `maxResults` / `skip` pagination values,
+ * merging into an optional base set of params.
+ */
+function paginationParams(
+    options?: PaginationOptions,
+    base?: Record<string, string>
+): Record<string, string> | undefined {
+    const params: Record<string, string> = { ...(base ?? {}) };
+    if (options?.maxResults !== undefined) params.maxResults = String(options.maxResults);
+    if (options?.skip !== undefined) params.skip = String(options.skip);
+    return Object.keys(params).length > 0 ? params : undefined;
 }
 
 /**
@@ -228,16 +247,14 @@ class CollectionMethods {
     /**
      * Get all collections.
      */
-    async readAll(): Promise<Collection[]> {
+    async readAll(options: PaginationOptions = {}): Promise<EnumerationResult<Collection>> {
         const result = await this.client.request({
             method: "GET",
-            path: "/v1.0/collections"
+            path: "/v1.0/collections",
+            params: paginationParams(options)
         });
 
-        if (Array.isArray(result)) {
-            return result.map((c: any) => parseCollection(c)).filter((c): c is Collection => c !== null);
-        }
-        return [];
+        return parseEnumerationResult(result, parseCollection);
     }
 
     /**
@@ -441,22 +458,20 @@ class DocumentMethods {
         collectionId: string,
         includeContent: boolean = false,
         includeLabels: boolean = true,
-        includeTags: boolean = true
-    ): Promise<Document[]> {
+        includeTags: boolean = true,
+        options: PaginationOptions = {}
+    ): Promise<EnumerationResult<Document>> {
         const result = await this.client.request({
             method: "GET",
             path: `/v1.0/collections/${collectionId}/documents`,
-            params: {
+            params: paginationParams(options, {
                 includeContent: String(includeContent),
                 includeLabels: String(includeLabels),
                 includeTags: String(includeTags)
-            }
+            })
         });
 
-        if (Array.isArray(result)) {
-            return result.map((d: any) => parseDocument(d)).filter((d): d is Document => d !== null);
-        }
-        return [];
+        return parseEnumerationResult(result, parseDocument);
     }
 
     /**
@@ -603,16 +618,14 @@ class SchemaMethods {
     /**
      * Get all schemas.
      */
-    async readAll(): Promise<Schema[]> {
+    async readAll(options: PaginationOptions = {}): Promise<EnumerationResult<Schema>> {
         const result = await this.client.request({
             method: "GET",
-            path: "/v1.0/schemas"
+            path: "/v1.0/schemas",
+            params: paginationParams(options)
         });
 
-        if (Array.isArray(result)) {
-            return result.map((s: any) => parseSchema(s)).filter((s): s is Schema => s !== null);
-        }
-        return [];
+        return parseEnumerationResult(result, parseSchema);
     }
 
     /**
@@ -630,16 +643,17 @@ class SchemaMethods {
     /**
      * Get elements for a schema.
      */
-    async getElements(schemaId: string): Promise<SchemaElement[]> {
+    async getElements(
+        schemaId: string,
+        options: PaginationOptions = {}
+    ): Promise<EnumerationResult<SchemaElement>> {
         const result = await this.client.request({
             method: "GET",
-            path: `/v1.0/schemas/${schemaId}/elements`
+            path: `/v1.0/schemas/${schemaId}/elements`,
+            params: paginationParams(options)
         });
 
-        if (Array.isArray(result)) {
-            return result.map((e: any) => parseSchemaElement(e)).filter((e): e is SchemaElement => e !== null);
-        }
-        return [];
+        return parseEnumerationResult(result, parseSchemaElement);
     }
 }
 
@@ -652,16 +666,32 @@ class IndexMethods {
     /**
      * Get all index table mappings.
      */
-    async getMappings(): Promise<IndexTableMapping[]> {
+    async getMappings(options: PaginationOptions = {}): Promise<EnumerationResult<IndexTableMapping>> {
         const result = await this.client.request({
             method: "GET",
-            path: "/v1.0/tables"
+            path: "/v1.0/tables",
+            params: paginationParams(options)
         });
 
-        if (Array.isArray(result)) {
-            return result.map((m: any) => parseIndexTableMapping(m)).filter((m): m is IndexTableMapping => m !== null);
-        }
-        return [];
+        return parseEnumerationResult(result, parseIndexTableMapping);
+    }
+
+    /**
+     * Get the entries for an index table. The entries are returned in the
+     * `objects` array of the {@link EnumerationResult}; the total number of
+     * entries is available on `totalRecords`.
+     */
+    async getEntries(
+        tableName: string,
+        options: PaginationOptions = {}
+    ): Promise<EnumerationResult<IndexTableEntry>> {
+        const result = await this.client.request({
+            method: "GET",
+            path: `/v1.0/tables/${encodeURIComponent(tableName)}/entries`,
+            params: paginationParams(options)
+        });
+
+        return parseEnumerationResult(result, parseIndexTableEntry);
     }
 }
 
