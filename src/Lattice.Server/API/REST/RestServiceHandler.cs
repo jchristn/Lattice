@@ -186,6 +186,9 @@ namespace Lattice.Server.API.REST
             // Authentication, identity, RBAC, and audit routes (only when auth is enabled).
             if (_AuthEnabled) InitializeAuthRoutes();
 
+            // Model Context Protocol (MCP) JSON-RPC endpoint (only when enabled).
+            if (_Settings.Mcp.Enable) InitializeMcpRoutes();
+
             // Health check routes
             _Webserver.Routes.PreAuthentication.Static.Add(
                 HttpMethod.GET, "/", GetHealthRoute, ExceptionRoute,
