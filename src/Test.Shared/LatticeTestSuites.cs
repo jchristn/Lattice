@@ -33,6 +33,7 @@ namespace Test.Shared
                     FlushSuite.Build(),
                     ObjectLockingSuite.Build(),
                     RequestHistorySuite.Build(),
+                    AuthSuite.Build(),
                     IntegrationSuite.Build(),
                 };
             }
