@@ -80,7 +80,7 @@ namespace Lattice.Sdk
         {
             try
             {
-                return await RequestStatusAsync("GET", "/v1.0/health", throwOnError: false, cancellationToken: cancellationToken);
+                return await RequestStatusAsync("GET", "/v1.0/health", throwOnError: false, cancellationToken: cancellationToken).ConfigureAwait(false);
             }
             catch
             {
@@ -105,7 +105,7 @@ namespace Lattice.Sdk
             bool nullOnNotFound = false,
             CancellationToken cancellationToken = default)
         {
-            using HttpResponseMessage response = await SendCoreAsync(method, path, data, queryParams, cancellationToken);
+            using HttpResponseMessage response = await SendCoreAsync(method, path, data, queryParams, cancellationToken).ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -114,10 +114,10 @@ namespace Lattice.Sdk
                     return default;
                 }
 
-                await ThrowApiExceptionAsync(response, cancellationToken);
+                await ThrowApiExceptionAsync(response, cancellationToken).ConfigureAwait(false);
             }
 
-            string body = await response.Content.ReadAsStringAsync(cancellationToken);
+            string body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(body))
             {
                 return default;
@@ -142,7 +142,7 @@ namespace Lattice.Sdk
             bool throwOnError = true,
             CancellationToken cancellationToken = default)
         {
-            using HttpResponseMessage response = await SendCoreAsync(method, path, data, queryParams, cancellationToken);
+            using HttpResponseMessage response = await SendCoreAsync(method, path, data, queryParams, cancellationToken).ConfigureAwait(false);
 
             if (response.IsSuccessStatusCode)
             {
@@ -151,7 +151,7 @@ namespace Lattice.Sdk
 
             if (throwOnError)
             {
-                await ThrowApiExceptionAsync(response, cancellationToken);
+                await ThrowApiExceptionAsync(response, cancellationToken).ConfigureAwait(false);
             }
 
             return false;
@@ -185,7 +185,7 @@ namespace Lattice.Sdk
                     request.Content = new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json");
                 }
 
-                return await _httpClient.SendAsync(request, cancellationToken);
+                return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             }
             catch (HttpRequestException ex)
             {

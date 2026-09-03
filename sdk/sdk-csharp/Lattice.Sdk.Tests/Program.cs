@@ -73,37 +73,37 @@ namespace Lattice.Sdk.Tests
             try
             {
                 // Health check first
-                await RunTestSection("HEALTH CHECK", TestHealthCheck);
+                await RunTestSection("HEALTH CHECK", TestHealthCheck).ConfigureAwait(false);
 
                 // Collection API Tests
-                await RunTestSection("COLLECTION API", TestCollectionApi);
+                await RunTestSection("COLLECTION API", TestCollectionApi).ConfigureAwait(false);
 
                 // Document API Tests
-                await RunTestSection("DOCUMENT API", TestDocumentApi);
+                await RunTestSection("DOCUMENT API", TestDocumentApi).ConfigureAwait(false);
 
                 // Search API Tests
-                await RunTestSection("SEARCH API", TestSearchApi);
+                await RunTestSection("SEARCH API", TestSearchApi).ConfigureAwait(false);
 
                 // Enumeration API Tests
-                await RunTestSection("ENUMERATION API", TestEnumerationApi);
+                await RunTestSection("ENUMERATION API", TestEnumerationApi).ConfigureAwait(false);
 
                 // Schema API Tests
-                await RunTestSection("SCHEMA API", TestSchemaApi);
+                await RunTestSection("SCHEMA API", TestSchemaApi).ConfigureAwait(false);
 
                 // Index API Tests
-                await RunTestSection("INDEX API", TestIndexApi);
+                await RunTestSection("INDEX API", TestIndexApi).ConfigureAwait(false);
 
                 // Constraint Tests
-                await RunTestSection("SCHEMA CONSTRAINTS", TestConstraintsApi);
+                await RunTestSection("SCHEMA CONSTRAINTS", TestConstraintsApi).ConfigureAwait(false);
 
                 // Indexing Mode Tests
-                await RunTestSection("INDEXING MODE", TestIndexingModeApi);
+                await RunTestSection("INDEXING MODE", TestIndexingModeApi).ConfigureAwait(false);
 
                 // Edge Case Tests
-                await RunTestSection("EDGE CASES", TestEdgeCases);
+                await RunTestSection("EDGE CASES", TestEdgeCases).ConfigureAwait(false);
 
                 // Performance Tests
-                await RunTestSection("PERFORMANCE", TestPerformance);
+                await RunTestSection("PERFORMANCE", TestPerformance).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -123,7 +123,7 @@ namespace Lattice.Sdk.Tests
             Console.WriteLine();
             Console.WriteLine($"--- {sectionName} ---");
             _currentSection = sectionName;
-            await tests();
+            await tests().ConfigureAwait(false);
         }
 
         private static async Task RunTest(string name, Func<Task<TestOutcome>> test)
@@ -134,7 +134,7 @@ namespace Lattice.Sdk.Tests
 
             try
             {
-                TestOutcome outcome = await test();
+                TestOutcome outcome = await test().ConfigureAwait(false);
                 passed = outcome.Success;
                 error = outcome.Error;
             }
@@ -216,9 +216,9 @@ namespace Lattice.Sdk.Tests
         {
             await RunTest("Health check returns true", async () =>
             {
-                bool healthy = await _client.HealthCheckAsync();
+                bool healthy = await _client.HealthCheckAsync().ConfigureAwait(false);
                 return healthy ? TestOutcome.Pass() : TestOutcome.Fail("Health check failed");
-            });
+            }).ConfigureAwait(false);
         }
 
         // ========== COLLECTION API TESTS ==========
@@ -227,12 +227,12 @@ namespace Lattice.Sdk.Tests
         {
             await RunTest("CreateCollection: basic", async () =>
             {
-                Collection? collection = await _client.Collection.CreateAsync("test_basic_collection");
+                Collection? collection = await _client.Collection.CreateAsync("test_basic_collection").ConfigureAwait(false);
                 if (collection == null) return TestOutcome.Fail("Collection creation returned null");
                 if (!collection.Id.StartsWith("col_")) return TestOutcome.Fail($"Invalid collection ID: {collection.Id}");
-                await _client.Collection.DeleteAsync(collection.Id);
+                await _client.Collection.DeleteAsync(collection.Id).ConfigureAwait(false);
                 return TestOutcome.Pass();
-            });
+            }).ConfigureAwait(false);
 
             await RunTest("CreateCollection: with all parameters", async () =>
             {
@@ -243,13 +243,13 @@ namespace Lattice.Sdk.Tests
                     tags: new Dictionary<string, string> { ["env"] = "test", ["version"] = "1.0" },
                     schemaEnforcementMode: SchemaEnforcementMode.Flexible,
                     indexingMode: IndexingMode.All
-                );
+                ).ConfigureAwait(false);
                 if (collection == null) return TestOutcome.Fail("Collection creation returned null");
                 if (collection.Name != "test_full_collection") return TestOutcome.Fail($"Name mismatch: {collection.Name}");
                 if (collection.Description != "A test collection") return TestOutcome.Fail($"Description mismatch: {collection.Description}");
-                await _client.Collection.DeleteAsync(collection.Id);
+                await _client.Collection.DeleteAsync(collection.Id).ConfigureAwait(false);
                 return TestOutcome.Pass();
-            });
+            }).ConfigureAwait(false);
 
             await RunTest("CreateCollection: verify all properties", async () =>
             {
@@ -258,98 +258,98 @@ namespace Lattice.Sdk.Tests
                     description: "Props test",
                     labels: new List<string> { "prop_test" },
                     tags: new Dictionary<string, string> { ["key"] = "value" }
-                );
+                ).ConfigureAwait(false);
                 if (collection == null) return TestOutcome.Fail("Collection creation returned null");
                 if (string.IsNullOrEmpty(collection.Id)) return TestOutcome.Fail("Id is empty");
                 if (collection.CreatedUtc == null) return TestOutcome.Fail("CreatedUtc not set");
-                await _client.Collection.DeleteAsync(collection.Id);
+                await _client.Collection.DeleteAsync(collection.Id).ConfigureAwait(false);
                 return TestOutcome.Pass();
-            });
+            }).ConfigureAwait(false);
 
             await RunTest("GetCollection: existing", async () =>
             {
-                Collection? collection = await _client.Collection.CreateAsync("test_get_existing");
+                Collection? collection = await _client.Collection.CreateAsync("test_get_existing").ConfigureAwait(false);
                 if (collection == null) return TestOutcome.Fail("Setup: Collection creation failed");
-                Collection? retrieved = await _client.Collection.ReadByIdAsync(collection.Id);
+                Collection? retrieved = await _client.Collection.ReadByIdAsync(collection.Id).ConfigureAwait(false);
                 if (retrieved == null)
                 {
-                    await _client.Collection.DeleteAsync(collection.Id);
+                    await _client.Collection.DeleteAsync(collection.Id).ConfigureAwait(false);
                     return TestOutcome.Fail("GetCollection returned null");
                 }
                 if (retrieved.Id != collection.Id)
                 {
-                    await _client.Collection.DeleteAsync(collection.Id);
+                    await _client.Collection.DeleteAsync(collection.Id).ConfigureAwait(false);
                     return TestOutcome.Fail($"Id mismatch: {retrieved.Id}");
                 }
-                await _client.Collection.DeleteAsync(collection.Id);
+                await _client.Collection.DeleteAsync(collection.Id).ConfigureAwait(false);
                 return TestOutcome.Pass();
-            });
+            }).ConfigureAwait(false);
 
             await RunTest("GetCollection: non-existent returns null", async () =>
             {
-                Collection? retrieved = await _client.Collection.ReadByIdAsync("col_nonexistent12345");
+                Collection? retrieved = await _client.Collection.ReadByIdAsync("col_nonexistent12345").ConfigureAwait(false);
                 if (retrieved != null) return TestOutcome.Fail("Expected null for non-existent collection");
                 return TestOutcome.Pass();
-            });
+            }).ConfigureAwait(false);
 
             await RunTest("GetCollections: multiple", async () =>
             {
-                Collection? col1 = await _client.Collection.CreateAsync("test_multi_1");
-                Collection? col2 = await _client.Collection.CreateAsync("test_multi_2");
+                Collection? col1 = await _client.Collection.CreateAsync("test_multi_1").ConfigureAwait(false);
+                Collection? col2 = await _client.Collection.CreateAsync("test_multi_2").ConfigureAwait(false);
                 if (col1 == null || col2 == null) return TestOutcome.Fail("Setup: Collection creation failed");
 
-                List<Collection> collections = await _client.Collection.ReadAllAsync();
+                List<Collection> collections = await _client.Collection.ReadAllAsync().ConfigureAwait(false);
                 HashSet<string> foundIds = new HashSet<string>(collections.Select(c => c.Id));
 
                 if (!foundIds.Contains(col1.Id) || !foundIds.Contains(col2.Id))
                 {
-                    await _client.Collection.DeleteAsync(col1.Id);
-                    await _client.Collection.DeleteAsync(col2.Id);
+                    await _client.Collection.DeleteAsync(col1.Id).ConfigureAwait(false);
+                    await _client.Collection.DeleteAsync(col2.Id).ConfigureAwait(false);
                     return TestOutcome.Fail("Not all collections found");
                 }
 
-                await _client.Collection.DeleteAsync(col1.Id);
-                await _client.Collection.DeleteAsync(col2.Id);
+                await _client.Collection.DeleteAsync(col1.Id).ConfigureAwait(false);
+                await _client.Collection.DeleteAsync(col2.Id).ConfigureAwait(false);
                 return TestOutcome.Pass();
-            });
+            }).ConfigureAwait(false);
 
             await RunTest("CollectionExists: true when exists", async () =>
             {
-                Collection? collection = await _client.Collection.CreateAsync("test_exists_true");
+                Collection? collection = await _client.Collection.CreateAsync("test_exists_true").ConfigureAwait(false);
                 if (collection == null) return TestOutcome.Fail("Setup: Collection creation failed");
-                bool exists = await _client.Collection.ExistsAsync(collection.Id);
-                await _client.Collection.DeleteAsync(collection.Id);
+                bool exists = await _client.Collection.ExistsAsync(collection.Id).ConfigureAwait(false);
+                await _client.Collection.DeleteAsync(collection.Id).ConfigureAwait(false);
                 if (!exists) return TestOutcome.Fail("Expected exists to be true");
                 return TestOutcome.Pass();
-            });
+            }).ConfigureAwait(false);
 
             await RunTest("CollectionExists: false when not exists", async () =>
             {
-                bool exists = await _client.Collection.ExistsAsync("col_nonexistent12345");
+                bool exists = await _client.Collection.ExistsAsync("col_nonexistent12345").ConfigureAwait(false);
                 if (exists) return TestOutcome.Fail("Expected exists to be false");
                 return TestOutcome.Pass();
-            });
+            }).ConfigureAwait(false);
 
             await RunTest("DeleteCollection: removes collection", async () =>
             {
-                Collection? collection = await _client.Collection.CreateAsync("test_delete");
+                Collection? collection = await _client.Collection.CreateAsync("test_delete").ConfigureAwait(false);
                 if (collection == null) return TestOutcome.Fail("Setup: Collection creation failed");
-                bool deleted = await _client.Collection.DeleteAsync(collection.Id);
+                bool deleted = await _client.Collection.DeleteAsync(collection.Id).ConfigureAwait(false);
                 if (!deleted) return TestOutcome.Fail("Delete returned false");
-                bool exists = await _client.Collection.ExistsAsync(collection.Id);
+                bool exists = await _client.Collection.ExistsAsync(collection.Id).ConfigureAwait(false);
                 if (exists) return TestOutcome.Fail("Collection still exists after delete");
                 return TestOutcome.Pass();
-            });
+            }).ConfigureAwait(false);
         }
 
         // ========== DOCUMENT API TESTS ==========
 
         private static async Task TestDocumentApi()
         {
-            Collection? collection = await _client.Collection.CreateAsync("doc_test_collection");
+            Collection? collection = await _client.Collection.CreateAsync("doc_test_collection").ConfigureAwait(false);
             if (collection == null)
             {
-                await RunTest("Setup: Create collection", async () => TestOutcome.Fail("Collection creation failed"));
+                await RunTest("Setup: Create collection", async () => TestOutcome.Fail("Collection creation failed")).ConfigureAwait(false);
                 return;
             }
 
@@ -357,11 +357,11 @@ namespace Lattice.Sdk.Tests
             {
                 await RunTest("IngestDocument: basic", async () =>
                 {
-                    Document? doc = await _client.Document.IngestAsync(collection.Id, new { name = "Test" });
+                    Document? doc = await _client.Document.IngestAsync(collection.Id, new { name = "Test" }).ConfigureAwait(false);
                     if (doc == null) return TestOutcome.Fail("Ingest returned null");
                     if (!doc.Id.StartsWith("doc_")) return TestOutcome.Fail($"Invalid document ID: {doc.Id}");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("IngestDocument: with name", async () =>
                 {
@@ -369,11 +369,11 @@ namespace Lattice.Sdk.Tests
                         collection.Id,
                         new { name = "Named" },
                         name: "my_document"
-                    );
+                    ).ConfigureAwait(false);
                     if (doc == null) return TestOutcome.Fail("Ingest returned null");
                     if (doc.Name != "my_document") return TestOutcome.Fail($"Name mismatch: {doc.Name}");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("IngestDocument: with labels", async () =>
                 {
@@ -381,10 +381,10 @@ namespace Lattice.Sdk.Tests
                         collection.Id,
                         new { name = "Labeled" },
                         labels: new List<string> { "label1", "label2" }
-                    );
+                    ).ConfigureAwait(false);
                     if (doc == null) return TestOutcome.Fail("Ingest returned null");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("IngestDocument: with tags", async () =>
                 {
@@ -392,10 +392,10 @@ namespace Lattice.Sdk.Tests
                         collection.Id,
                         new { name = "Tagged" },
                         tags: new Dictionary<string, string> { ["key"] = "value" }
-                    );
+                    ).ConfigureAwait(false);
                     if (doc == null) return TestOutcome.Fail("Ingest returned null");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("IngestDocument: verify all properties", async () =>
                 {
@@ -405,14 +405,14 @@ namespace Lattice.Sdk.Tests
                         name: "prop_doc",
                         labels: new List<string> { "prop" },
                         tags: new Dictionary<string, string> { ["prop"] = "test" }
-                    );
+                    ).ConfigureAwait(false);
                     if (doc == null) return TestOutcome.Fail("Ingest returned null");
                     if (string.IsNullOrEmpty(doc.Id)) return TestOutcome.Fail("Id is empty");
                     if (doc.CollectionId != collection.Id) return TestOutcome.Fail($"CollectionId mismatch: {doc.CollectionId}");
                     if (string.IsNullOrEmpty(doc.SchemaId)) return TestOutcome.Fail("SchemaId is empty");
                     if (doc.CreatedUtc == null) return TestOutcome.Fail("CreatedUtc not set");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("IngestDocument: nested JSON", async () =>
                 {
@@ -426,10 +426,10 @@ namespace Lattice.Sdk.Tests
                                 address = new { city = "New York", zip = "10001" }
                             }
                         }
-                    );
+                    ).ConfigureAwait(false);
                     if (doc == null) return TestOutcome.Fail("Ingest returned null");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("IngestDocument: array JSON", async () =>
                 {
@@ -440,10 +440,10 @@ namespace Lattice.Sdk.Tests
                             items = new[] { 1, 2, 3, 4, 5 },
                             names = new[] { "Alice", "Bob", "Charlie" }
                         }
-                    );
+                    ).ConfigureAwait(false);
                     if (doc == null) return TestOutcome.Fail("Ingest returned null");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 Document? testDoc = await _client.Document.IngestAsync(
                     collection.Id,
@@ -451,83 +451,83 @@ namespace Lattice.Sdk.Tests
                     name: "get_test_doc",
                     labels: new List<string> { "get_test" },
                     tags: new Dictionary<string, string> { ["test_type"] = "get" }
-                );
+                ).ConfigureAwait(false);
 
                 if (testDoc != null)
                 {
                     await RunTest("GetDocument: without content", async () =>
                     {
-                        Document? doc = await _client.Document.ReadByIdAsync(collection.Id, testDoc.Id, includeContent: false);
+                        Document? doc = await _client.Document.ReadByIdAsync(collection.Id, testDoc.Id, includeContent: false).ConfigureAwait(false);
                         if (doc == null) return TestOutcome.Fail("GetDocument returned null");
                         if (doc.Content != null) return TestOutcome.Fail("Content should be null");
                         return TestOutcome.Pass();
-                    });
+                    }).ConfigureAwait(false);
 
                     await RunTest("GetDocument: with content", async () =>
                     {
-                        Document? doc = await _client.Document.ReadByIdAsync(collection.Id, testDoc.Id, includeContent: true);
+                        Document? doc = await _client.Document.ReadByIdAsync(collection.Id, testDoc.Id, includeContent: true).ConfigureAwait(false);
                         if (doc == null) return TestOutcome.Fail("GetDocument returned null");
                         if (doc.Content == null) return TestOutcome.Fail("Content should not be null");
                         return TestOutcome.Pass();
-                    });
+                    }).ConfigureAwait(false);
 
                     await RunTest("GetDocument: verify labels populated", async () =>
                     {
-                        Document? doc = await _client.Document.ReadByIdAsync(collection.Id, testDoc.Id, includeContent: false, includeLabels: true);
+                        Document? doc = await _client.Document.ReadByIdAsync(collection.Id, testDoc.Id, includeContent: false, includeLabels: true).ConfigureAwait(false);
                         if (doc == null) return TestOutcome.Fail("GetDocument returned null");
                         if (!doc.Labels.Contains("get_test")) return TestOutcome.Fail($"Label 'get_test' not found: {string.Join(", ", doc.Labels)}");
                         return TestOutcome.Pass();
-                    });
+                    }).ConfigureAwait(false);
 
                     await RunTest("GetDocument: verify tags populated", async () =>
                     {
-                        Document? doc = await _client.Document.ReadByIdAsync(collection.Id, testDoc.Id, includeContent: false, includeLabels: true, includeTags: true);
+                        Document? doc = await _client.Document.ReadByIdAsync(collection.Id, testDoc.Id, includeContent: false, includeLabels: true, includeTags: true).ConfigureAwait(false);
                         if (doc == null) return TestOutcome.Fail("GetDocument returned null");
                         if (!doc.Tags.TryGetValue("test_type", out string? tagValue) || tagValue != "get")
                             return TestOutcome.Fail($"Tag 'test_type' mismatch: {string.Join(", ", doc.Tags.Select(kvp => $"{kvp.Key}={kvp.Value}"))}");
                         return TestOutcome.Pass();
-                    });
+                    }).ConfigureAwait(false);
                 }
 
                 await RunTest("GetDocument: non-existent returns null", async () =>
                 {
-                    Document? doc = await _client.Document.ReadByIdAsync(collection.Id, "doc_nonexistent12345");
+                    Document? doc = await _client.Document.ReadByIdAsync(collection.Id, "doc_nonexistent12345").ConfigureAwait(false);
                     if (doc != null) return TestOutcome.Fail("Expected null for non-existent document");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("GetDocuments: multiple documents", async () =>
                 {
-                    List<Document> docs = await _client.Document.ReadAllInCollectionAsync(collection.Id);
+                    List<Document> docs = await _client.Document.ReadAllInCollectionAsync(collection.Id).ConfigureAwait(false);
                     if (docs.Count < 5) return TestOutcome.Fail($"Expected at least 5 docs, got {docs.Count}");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("DocumentExists: true when exists", async () =>
                 {
                     if (testDoc == null) return TestOutcome.Fail("Setup: testDoc is null");
-                    bool exists = await _client.Document.ExistsAsync(collection.Id, testDoc.Id);
+                    bool exists = await _client.Document.ExistsAsync(collection.Id, testDoc.Id).ConfigureAwait(false);
                     if (!exists) return TestOutcome.Fail("Expected exists to be true");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("DocumentExists: false when not exists", async () =>
                 {
-                    bool exists = await _client.Document.ExistsAsync(collection.Id, "doc_nonexistent12345");
+                    bool exists = await _client.Document.ExistsAsync(collection.Id, "doc_nonexistent12345").ConfigureAwait(false);
                     if (exists) return TestOutcome.Fail("Expected exists to be false");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("DeleteDocument: removes document", async () =>
                 {
-                    Document? doc = await _client.Document.IngestAsync(collection.Id, new { to_delete = true });
+                    Document? doc = await _client.Document.IngestAsync(collection.Id, new { to_delete = true }).ConfigureAwait(false);
                     if (doc == null) return TestOutcome.Fail("Setup: Ingest failed");
-                    bool deleted = await _client.Document.DeleteAsync(collection.Id, doc.Id);
+                    bool deleted = await _client.Document.DeleteAsync(collection.Id, doc.Id).ConfigureAwait(false);
                     if (!deleted) return TestOutcome.Fail("Delete returned false");
-                    bool exists = await _client.Document.ExistsAsync(collection.Id, doc.Id);
+                    bool exists = await _client.Document.ExistsAsync(collection.Id, doc.Id).ConfigureAwait(false);
                     if (exists) return TestOutcome.Fail("Document still exists after delete");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("IngestBatch: basic batch", async () =>
                 {
@@ -538,11 +538,11 @@ namespace Lattice.Sdk.Tests
                             new BatchIngestDocument(new { name = "Batch1" }),
                             new BatchIngestDocument(new { name = "Batch2" }),
                             new BatchIngestDocument(new { name = "Batch3" })
-                        });
+                        }).ConfigureAwait(false);
                     if (results == null) return TestOutcome.Fail("IngestBatch returned null");
                     if (results.Count != 3) return TestOutcome.Fail($"Expected 3 documents, got {results.Count}");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("IngestBatch: with names and metadata", async () =>
                 {
@@ -560,13 +560,13 @@ namespace Lattice.Sdk.Tests
                                 name: "batch_named_2",
                                 labels: new List<string> { "batch", "second" },
                                 tags: new Dictionary<string, string> { ["order"] = "2" })
-                        });
+                        }).ConfigureAwait(false);
                     if (results == null) return TestOutcome.Fail("IngestBatch returned null");
                     if (results.Count != 2) return TestOutcome.Fail($"Expected 2 documents, got {results.Count}");
                     if (results[0].Name != "batch_named_1") return TestOutcome.Fail($"Name mismatch: {results[0].Name}");
                     if (results[1].Name != "batch_named_2") return TestOutcome.Fail($"Name mismatch: {results[1].Name}");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("IngestBatch: verify documents retrievable", async () =>
                 {
@@ -575,18 +575,18 @@ namespace Lattice.Sdk.Tests
                         new List<BatchIngestDocument>
                         {
                             new BatchIngestDocument(new { check = "retrievable" }, name: "batch_retrieve_test")
-                        });
+                        }).ConfigureAwait(false);
                     if (results == null || results.Count == 0) return TestOutcome.Fail("IngestBatch returned null or empty");
 
-                    Document? retrieved = await _client.Document.ReadByIdAsync(collection.Id, results[0].Id);
+                    Document? retrieved = await _client.Document.ReadByIdAsync(collection.Id, results[0].Id).ConfigureAwait(false);
                     if (retrieved == null) return TestOutcome.Fail("Could not retrieve batch-ingested document");
                     if (retrieved.Name != "batch_retrieve_test") return TestOutcome.Fail($"Retrieved name mismatch: {retrieved.Name}");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
             }
             finally
             {
-                await _client.Collection.DeleteAsync(collection.Id);
+                await _client.Collection.DeleteAsync(collection.Id).ConfigureAwait(false);
             }
         }
 
@@ -594,10 +594,10 @@ namespace Lattice.Sdk.Tests
 
         private static async Task TestSearchApi()
         {
-            Collection? collection = await _client.Collection.CreateAsync("search_test_collection");
+            Collection? collection = await _client.Collection.CreateAsync("search_test_collection").ConfigureAwait(false);
             if (collection == null)
             {
-                await RunTest("Setup: Create collection", async () => TestOutcome.Fail("Collection creation failed"));
+                await RunTest("Setup: Create collection", async () => TestOutcome.Fail("Collection creation failed")).ConfigureAwait(false);
                 return;
             }
 
@@ -619,7 +619,7 @@ namespace Lattice.Sdk.Tests
                         name: $"doc_{i}",
                         labels: new List<string> { $"group_{i % 3}" }.Concat(i % 10 == 0 ? new[] { "special" } : Array.Empty<string>()).ToList(),
                         tags: new Dictionary<string, string> { ["priority"] = (i % 3).ToString() }
-                    );
+                    ).ConfigureAwait(false);
                 }
 
                 await RunTest("Search: Equals operator", async () =>
@@ -629,12 +629,12 @@ namespace Lattice.Sdk.Tests
                         CollectionId = collection.Id,
                         Filters = new List<SearchFilter> { new SearchFilter("Category", SearchCondition.Equals, "Category_2") },
                         MaxResults = 100
-                    });
+                    }).ConfigureAwait(false);
                     if (result == null) return TestOutcome.Fail("Search returned null");
                     if (!result.Success) return TestOutcome.Fail("Search not successful");
                     if (result.Documents.Count != 4) return TestOutcome.Fail($"Expected 4 results, got {result.Documents.Count}");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Search: NotEquals operator", async () =>
                 {
@@ -643,11 +643,11 @@ namespace Lattice.Sdk.Tests
                         CollectionId = collection.Id,
                         Filters = new List<SearchFilter> { new SearchFilter("Category", SearchCondition.NotEquals, "Category_0") },
                         MaxResults = 100
-                    });
+                    }).ConfigureAwait(false);
                     if (result == null) return TestOutcome.Fail("Search returned null");
                     if (result.Documents.Count != 16) return TestOutcome.Fail($"Expected 16 results, got {result.Documents.Count}");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Search: GreaterThan operator", async () =>
                 {
@@ -656,11 +656,11 @@ namespace Lattice.Sdk.Tests
                         CollectionId = collection.Id,
                         Filters = new List<SearchFilter> { new SearchFilter("Value", SearchCondition.GreaterThan, "150") },
                         MaxResults = 100
-                    });
+                    }).ConfigureAwait(false);
                     if (result == null) return TestOutcome.Fail("Search returned null");
                     if (result.Documents.Count != 4) return TestOutcome.Fail($"Expected 4 results, got {result.Documents.Count}");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Search: LessThan operator", async () =>
                 {
@@ -669,11 +669,11 @@ namespace Lattice.Sdk.Tests
                         CollectionId = collection.Id,
                         Filters = new List<SearchFilter> { new SearchFilter("Value", SearchCondition.LessThan, "30") },
                         MaxResults = 100
-                    });
+                    }).ConfigureAwait(false);
                     if (result == null) return TestOutcome.Fail("Search returned null");
                     if (result.Documents.Count != 3) return TestOutcome.Fail($"Expected 3 results, got {result.Documents.Count}");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Search: Contains operator", async () =>
                 {
@@ -682,11 +682,11 @@ namespace Lattice.Sdk.Tests
                         CollectionId = collection.Id,
                         Filters = new List<SearchFilter> { new SearchFilter("Name", SearchCondition.Contains, "Item_1") },
                         MaxResults = 100
-                    });
+                    }).ConfigureAwait(false);
                     if (result == null) return TestOutcome.Fail("Search returned null");
                     if (result.Documents.Count < 1) return TestOutcome.Fail($"Expected at least 1 result, got {result.Documents.Count}");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Search: StartsWith operator", async () =>
                 {
@@ -695,11 +695,11 @@ namespace Lattice.Sdk.Tests
                         CollectionId = collection.Id,
                         Filters = new List<SearchFilter> { new SearchFilter("Name", SearchCondition.StartsWith, "Item_") },
                         MaxResults = 100
-                    });
+                    }).ConfigureAwait(false);
                     if (result == null) return TestOutcome.Fail("Search returned null");
                     if (result.Documents.Count != 20) return TestOutcome.Fail($"Expected 20 results, got {result.Documents.Count}");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Search: multiple filters (AND)", async () =>
                 {
@@ -712,11 +712,11 @@ namespace Lattice.Sdk.Tests
                             new SearchFilter("IsActive", SearchCondition.Equals, "true")
                         },
                         MaxResults = 100
-                    });
+                    }).ConfigureAwait(false);
                     if (result == null) return TestOutcome.Fail("Search returned null");
                     if (result.Documents.Count != 2) return TestOutcome.Fail($"Expected 2 results, got {result.Documents.Count}");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Search: by label", async () =>
                 {
@@ -725,11 +725,11 @@ namespace Lattice.Sdk.Tests
                         CollectionId = collection.Id,
                         Labels = new List<string> { "special" },
                         MaxResults = 100
-                    });
+                    }).ConfigureAwait(false);
                     if (result == null) return TestOutcome.Fail("Search returned null");
                     if (result.Documents.Count != 2) return TestOutcome.Fail($"Expected 2 results, got {result.Documents.Count}");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Search: by tag", async () =>
                 {
@@ -738,11 +738,11 @@ namespace Lattice.Sdk.Tests
                         CollectionId = collection.Id,
                         Tags = new Dictionary<string, string> { ["priority"] = "0" },
                         MaxResults = 100
-                    });
+                    }).ConfigureAwait(false);
                     if (result == null) return TestOutcome.Fail("Search returned null");
                     if (result.Documents.Count != 7) return TestOutcome.Fail($"Expected 7 results, got {result.Documents.Count}");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Search: pagination Skip", async () =>
                 {
@@ -751,11 +751,11 @@ namespace Lattice.Sdk.Tests
                         CollectionId = collection.Id,
                         Skip = 10,
                         MaxResults = 100
-                    });
+                    }).ConfigureAwait(false);
                     if (result == null) return TestOutcome.Fail("Search returned null");
                     if (result.Documents.Count != 10) return TestOutcome.Fail($"Expected 10 results, got {result.Documents.Count}");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Search: pagination MaxResults", async () =>
                 {
@@ -763,11 +763,11 @@ namespace Lattice.Sdk.Tests
                     {
                         CollectionId = collection.Id,
                         MaxResults = 5
-                    });
+                    }).ConfigureAwait(false);
                     if (result == null) return TestOutcome.Fail("Search returned null");
                     if (result.Documents.Count != 5) return TestOutcome.Fail($"Expected 5 results, got {result.Documents.Count}");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Search: verify TotalRecords", async () =>
                 {
@@ -775,11 +775,11 @@ namespace Lattice.Sdk.Tests
                     {
                         CollectionId = collection.Id,
                         MaxResults = 5
-                    });
+                    }).ConfigureAwait(false);
                     if (result == null) return TestOutcome.Fail("Search returned null");
                     if (result.TotalRecords != 20) return TestOutcome.Fail($"Expected TotalRecords=20, got {result.TotalRecords}");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Search: verify EndOfResults true", async () =>
                 {
@@ -787,11 +787,11 @@ namespace Lattice.Sdk.Tests
                     {
                         CollectionId = collection.Id,
                         MaxResults = 100
-                    });
+                    }).ConfigureAwait(false);
                     if (result == null) return TestOutcome.Fail("Search returned null");
                     if (!result.EndOfResults) return TestOutcome.Fail("Expected EndOfResults=true");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Search: empty results", async () =>
                 {
@@ -800,11 +800,11 @@ namespace Lattice.Sdk.Tests
                         CollectionId = collection.Id,
                         Filters = new List<SearchFilter> { new SearchFilter("Name", SearchCondition.Equals, "NonExistent") },
                         MaxResults = 100
-                    });
+                    }).ConfigureAwait(false);
                     if (result == null) return TestOutcome.Fail("Search returned null");
                     if (result.Documents.Count != 0) return TestOutcome.Fail($"Expected 0 results, got {result.Documents.Count}");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Search: with IncludeContent true", async () =>
                 {
@@ -813,27 +813,27 @@ namespace Lattice.Sdk.Tests
                         CollectionId = collection.Id,
                         MaxResults = 1,
                         IncludeContent = true
-                    });
+                    }).ConfigureAwait(false);
                     if (result == null) return TestOutcome.Fail("Search returned null");
                     if (result.Documents.Count == 0) return TestOutcome.Fail("No documents returned");
                     if (result.Documents[0].Content == null) return TestOutcome.Fail("Content should be included");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("SearchBySql: basic query", async () =>
                 {
                     SearchResult? result = await _client.Search.SearchBySqlAsync(
                         collection.Id,
                         "SELECT * FROM documents WHERE Category = 'Category_1'"
-                    );
+                    ).ConfigureAwait(false);
                     if (result == null) return TestOutcome.Fail("Search returned null");
                     if (result.Documents.Count != 4) return TestOutcome.Fail($"Expected 4 results, got {result.Documents.Count}");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
             }
             finally
             {
-                await _client.Collection.DeleteAsync(collection.Id);
+                await _client.Collection.DeleteAsync(collection.Id).ConfigureAwait(false);
             }
         }
 
@@ -841,10 +841,10 @@ namespace Lattice.Sdk.Tests
 
         private static async Task TestEnumerationApi()
         {
-            Collection? collection = await _client.Collection.CreateAsync("enum_test_collection");
+            Collection? collection = await _client.Collection.CreateAsync("enum_test_collection").ConfigureAwait(false);
             if (collection == null)
             {
-                await RunTest("Setup: Create collection", async () => TestOutcome.Fail("Collection creation failed"));
+                await RunTest("Setup: Create collection", async () => TestOutcome.Fail("Collection creation failed")).ConfigureAwait(false);
                 return;
             }
 
@@ -857,8 +857,8 @@ namespace Lattice.Sdk.Tests
                         collection.Id,
                         new { index = i, name = $"EnumItem_{i}" },
                         name: $"enum_doc_{i}"
-                    );
-                    await Task.Delay(50); // Small delay
+                    ).ConfigureAwait(false);
+                    await Task.Delay(50).ConfigureAwait(false); // Small delay
                 }
 
                 await RunTest("Enumerate: basic", async () =>
@@ -867,11 +867,11 @@ namespace Lattice.Sdk.Tests
                     {
                         CollectionId = collection.Id,
                         MaxResults = 100
-                    });
+                    }).ConfigureAwait(false);
                     if (result == null) return TestOutcome.Fail("Enumerate returned null");
                     if (result.Documents.Count != 10) return TestOutcome.Fail($"Expected 10 results, got {result.Documents.Count}");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Enumerate: with MaxResults", async () =>
                 {
@@ -879,11 +879,11 @@ namespace Lattice.Sdk.Tests
                     {
                         CollectionId = collection.Id,
                         MaxResults = 5
-                    });
+                    }).ConfigureAwait(false);
                     if (result == null) return TestOutcome.Fail("Enumerate returned null");
                     if (result.Documents.Count != 5) return TestOutcome.Fail($"Expected 5 results, got {result.Documents.Count}");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Enumerate: with Skip", async () =>
                 {
@@ -892,11 +892,11 @@ namespace Lattice.Sdk.Tests
                         CollectionId = collection.Id,
                         Skip = 5,
                         MaxResults = 100
-                    });
+                    }).ConfigureAwait(false);
                     if (result == null) return TestOutcome.Fail("Enumerate returned null");
                     if (result.Documents.Count != 5) return TestOutcome.Fail($"Expected 5 results, got {result.Documents.Count}");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Enumerate: verify TotalRecords", async () =>
                 {
@@ -904,11 +904,11 @@ namespace Lattice.Sdk.Tests
                     {
                         CollectionId = collection.Id,
                         MaxResults = 3
-                    });
+                    }).ConfigureAwait(false);
                     if (result == null) return TestOutcome.Fail("Enumerate returned null");
                     if (result.TotalRecords != 10) return TestOutcome.Fail($"Expected TotalRecords=10, got {result.TotalRecords}");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Enumerate: verify EndOfResults", async () =>
                 {
@@ -916,15 +916,15 @@ namespace Lattice.Sdk.Tests
                     {
                         CollectionId = collection.Id,
                         MaxResults = 100
-                    });
+                    }).ConfigureAwait(false);
                     if (result == null) return TestOutcome.Fail("Enumerate returned null");
                     if (!result.EndOfResults) return TestOutcome.Fail("Expected EndOfResults=true");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
             }
             finally
             {
-                await _client.Collection.DeleteAsync(collection.Id);
+                await _client.Collection.DeleteAsync(collection.Id).ConfigureAwait(false);
             }
         }
 
@@ -932,10 +932,10 @@ namespace Lattice.Sdk.Tests
 
         private static async Task TestSchemaApi()
         {
-            Collection? collection = await _client.Collection.CreateAsync("schema_test_collection");
+            Collection? collection = await _client.Collection.CreateAsync("schema_test_collection").ConfigureAwait(false);
             if (collection == null)
             {
-                await RunTest("Setup: Create collection", async () => TestOutcome.Fail("Collection creation failed"));
+                await RunTest("Setup: Create collection", async () => TestOutcome.Fail("Collection creation failed")).ConfigureAwait(false);
                 return;
             }
 
@@ -944,43 +944,43 @@ namespace Lattice.Sdk.Tests
                 Document? doc1 = await _client.Document.IngestAsync(
                     collection.Id,
                     new { name = "Test", value = 42, active = true }
-                );
+                ).ConfigureAwait(false);
 
                 await RunTest("GetSchemas: returns schemas", async () =>
                 {
-                    List<Schema> schemas = await _client.Schema.ReadAllAsync();
+                    List<Schema> schemas = await _client.Schema.ReadAllAsync().ConfigureAwait(false);
                     if (schemas.Count == 0) return TestOutcome.Fail("No schemas returned");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("GetSchema: by id", async () =>
                 {
                     if (doc1 == null) return TestOutcome.Fail("Setup: doc1 is null");
-                    Schema? schema = await _client.Schema.ReadByIdAsync(doc1.SchemaId);
+                    Schema? schema = await _client.Schema.ReadByIdAsync(doc1.SchemaId).ConfigureAwait(false);
                     if (schema == null) return TestOutcome.Fail("GetSchema returned null");
                     if (schema.Id != doc1.SchemaId) return TestOutcome.Fail($"Schema ID mismatch: {schema.Id}");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("GetSchema: non-existent returns null", async () =>
                 {
-                    Schema? schema = await _client.Schema.ReadByIdAsync("sch_nonexistent12345");
+                    Schema? schema = await _client.Schema.ReadByIdAsync("sch_nonexistent12345").ConfigureAwait(false);
                     if (schema != null) return TestOutcome.Fail("Expected null for non-existent schema");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("GetSchemaElements: returns elements", async () =>
                 {
                     if (doc1 == null) return TestOutcome.Fail("Setup: doc1 is null");
-                    List<SchemaElement> elements = await _client.Schema.GetElementsAsync(doc1.SchemaId);
+                    List<SchemaElement> elements = await _client.Schema.GetElementsAsync(doc1.SchemaId).ConfigureAwait(false);
                     if (elements.Count == 0) return TestOutcome.Fail("No elements returned");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("GetSchemaElements: correct keys", async () =>
                 {
                     if (doc1 == null) return TestOutcome.Fail("Setup: doc1 is null");
-                    List<SchemaElement> elements = await _client.Schema.GetElementsAsync(doc1.SchemaId);
+                    List<SchemaElement> elements = await _client.Schema.GetElementsAsync(doc1.SchemaId).ConfigureAwait(false);
                     HashSet<string> keys = new HashSet<string>(elements.Select(e => e.Key));
                     string[] expected = { "name", "value", "active" };
                     foreach (string key in expected)
@@ -988,11 +988,11 @@ namespace Lattice.Sdk.Tests
                         if (!keys.Contains(key)) return TestOutcome.Fail($"Missing expected key: {key}. Found: {string.Join(", ", keys)}");
                     }
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
             }
             finally
             {
-                await _client.Collection.DeleteAsync(collection.Id);
+                await _client.Collection.DeleteAsync(collection.Id).ConfigureAwait(false);
             }
         }
 
@@ -1002,10 +1002,10 @@ namespace Lattice.Sdk.Tests
         {
             await RunTest("GetIndexTableMappings: returns mappings", async () =>
             {
-                List<IndexTableMapping> mappings = await _client.Index.GetMappingsAsync();
+                List<IndexTableMapping> mappings = await _client.Index.GetMappingsAsync().ConfigureAwait(false);
                 // Mappings may be empty if no indexes exist yet
                 return TestOutcome.Pass();
-            });
+            }).ConfigureAwait(false);
         }
 
         // ========== CONSTRAINTS API TESTS ==========
@@ -1024,15 +1024,15 @@ namespace Lattice.Sdk.Tests
                     name: "constraints_test",
                     schemaEnforcementMode: SchemaEnforcementMode.Strict,
                     fieldConstraints: new List<FieldConstraint> { constraint }
-                );
+                ).ConfigureAwait(false);
                 if (collection == null) return TestOutcome.Fail("Collection creation failed");
-                await _client.Collection.DeleteAsync(collection.Id);
+                await _client.Collection.DeleteAsync(collection.Id).ConfigureAwait(false);
                 return TestOutcome.Pass();
-            });
+            }).ConfigureAwait(false);
 
             await RunTest("Constraints: update constraints on collection", async () =>
             {
-                Collection? collection = await _client.Collection.CreateAsync("constraints_update_test");
+                Collection? collection = await _client.Collection.CreateAsync("constraints_update_test").ConfigureAwait(false);
                 if (collection == null) return TestOutcome.Fail("Collection creation failed");
 
                 FieldConstraint constraint = new FieldConstraint
@@ -1046,12 +1046,12 @@ namespace Lattice.Sdk.Tests
                     collection.Id,
                     SchemaEnforcementMode.Strict,
                     new List<FieldConstraint> { constraint }
-                );
-                await _client.Collection.DeleteAsync(collection.Id);
+                ).ConfigureAwait(false);
+                await _client.Collection.DeleteAsync(collection.Id).ConfigureAwait(false);
 
                 if (!success) return TestOutcome.Fail("Update constraints failed");
                 return TestOutcome.Pass();
-            });
+            }).ConfigureAwait(false);
 
             await RunTest("Constraints: get constraints from collection", async () =>
             {
@@ -1065,16 +1065,16 @@ namespace Lattice.Sdk.Tests
                     name: "constraints_get_test",
                     schemaEnforcementMode: SchemaEnforcementMode.Strict,
                     fieldConstraints: new List<FieldConstraint> { constraint }
-                );
+                ).ConfigureAwait(false);
                 if (collection == null) return TestOutcome.Fail("Collection creation failed");
 
-                ConstraintsResponse? constraintsResponse = await _client.Collection.GetConstraintsAsync(collection.Id);
-                await _client.Collection.DeleteAsync(collection.Id);
+                ConstraintsResponse? constraintsResponse = await _client.Collection.GetConstraintsAsync(collection.Id).ConfigureAwait(false);
+                await _client.Collection.DeleteAsync(collection.Id).ConfigureAwait(false);
 
                 if (constraintsResponse == null) return TestOutcome.Fail("GetConstraints returned null");
                 if (constraintsResponse.FieldConstraints.Count == 0) return TestOutcome.Fail("No constraints returned");
                 return TestOutcome.Pass();
-            });
+            }).ConfigureAwait(false);
         }
 
         // ========== INDEXING MODE API TESTS ==========
@@ -1087,26 +1087,26 @@ namespace Lattice.Sdk.Tests
                     name: "indexing_selective_test",
                     indexingMode: IndexingMode.Selective,
                     indexedFields: new List<string> { "name", "email" }
-                );
+                ).ConfigureAwait(false);
                 if (collection == null) return TestOutcome.Fail("Collection creation failed");
-                await _client.Collection.DeleteAsync(collection.Id);
+                await _client.Collection.DeleteAsync(collection.Id).ConfigureAwait(false);
                 return TestOutcome.Pass();
-            });
+            }).ConfigureAwait(false);
 
             await RunTest("Indexing: none mode skips indexing", async () =>
             {
                 Collection? collection = await _client.Collection.CreateAsync(
                     name: "indexing_none_test",
                     indexingMode: IndexingMode.None
-                );
+                ).ConfigureAwait(false);
                 if (collection == null) return TestOutcome.Fail("Collection creation failed");
-                await _client.Collection.DeleteAsync(collection.Id);
+                await _client.Collection.DeleteAsync(collection.Id).ConfigureAwait(false);
                 return TestOutcome.Pass();
-            });
+            }).ConfigureAwait(false);
 
             await RunTest("Indexing: update indexing mode", async () =>
             {
-                Collection? collection = await _client.Collection.CreateAsync("indexing_update_test");
+                Collection? collection = await _client.Collection.CreateAsync("indexing_update_test").ConfigureAwait(false);
                 if (collection == null) return TestOutcome.Fail("Collection creation failed");
 
                 bool success = await _client.Collection.UpdateIndexingAsync(
@@ -1114,36 +1114,36 @@ namespace Lattice.Sdk.Tests
                     IndexingMode.Selective,
                     new List<string> { "name" },
                     rebuildIndexes: false
-                );
-                await _client.Collection.DeleteAsync(collection.Id);
+                ).ConfigureAwait(false);
+                await _client.Collection.DeleteAsync(collection.Id).ConfigureAwait(false);
 
                 if (!success) return TestOutcome.Fail("Update indexing failed");
                 return TestOutcome.Pass();
-            });
+            }).ConfigureAwait(false);
 
             await RunTest("Indexing: rebuild indexes", async () =>
             {
-                Collection? collection = await _client.Collection.CreateAsync("indexing_rebuild_test");
+                Collection? collection = await _client.Collection.CreateAsync("indexing_rebuild_test").ConfigureAwait(false);
                 if (collection == null) return TestOutcome.Fail("Collection creation failed");
 
-                await _client.Document.IngestAsync(collection.Id, new { name = "test", value = 42 });
+                await _client.Document.IngestAsync(collection.Id, new { name = "test", value = 42 }).ConfigureAwait(false);
 
-                IndexRebuildResult? result = await _client.Collection.RebuildIndexesAsync(collection.Id);
-                await _client.Collection.DeleteAsync(collection.Id);
+                IndexRebuildResult? result = await _client.Collection.RebuildIndexesAsync(collection.Id).ConfigureAwait(false);
+                await _client.Collection.DeleteAsync(collection.Id).ConfigureAwait(false);
 
                 if (result == null) return TestOutcome.Fail("Rebuild indexes returned null");
                 return TestOutcome.Pass();
-            });
+            }).ConfigureAwait(false);
         }
 
         // ========== EDGE CASE TESTS ==========
 
         private static async Task TestEdgeCases()
         {
-            Collection? collection = await _client.Collection.CreateAsync("edge_case_collection");
+            Collection? collection = await _client.Collection.CreateAsync("edge_case_collection").ConfigureAwait(false);
             if (collection == null)
             {
-                await RunTest("Setup: Create collection", async () => TestOutcome.Fail("Collection creation failed"));
+                await RunTest("Setup: Create collection", async () => TestOutcome.Fail("Collection creation failed")).ConfigureAwait(false);
                 return;
             }
 
@@ -1154,20 +1154,20 @@ namespace Lattice.Sdk.Tests
                     Document? doc = await _client.Document.IngestAsync(
                         collection.Id,
                         new { name = "", description = "" }
-                    );
+                    ).ConfigureAwait(false);
                     if (doc == null) return TestOutcome.Fail("Ingest failed");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Edge: special characters in values", async () =>
                 {
                     Document? doc = await _client.Document.IngestAsync(
                         collection.Id,
                         new { text = "Hello! @#$%^&*()_+-={}[]|\\:\";<>?,./" }
-                    );
+                    ).ConfigureAwait(false);
                     if (doc == null) return TestOutcome.Fail("Ingest failed");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Edge: deeply nested JSON (5 levels)", async () =>
                 {
@@ -1189,20 +1189,20 @@ namespace Lattice.Sdk.Tests
                                 }
                             }
                         }
-                    );
+                    ).ConfigureAwait(false);
                     if (doc == null) return TestOutcome.Fail("Ingest failed");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Edge: large array in JSON", async () =>
                 {
                     Document? doc = await _client.Document.IngestAsync(
                         collection.Id,
                         new { items = Enumerable.Range(0, 100).ToArray() }
-                    );
+                    ).ConfigureAwait(false);
                     if (doc == null) return TestOutcome.Fail("Ingest failed");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Edge: numeric values", async () =>
                 {
@@ -1216,44 +1216,44 @@ namespace Lattice.Sdk.Tests
                             zero = 0,
                             large = 9999999999L
                         }
-                    );
+                    ).ConfigureAwait(false);
                     if (doc == null) return TestOutcome.Fail("Ingest failed");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Edge: boolean values", async () =>
                 {
                     Document? doc = await _client.Document.IngestAsync(
                         collection.Id,
                         new { active = true, disabled = false }
-                    );
+                    ).ConfigureAwait(false);
                     if (doc == null) return TestOutcome.Fail("Ingest failed");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Edge: null values in JSON", async () =>
                 {
                     Document? doc = await _client.Document.IngestAsync(
                         collection.Id,
                         new { name = "Test", optional_field = (string?)null }
-                    );
+                    ).ConfigureAwait(false);
                     if (doc == null) return TestOutcome.Fail("Ingest failed");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Edge: unicode characters", async () =>
                 {
                     Document? doc = await _client.Document.IngestAsync(
                         collection.Id,
                         new { greeting = "Hello, world!" }
-                    );
+                    ).ConfigureAwait(false);
                     if (doc == null) return TestOutcome.Fail("Ingest failed");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
             }
             finally
             {
-                await _client.Collection.DeleteAsync(collection.Id);
+                await _client.Collection.DeleteAsync(collection.Id).ConfigureAwait(false);
             }
         }
 
@@ -1261,10 +1261,10 @@ namespace Lattice.Sdk.Tests
 
         private static async Task TestPerformance()
         {
-            Collection? collection = await _client.Collection.CreateAsync("perf_test_collection");
+            Collection? collection = await _client.Collection.CreateAsync("perf_test_collection").ConfigureAwait(false);
             if (collection == null)
             {
-                await RunTest("Setup: Create collection", async () => TestOutcome.Fail("Collection creation failed"));
+                await RunTest("Setup: Create collection", async () => TestOutcome.Fail("Collection creation failed")).ConfigureAwait(false);
                 return;
             }
 
@@ -1284,14 +1284,14 @@ namespace Lattice.Sdk.Tests
                                 Value = i * 10
                             },
                             name: $"perf_doc_{i}"
-                        );
+                        ).ConfigureAwait(false);
                         if (doc == null) return TestOutcome.Fail($"Failed to ingest document {i}");
                     }
                     sw.Stop();
                     double rate = 100.0 / sw.Elapsed.TotalSeconds;
                     Console.Write($"({rate:F1} docs/sec) ");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Perf: search in 100 documents", async () =>
                 {
@@ -1301,22 +1301,22 @@ namespace Lattice.Sdk.Tests
                         CollectionId = collection.Id,
                         Filters = new List<SearchFilter> { new SearchFilter("Category", SearchCondition.Equals, "Category_5") },
                         MaxResults = 100
-                    });
+                    }).ConfigureAwait(false);
                     sw.Stop();
                     if (result == null) return TestOutcome.Fail("Search returned null");
                     Console.Write($"({sw.ElapsedMilliseconds}ms) ");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Perf: GetDocuments for 100 documents", async () =>
                 {
                     Stopwatch sw = Stopwatch.StartNew();
-                    List<Document> docs = await _client.Document.ReadAllInCollectionAsync(collection.Id);
+                    List<Document> docs = await _client.Document.ReadAllInCollectionAsync(collection.Id).ConfigureAwait(false);
                     sw.Stop();
                     if (docs.Count != 100) return TestOutcome.Fail($"Expected 100 docs, got {docs.Count}");
                     Console.Write($"({sw.ElapsedMilliseconds}ms) ");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
 
                 await RunTest("Perf: enumerate 100 documents", async () =>
                 {
@@ -1325,17 +1325,17 @@ namespace Lattice.Sdk.Tests
                     {
                         CollectionId = collection.Id,
                         MaxResults = 100
-                    });
+                    }).ConfigureAwait(false);
                     sw.Stop();
                     if (result == null) return TestOutcome.Fail("Enumerate returned null");
                     if (result.Documents.Count != 100) return TestOutcome.Fail($"Expected 100 docs, got {result.Documents.Count}");
                     Console.Write($"({sw.ElapsedMilliseconds}ms) ");
                     return TestOutcome.Pass();
-                });
+                }).ConfigureAwait(false);
             }
             finally
             {
-                await _client.Collection.DeleteAsync(collection.Id);
+                await _client.Collection.DeleteAsync(collection.Id).ConfigureAwait(false);
             }
         }
     }

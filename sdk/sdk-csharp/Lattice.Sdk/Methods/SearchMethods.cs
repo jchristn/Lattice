@@ -37,7 +37,7 @@ namespace Lattice.Sdk.Methods
                 "POST",
                 $"/v1.0/collections/{query.CollectionId}/documents/search",
                 data,
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<SearchResult?> SearchBySqlAsync(string collectionId, string sqlExpression, CancellationToken cancellationToken = default)
@@ -51,12 +51,12 @@ namespace Lattice.Sdk.Methods
                 "POST",
                 $"/v1.0/collections/{collectionId}/documents/search",
                 data,
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<SearchResult?> EnumerateAsync(SearchQuery query, CancellationToken cancellationToken = default)
         {
-            return await SearchAsync(query, cancellationToken);
+            return await SearchAsync(query, cancellationToken).ConfigureAwait(false);
         }
     }
 }

@@ -48,33 +48,33 @@ namespace Lattice.Sdk.Methods
             if (indexedFields != null && indexedFields.Count > 0)
                 data["indexedFields"] = indexedFields;
 
-            return await _client.RequestJsonAsync<Collection>("PUT", "/v1.0/collections", data, cancellationToken: cancellationToken);
+            return await _client.RequestJsonAsync<Collection>("PUT", "/v1.0/collections", data, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<List<Collection>> ReadAllAsync(CancellationToken cancellationToken = default)
         {
-            List<Collection>? collections = await _client.RequestJsonAsync<List<Collection>>("GET", "/v1.0/collections", cancellationToken: cancellationToken);
+            List<Collection>? collections = await _client.RequestJsonAsync<List<Collection>>("GET", "/v1.0/collections", cancellationToken: cancellationToken).ConfigureAwait(false);
             return collections ?? new List<Collection>();
         }
 
         public async Task<Collection?> ReadByIdAsync(string collectionId, CancellationToken cancellationToken = default)
         {
-            return await _client.RequestJsonAsync<Collection>("GET", $"/v1.0/collections/{collectionId}", nullOnNotFound: true, cancellationToken: cancellationToken);
+            return await _client.RequestJsonAsync<Collection>("GET", $"/v1.0/collections/{collectionId}", nullOnNotFound: true, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<bool> ExistsAsync(string collectionId, CancellationToken cancellationToken = default)
         {
-            return await _client.RequestStatusAsync("HEAD", $"/v1.0/collections/{collectionId}", throwOnError: false, cancellationToken: cancellationToken);
+            return await _client.RequestStatusAsync("HEAD", $"/v1.0/collections/{collectionId}", throwOnError: false, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<bool> DeleteAsync(string collectionId, CancellationToken cancellationToken = default)
         {
-            return await _client.RequestStatusAsync("DELETE", $"/v1.0/collections/{collectionId}", cancellationToken: cancellationToken);
+            return await _client.RequestStatusAsync("DELETE", $"/v1.0/collections/{collectionId}", cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<ConstraintsResponse?> GetConstraintsAsync(string collectionId, CancellationToken cancellationToken = default)
         {
-            return await _client.RequestJsonAsync<ConstraintsResponse>("GET", $"/v1.0/collections/{collectionId}/constraints", nullOnNotFound: true, cancellationToken: cancellationToken);
+            return await _client.RequestJsonAsync<ConstraintsResponse>("GET", $"/v1.0/collections/{collectionId}/constraints", nullOnNotFound: true, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<bool> UpdateConstraintsAsync(
@@ -91,12 +91,12 @@ namespace Lattice.Sdk.Methods
             if (fieldConstraints != null && fieldConstraints.Count > 0)
                 data["fieldConstraints"] = fieldConstraints;
 
-            return await _client.RequestStatusAsync("PUT", $"/v1.0/collections/{collectionId}/constraints", data, cancellationToken: cancellationToken);
+            return await _client.RequestStatusAsync("PUT", $"/v1.0/collections/{collectionId}/constraints", data, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<List<IndexedField>> GetIndexedFieldsAsync(string collectionId, CancellationToken cancellationToken = default)
         {
-            IndexingConfiguration? config = await _client.RequestJsonAsync<IndexingConfiguration>("GET", $"/v1.0/collections/{collectionId}/indexing", cancellationToken: cancellationToken);
+            IndexingConfiguration? config = await _client.RequestJsonAsync<IndexingConfiguration>("GET", $"/v1.0/collections/{collectionId}/indexing", cancellationToken: cancellationToken).ConfigureAwait(false);
             return config?.IndexedFields ?? new List<IndexedField>();
         }
 
@@ -116,7 +116,7 @@ namespace Lattice.Sdk.Methods
             if (indexedFields != null && indexedFields.Count > 0)
                 data["indexedFields"] = indexedFields;
 
-            return await _client.RequestStatusAsync("PUT", $"/v1.0/collections/{collectionId}/indexing", data, cancellationToken: cancellationToken);
+            return await _client.RequestStatusAsync("PUT", $"/v1.0/collections/{collectionId}/indexing", data, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<IndexRebuildResult?> RebuildIndexesAsync(
@@ -129,7 +129,7 @@ namespace Lattice.Sdk.Methods
                 ["dropUnusedIndexes"] = dropUnusedIndexes
             };
 
-            return await _client.RequestJsonAsync<IndexRebuildResult>("POST", $"/v1.0/collections/{collectionId}/indexes/rebuild", data, cancellationToken: cancellationToken);
+            return await _client.RequestJsonAsync<IndexRebuildResult>("POST", $"/v1.0/collections/{collectionId}/indexes/rebuild", data, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
     }
 }

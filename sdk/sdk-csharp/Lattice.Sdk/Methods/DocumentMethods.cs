@@ -42,7 +42,7 @@ namespace Lattice.Sdk.Methods
             if (tags != null && tags.Count > 0)
                 data["tags"] = tags;
 
-            return await _client.RequestJsonAsync<Document>("PUT", $"/v1.0/collections/{collectionId}/documents", data, cancellationToken: cancellationToken);
+            return await _client.RequestJsonAsync<Document>("PUT", $"/v1.0/collections/{collectionId}/documents", data, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<List<Document>?> IngestBatchAsync(
@@ -80,7 +80,7 @@ namespace Lattice.Sdk.Methods
                 ["documents"] = docEntries
             };
 
-            return await _client.RequestJsonAsync<List<Document>>("PUT", $"/v1.0/collections/{collectionId}/documents/batch", data, cancellationToken: cancellationToken);
+            return await _client.RequestJsonAsync<List<Document>>("PUT", $"/v1.0/collections/{collectionId}/documents/batch", data, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<List<Document>> ReadAllInCollectionAsync(
@@ -97,7 +97,7 @@ namespace Lattice.Sdk.Methods
                 ["includeTags"] = includeTags.ToString().ToLower()
             };
 
-            List<Document>? documents = await _client.RequestJsonAsync<List<Document>>("GET", $"/v1.0/collections/{collectionId}/documents", queryParams: queryParams, cancellationToken: cancellationToken);
+            List<Document>? documents = await _client.RequestJsonAsync<List<Document>>("GET", $"/v1.0/collections/{collectionId}/documents", queryParams: queryParams, cancellationToken: cancellationToken).ConfigureAwait(false);
             return documents ?? new List<Document>();
         }
 
@@ -117,7 +117,7 @@ namespace Lattice.Sdk.Methods
                 ["includeTags"] = includeTags.ToString().ToLower()
             };
 
-            Document? document = await _client.RequestJsonAsync<Document>("GET", $"/v1.0/collections/{collectionId}/documents/{documentId}", queryParams: queryParams, nullOnNotFound: true, cancellationToken: cancellationToken);
+            Document? document = await _client.RequestJsonAsync<Document>("GET", $"/v1.0/collections/{collectionId}/documents/{documentId}", queryParams: queryParams, nullOnNotFound: true, cancellationToken: cancellationToken).ConfigureAwait(false);
 
             if (document == null)
             {
@@ -127,7 +127,7 @@ namespace Lattice.Sdk.Methods
             // If content is requested, make a separate call to get the raw content
             if (includeContent)
             {
-                string? content = await _client.RequestRawContentAsync("GET", $"/v1.0/collections/{collectionId}/documents/{documentId}?includeContent=true", cancellationToken);
+                string? content = await _client.RequestRawContentAsync("GET", $"/v1.0/collections/{collectionId}/documents/{documentId}?includeContent=true", cancellationToken).ConfigureAwait(false);
                 if (content != null)
                 {
                     document.Content = content;
@@ -139,12 +139,12 @@ namespace Lattice.Sdk.Methods
 
         public async Task<bool> ExistsAsync(string collectionId, string documentId, CancellationToken cancellationToken = default)
         {
-            return await _client.RequestStatusAsync("HEAD", $"/v1.0/collections/{collectionId}/documents/{documentId}", throwOnError: false, cancellationToken: cancellationToken);
+            return await _client.RequestStatusAsync("HEAD", $"/v1.0/collections/{collectionId}/documents/{documentId}", throwOnError: false, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<bool> DeleteAsync(string collectionId, string documentId, CancellationToken cancellationToken = default)
         {
-            return await _client.RequestStatusAsync("DELETE", $"/v1.0/collections/{collectionId}/documents/{documentId}", cancellationToken: cancellationToken);
+            return await _client.RequestStatusAsync("DELETE", $"/v1.0/collections/{collectionId}/documents/{documentId}", cancellationToken: cancellationToken).ConfigureAwait(false);
         }
     }
 }

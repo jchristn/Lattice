@@ -16,7 +16,7 @@ namespace Lattice.Sdk.Methods
 
         public async Task<List<IndexTableMapping>> GetMappingsAsync(CancellationToken cancellationToken = default)
         {
-            List<IndexTableMapping>? mappings = await _client.RequestJsonAsync<List<IndexTableMapping>>("GET", "/v1.0/tables", cancellationToken: cancellationToken);
+            List<IndexTableMapping>? mappings = await _client.RequestJsonAsync<List<IndexTableMapping>>("GET", "/v1.0/tables", cancellationToken: cancellationToken).ConfigureAwait(false);
             return mappings ?? new List<IndexTableMapping>();
         }
     }

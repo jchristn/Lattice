@@ -636,7 +636,7 @@ namespace Lattice.Server.API.REST
                 // Telemetry must never break request handling.
             }
 
-            await Task.CompletedTask;
+            await Task.CompletedTask.ConfigureAwait(false);
         }
 
         private async Task PostRoutingRoute(HttpContextBase ctx)
@@ -694,7 +694,7 @@ namespace Lattice.Server.API.REST
         private async Task DefaultRoute(HttpContextBase ctx)
         {
             ResponseContext response = new ResponseContext(false, 404, "Not found");
-            await SendResponse(ctx, response);
+            await SendResponse(ctx, response).ConfigureAwait(false);
         }
 
         private async Task ExceptionRoute(HttpContextBase ctx, Exception e)
@@ -703,7 +703,7 @@ namespace Lattice.Server.API.REST
             {
                 _Logging?.Warn(_Header + "JSON parsing error: " + e.Message);
                 ResponseContext jsonResponse = new ResponseContext(false, 400, "Invalid JSON: " + e.Message);
-                await SendResponse(ctx, jsonResponse);
+                await SendResponse(ctx, jsonResponse).ConfigureAwait(false);
                 return;
             }
 
@@ -714,7 +714,7 @@ namespace Lattice.Server.API.REST
                 {
                     Data = new { Errors = sve.Errors }
                 };
-                await SendResponse(ctx, validationResponse);
+                await SendResponse(ctx, validationResponse).ConfigureAwait(false);
                 return;
             }
 
@@ -722,18 +722,18 @@ namespace Lattice.Server.API.REST
             {
                 _Logging?.Warn(_Header + "Argument error: " + e.Message);
                 ResponseContext argResponse = new ResponseContext(false, 400, e.Message);
-                await SendResponse(ctx, argResponse);
+                await SendResponse(ctx, argResponse).ConfigureAwait(false);
                 return;
             }
 
             _Logging?.Error(_Header + "Exception: " + e.Message);
             ResponseContext response = new ResponseContext(false, 500, e.Message);
-            await SendResponse(ctx, response);
+            await SendResponse(ctx, response).ConfigureAwait(false);
         }
 
         private async Task WrappedRequestHandler(HttpContextBase ctx, RequestTypeEnum requestType, Func<RequestContext, Task<ResponseContext>> handler)
         {
-            RequestContext requestContext = await BuildRequestContext(ctx, requestType);
+            RequestContext requestContext = await BuildRequestContext(ctx, requestType).ConfigureAwait(false);
             DateTime startTime = requestContext.CreatedUtc;
             ResponseContext responseContext;
 
@@ -748,7 +748,7 @@ namespace Lattice.Server.API.REST
 
             try
             {
-                responseContext = await handler(requestContext);
+                responseContext = await handler(requestContext).ConfigureAwait(false);
             }
             catch (JsonException e)
             {
@@ -802,8 +802,8 @@ namespace Lattice.Server.API.REST
                     activity.SetStatus(ActivityStatusCode.Error);
             }
 
-            string responseBody = await SendResponse(ctx, responseContext);
-            await RecordRequestHistoryAsync(requestContext, responseContext, responseBody, completedUtc);
+            string responseBody = await SendResponse(ctx, responseContext).ConfigureAwait(false);
+            await RecordRequestHistoryAsync(requestContext, responseContext, responseBody, completedUtc).ConfigureAwait(false);
         }
 
         private async Task<RequestContext> BuildRequestContext(HttpContextBase ctx, RequestTypeEnum requestType)
@@ -822,7 +822,7 @@ namespace Lattice.Server.API.REST
                 IpAddress = ctx.Request.Source.IpAddress,
                 QueryParams = CloneNameValueCollection(ctx.Request.Query?.Elements),
                 Headers = ToDictionary(ctx.Request.Headers),
-                RequestBody = await GetRequestBody(ctx),
+                RequestBody = await GetRequestBody(ctx).ConfigureAwait(false),
                 CollectionId = ctx.Request.Url.Parameters["collectionId"],
                 DocumentId = ctx.Request.Url.Parameters["documentId"],
                 SchemaId = ctx.Request.Url.Parameters["schemaId"],
@@ -838,7 +838,7 @@ namespace Lattice.Server.API.REST
             {
                 using (StreamReader reader = new StreamReader(ctx.Request.Data, Encoding.UTF8))
                 {
-                    return await reader.ReadToEndAsync();
+                    return await reader.ReadToEndAsync().ConfigureAwait(false);
                 }
             }
 
@@ -874,7 +874,7 @@ namespace Lattice.Server.API.REST
             }
 
             ApplyHeaders(ctx, response.Headers);
-            await ctx.Response.Send(json);
+            await ctx.Response.Send(json).ConfigureAwait(false);
             return json;
         }
 
@@ -887,7 +887,7 @@ namespace Lattice.Server.API.REST
             ctx.Response.StatusCode = statusCode;
             ctx.Response.ContentType = contentType;
             ApplyHeaders(ctx, responseHeaders);
-            await ctx.Response.Send(responseBody ?? String.Empty);
+            await ctx.Response.Send(responseBody ?? String.Empty).ConfigureAwait(false);
 
             ResponseContext responseContext = new ResponseContext(success, statusCode, errorMessage)
             {
@@ -896,7 +896,7 @@ namespace Lattice.Server.API.REST
                 ProcessingTimeMs = completedUtc.Subtract(startTime).TotalMilliseconds
             };
 
-            await RecordRequestHistoryAsync(requestContext, responseContext, responseBody, completedUtc);
+            await RecordRequestHistoryAsync(requestContext, responseContext, responseBody, completedUtc).ConfigureAwait(false);
         }
 
         private void ApplyHeaders(HttpContextBase ctx, Dictionary<string, string> headers)
@@ -1159,7 +1159,7 @@ namespace Lattice.Server.API.REST
                         Timestamp = DateTime.UtcNow
                     }
                 });
-            });
+            }).ConfigureAwait(false);
         }
 
         #endregion
@@ -1170,14 +1170,14 @@ namespace Lattice.Server.API.REST
         {
             await WrappedRequestHandler(ctx, RequestTypeEnum.Collection, async (reqCtx) =>
             {
-                List<Collection> collections = await _Client.Collection.ReadAll(CancellationToken.None);
+                List<Collection> collections = await _Client.Collection.ReadAll(CancellationToken.None).ConfigureAwait(false);
                 return new ResponseContext
                 {
                     Success = true,
                     StatusCode = 200,
                     Data = collections
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         private async Task PutCollectionRoute(HttpContextBase ctx)
@@ -1211,7 +1211,7 @@ namespace Lattice.Server.API.REST
                     request.FieldConstraints,
                     request.IndexingMode,
                     request.IndexedFields,
-                    CancellationToken.None);
+                    CancellationToken.None).ConfigureAwait(false);
 
                 return new ResponseContext
                 {
@@ -1219,7 +1219,7 @@ namespace Lattice.Server.API.REST
                     StatusCode = 201,
                     Data = collection
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         private async Task GetCollectionRoute(HttpContextBase ctx)
@@ -1232,7 +1232,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                Collection? collection = await _Client.Collection.ReadById(collectionId, CancellationToken.None);
+                Collection? collection = await _Client.Collection.ReadById(collectionId, CancellationToken.None).ConfigureAwait(false);
                 if (collection == null)
                 {
                     return new ResponseContext(false, 404, "Collection not found");
@@ -1244,7 +1244,7 @@ namespace Lattice.Server.API.REST
                     StatusCode = 200,
                     Data = collection
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         private async Task HeadCollectionRoute(HttpContextBase ctx)
@@ -1257,7 +1257,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                bool exists = await _Client.Collection.Exists(collectionId, CancellationToken.None);
+                bool exists = await _Client.Collection.Exists(collectionId, CancellationToken.None).ConfigureAwait(false);
                 if (!exists)
                 {
                     return new ResponseContext(false, 404, "Collection not found");
@@ -1268,7 +1268,7 @@ namespace Lattice.Server.API.REST
                     Success = true,
                     StatusCode = 200
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         private async Task DeleteCollectionRoute(HttpContextBase ctx)
@@ -1281,13 +1281,13 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                bool exists = await _Client.Collection.Exists(collectionId, CancellationToken.None);
+                bool exists = await _Client.Collection.Exists(collectionId, CancellationToken.None).ConfigureAwait(false);
                 if (!exists)
                 {
                     return new ResponseContext(false, 404, "Collection not found");
                 }
 
-                await _Client.Collection.Delete(collectionId, CancellationToken.None);
+                await _Client.Collection.Delete(collectionId, CancellationToken.None).ConfigureAwait(false);
 
                 return new ResponseContext
                 {
@@ -1295,7 +1295,7 @@ namespace Lattice.Server.API.REST
                     StatusCode = 200,
                     Data = new { Message = "Collection deleted successfully", CollectionId = collectionId }
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         private async Task GetConstraintsRoute(HttpContextBase ctx)
@@ -1308,13 +1308,13 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                Collection? collection = await _Client.Collection.ReadById(collectionId, CancellationToken.None);
+                Collection? collection = await _Client.Collection.ReadById(collectionId, CancellationToken.None).ConfigureAwait(false);
                 if (collection == null)
                 {
                     return new ResponseContext(false, 404, "Collection not found");
                 }
 
-                List<FieldConstraint> constraints = await _Client.Collection.GetConstraints(collectionId, CancellationToken.None);
+                List<FieldConstraint> constraints = await _Client.Collection.GetConstraints(collectionId, CancellationToken.None).ConfigureAwait(false);
                 return new ResponseContext
                 {
                     Success = true,
@@ -1326,7 +1326,7 @@ namespace Lattice.Server.API.REST
                         FieldConstraints = constraints
                     }
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         private async Task PutConstraintsRoute(HttpContextBase ctx)
@@ -1339,7 +1339,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                bool exists = await _Client.Collection.Exists(collectionId, CancellationToken.None);
+                bool exists = await _Client.Collection.Exists(collectionId, CancellationToken.None).ConfigureAwait(false);
                 if (!exists)
                 {
                     return new ResponseContext(false, 404, "Collection not found");
@@ -1361,9 +1361,9 @@ namespace Lattice.Server.API.REST
                     collectionId,
                     request.SchemaEnforcementMode,
                     request.FieldConstraints,
-                    CancellationToken.None);
+                    CancellationToken.None).ConfigureAwait(false);
 
-                List<FieldConstraint> constraints = await _Client.Collection.GetConstraints(collectionId, CancellationToken.None);
+                List<FieldConstraint> constraints = await _Client.Collection.GetConstraints(collectionId, CancellationToken.None).ConfigureAwait(false);
 
                 return new ResponseContext
                 {
@@ -1376,7 +1376,7 @@ namespace Lattice.Server.API.REST
                         FieldConstraints = constraints
                     }
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         private async Task GetIndexingRoute(HttpContextBase ctx)
@@ -1389,13 +1389,13 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                Collection? collection = await _Client.Collection.ReadById(collectionId, CancellationToken.None);
+                Collection? collection = await _Client.Collection.ReadById(collectionId, CancellationToken.None).ConfigureAwait(false);
                 if (collection == null)
                 {
                     return new ResponseContext(false, 404, "Collection not found");
                 }
 
-                List<IndexedField> indexedFields = await _Client.Collection.GetIndexedFields(collectionId, CancellationToken.None);
+                List<IndexedField> indexedFields = await _Client.Collection.GetIndexedFields(collectionId, CancellationToken.None).ConfigureAwait(false);
                 return new ResponseContext
                 {
                     Success = true,
@@ -1407,7 +1407,7 @@ namespace Lattice.Server.API.REST
                         IndexedFields = indexedFields.Select(f => f.FieldPath).ToList()
                     }
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         private async Task PutIndexingRoute(HttpContextBase ctx)
@@ -1420,7 +1420,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                bool exists = await _Client.Collection.Exists(collectionId, CancellationToken.None);
+                bool exists = await _Client.Collection.Exists(collectionId, CancellationToken.None).ConfigureAwait(false);
                 if (!exists)
                 {
                     return new ResponseContext(false, 404, "Collection not found");
@@ -1442,16 +1442,16 @@ namespace Lattice.Server.API.REST
                     collectionId,
                     request.IndexingMode,
                     request.IndexedFields,
-                    CancellationToken.None);
+                    CancellationToken.None).ConfigureAwait(false);
 
                 // Optionally rebuild indexes
                 IndexRebuildResult? rebuildResult = null;
                 if (request.RebuildIndexes)
                 {
-                    rebuildResult = await _Client.Collection.RebuildIndexes(collectionId, true, null, CancellationToken.None);
+                    rebuildResult = await _Client.Collection.RebuildIndexes(collectionId, true, null, CancellationToken.None).ConfigureAwait(false);
                 }
 
-                List<IndexedField> indexedFields = await _Client.Collection.GetIndexedFields(collectionId, CancellationToken.None);
+                List<IndexedField> indexedFields = await _Client.Collection.GetIndexedFields(collectionId, CancellationToken.None).ConfigureAwait(false);
 
                 return new ResponseContext
                 {
@@ -1465,7 +1465,7 @@ namespace Lattice.Server.API.REST
                         RebuildResult = rebuildResult
                     }
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         private async Task PostRebuildIndexesRoute(HttpContextBase ctx)
@@ -1478,7 +1478,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                bool exists = await _Client.Collection.Exists(collectionId, CancellationToken.None);
+                bool exists = await _Client.Collection.Exists(collectionId, CancellationToken.None).ConfigureAwait(false);
                 if (!exists)
                 {
                     return new ResponseContext(false, 404, "Collection not found");
@@ -1495,7 +1495,7 @@ namespace Lattice.Server.API.REST
                     }
                 }
 
-                IndexRebuildResult result = await _Client.Collection.RebuildIndexes(collectionId, dropUnusedIndexes, null, CancellationToken.None);
+                IndexRebuildResult result = await _Client.Collection.RebuildIndexes(collectionId, dropUnusedIndexes, null, CancellationToken.None).ConfigureAwait(false);
 
                 return new ResponseContext
                 {
@@ -1503,7 +1503,7 @@ namespace Lattice.Server.API.REST
                     StatusCode = result.Success ? 200 : 500,
                     Data = result
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         #endregion
@@ -1520,13 +1520,13 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                bool collectionExists = await _Client.Collection.Exists(collectionId, CancellationToken.None);
+                bool collectionExists = await _Client.Collection.Exists(collectionId, CancellationToken.None).ConfigureAwait(false);
                 if (!collectionExists)
                 {
                     return new ResponseContext(false, 404, "Collection not found");
                 }
 
-                List<Document> documents = await _Client.Document.ReadAllInCollection(collectionId, token: CancellationToken.None);
+                List<Document> documents = await _Client.Document.ReadAllInCollection(collectionId, token: CancellationToken.None).ConfigureAwait(false);
 
                 return new ResponseContext
                 {
@@ -1534,7 +1534,7 @@ namespace Lattice.Server.API.REST
                     StatusCode = 200,
                     Data = documents
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         private async Task PutDocumentRoute(HttpContextBase ctx)
@@ -1547,7 +1547,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                bool collectionExists = await _Client.Collection.Exists(collectionId, CancellationToken.None);
+                bool collectionExists = await _Client.Collection.Exists(collectionId, CancellationToken.None).ConfigureAwait(false);
                 if (!collectionExists)
                 {
                     return new ResponseContext(false, 404, "Collection not found");
@@ -1579,7 +1579,7 @@ namespace Lattice.Server.API.REST
                     request.Name,
                     request.Labels,
                     request.Tags,
-                    CancellationToken.None);
+                    CancellationToken.None).ConfigureAwait(false);
 
                 return new ResponseContext
                 {
@@ -1587,7 +1587,7 @@ namespace Lattice.Server.API.REST
                     StatusCode = 201,
                     Data = document
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         private async Task PutDocumentBatchRoute(HttpContextBase ctx)
@@ -1600,7 +1600,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                bool collectionExists = await _Client.Collection.Exists(collectionId, CancellationToken.None);
+                bool collectionExists = await _Client.Collection.Exists(collectionId, CancellationToken.None).ConfigureAwait(false);
                 if (!collectionExists)
                 {
                     return new ResponseContext(false, 404, "Collection not found");
@@ -1638,7 +1638,7 @@ namespace Lattice.Server.API.REST
                 List<Document> documents = await _Client.Document.IngestBatch(
                     collectionId,
                     batchDocs,
-                    CancellationToken.None);
+                    CancellationToken.None).ConfigureAwait(false);
 
                 return new ResponseContext
                 {
@@ -1646,7 +1646,7 @@ namespace Lattice.Server.API.REST
                     StatusCode = 201,
                     Data = documents
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         private async Task GetDocumentRoute(HttpContextBase ctx)
@@ -1662,7 +1662,7 @@ namespace Lattice.Server.API.REST
             // If includeContent=true, return raw JSON content directly (not wrapped)
             if (includeContent)
             {
-                await GetDocumentContentRaw(ctx);
+                await GetDocumentContentRaw(ctx).ConfigureAwait(false);
                 return;
             }
 
@@ -1682,7 +1682,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Document ID is required");
                 }
 
-                Document? document = await _Client.Document.ReadById(documentId, includeContent: false, token: CancellationToken.None);
+                Document? document = await _Client.Document.ReadById(documentId, includeContent: false, token: CancellationToken.None).ConfigureAwait(false);
                 if (document == null || document.CollectionId != collectionId)
                 {
                     return new ResponseContext(false, 404, "Document not found");
@@ -1694,12 +1694,12 @@ namespace Lattice.Server.API.REST
                     StatusCode = 200,
                     Data = document
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         private async Task GetDocumentContentRaw(HttpContextBase ctx)
         {
-            RequestContext requestContext = await BuildRequestContext(ctx, RequestTypeEnum.Document);
+            RequestContext requestContext = await BuildRequestContext(ctx, RequestTypeEnum.Document).ConfigureAwait(false);
             DateTime startTime = requestContext.CreatedUtc;
             int statusCode = 200;
             bool success = true;
@@ -1717,7 +1717,7 @@ namespace Lattice.Server.API.REST
                     success = false;
                     errorMessage = "Collection ID is required";
                     responseBody = JsonSerializer.Serialize(new ErrorResponse { Error = errorMessage }, _JsonOptions);
-                    await SendRawResponse(ctx, requestContext, statusCode, responseBody, startTime, success, errorMessage);
+                    await SendRawResponse(ctx, requestContext, statusCode, responseBody, startTime, success, errorMessage).ConfigureAwait(false);
                     return;
                 }
 
@@ -1727,23 +1727,23 @@ namespace Lattice.Server.API.REST
                     success = false;
                     errorMessage = "Document ID is required";
                     responseBody = JsonSerializer.Serialize(new ErrorResponse { Error = errorMessage }, _JsonOptions);
-                    await SendRawResponse(ctx, requestContext, statusCode, responseBody, startTime, success, errorMessage);
+                    await SendRawResponse(ctx, requestContext, statusCode, responseBody, startTime, success, errorMessage).ConfigureAwait(false);
                     return;
                 }
 
-                Document? document = await _Client.Document.ReadById(documentId, includeContent: true, token: CancellationToken.None);
+                Document? document = await _Client.Document.ReadById(documentId, includeContent: true, token: CancellationToken.None).ConfigureAwait(false);
                 if (document == null || document.CollectionId != collectionId)
                 {
                     statusCode = 404;
                     success = false;
                     errorMessage = "Document not found";
                     responseBody = JsonSerializer.Serialize(new ErrorResponse { Error = errorMessage }, _JsonOptions);
-                    await SendRawResponse(ctx, requestContext, statusCode, responseBody, startTime, success, errorMessage);
+                    await SendRawResponse(ctx, requestContext, statusCode, responseBody, startTime, success, errorMessage).ConfigureAwait(false);
                     return;
                 }
 
                 responseBody = document.Content ?? "{}";
-                await SendRawResponse(ctx, requestContext, statusCode, responseBody, startTime, success);
+                await SendRawResponse(ctx, requestContext, statusCode, responseBody, startTime, success).ConfigureAwait(false);
             }
             catch (Exception e)
             {
@@ -1752,7 +1752,7 @@ namespace Lattice.Server.API.REST
                 success = false;
                 errorMessage = e.Message;
                 responseBody = JsonSerializer.Serialize(new ErrorResponse { Error = e.Message }, _JsonOptions);
-                await SendRawResponse(ctx, requestContext, statusCode, responseBody, startTime, success, errorMessage);
+                await SendRawResponse(ctx, requestContext, statusCode, responseBody, startTime, success, errorMessage).ConfigureAwait(false);
             }
         }
 
@@ -1773,7 +1773,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Document ID is required");
                 }
 
-                Document? document = await _Client.Document.ReadById(documentId, token: CancellationToken.None);
+                Document? document = await _Client.Document.ReadById(documentId, token: CancellationToken.None).ConfigureAwait(false);
                 if (document == null || document.CollectionId != collectionId)
                 {
                     return new ResponseContext(false, 404, "Document not found");
@@ -1784,7 +1784,7 @@ namespace Lattice.Server.API.REST
                     Success = true,
                     StatusCode = 200
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         private async Task DeleteDocumentRoute(HttpContextBase ctx)
@@ -1804,13 +1804,13 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Document ID is required");
                 }
 
-                Document? document = await _Client.Document.ReadById(documentId, token: CancellationToken.None);
+                Document? document = await _Client.Document.ReadById(documentId, token: CancellationToken.None).ConfigureAwait(false);
                 if (document == null || document.CollectionId != collectionId)
                 {
                     return new ResponseContext(false, 404, "Document not found");
                 }
 
-                await _Client.Document.Delete(documentId, CancellationToken.None);
+                await _Client.Document.Delete(documentId, CancellationToken.None).ConfigureAwait(false);
 
                 return new ResponseContext
                 {
@@ -1818,7 +1818,7 @@ namespace Lattice.Server.API.REST
                     StatusCode = 200,
                     Data = new { Message = "Document deleted successfully", DocumentId = documentId }
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         #endregion
@@ -1835,7 +1835,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Collection ID is required");
                 }
 
-                bool collectionExists = await _Client.Collection.Exists(collectionId, CancellationToken.None);
+                bool collectionExists = await _Client.Collection.Exists(collectionId, CancellationToken.None).ConfigureAwait(false);
                 if (!collectionExists)
                 {
                     return new ResponseContext(false, 404, "Collection not found");
@@ -1861,7 +1861,7 @@ namespace Lattice.Server.API.REST
                         request.SqlExpression,
                         request.Labels ?? new List<string>(),
                         request.Tags ?? new Dictionary<string, string>(),
-                        CancellationToken.None);
+                        CancellationToken.None).ConfigureAwait(false);
                     return new ResponseContext
                     {
                         Success = true,
@@ -1883,14 +1883,14 @@ namespace Lattice.Server.API.REST
                     IncludeContent = request.IncludeContent ?? false
                 };
 
-                SearchResult searchResult = await _Client.Search.Search(query, CancellationToken.None);
+                SearchResult searchResult = await _Client.Search.Search(query, CancellationToken.None).ConfigureAwait(false);
                 return new ResponseContext
                 {
                     Success = true,
                     StatusCode = 200,
                     Data = searchResult
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         #endregion
@@ -1907,14 +1907,14 @@ namespace Lattice.Server.API.REST
                 }
 
                 RequestHistorySearchFilter filter = BuildRequestHistoryFilterFromQuery(ctx, true);
-                RequestHistorySearchResult result = await _RequestHistory.SearchAsync(filter, CancellationToken.None);
+                RequestHistorySearchResult result = await _RequestHistory.SearchAsync(filter, CancellationToken.None).ConfigureAwait(false);
                 return new ResponseContext
                 {
                     Success = true,
                     StatusCode = 200,
                     Data = result
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         private async Task GetRequestHistoryEntryRoute(HttpContextBase ctx)
@@ -1932,7 +1932,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Request ID is required");
                 }
 
-                RequestHistoryEntry? entry = await _RequestHistory.GetEntryAsync(requestId, CancellationToken.None);
+                RequestHistoryEntry? entry = await _RequestHistory.GetEntryAsync(requestId, CancellationToken.None).ConfigureAwait(false);
                 if (entry == null)
                 {
                     return new ResponseContext(false, 404, "Request history entry not found");
@@ -1944,7 +1944,7 @@ namespace Lattice.Server.API.REST
                     StatusCode = 200,
                     Data = entry
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         private async Task GetRequestHistoryDetailRoute(HttpContextBase ctx)
@@ -1962,7 +1962,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Request ID is required");
                 }
 
-                RequestHistoryDetail? detail = await _RequestHistory.GetDetailAsync(requestId, CancellationToken.None);
+                RequestHistoryDetail? detail = await _RequestHistory.GetDetailAsync(requestId, CancellationToken.None).ConfigureAwait(false);
                 if (detail == null)
                 {
                     return new ResponseContext(false, 404, "Request history entry not found");
@@ -1974,7 +1974,7 @@ namespace Lattice.Server.API.REST
                     StatusCode = 200,
                     Data = detail
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         private async Task GetRequestHistorySummaryRoute(HttpContextBase ctx)
@@ -1988,14 +1988,14 @@ namespace Lattice.Server.API.REST
 
                 RequestHistorySearchFilter filter = BuildRequestHistoryFilterFromQuery(ctx, false);
                 string? interval = GetQueryValue(ctx, "interval");
-                RequestHistorySummaryResult result = await _RequestHistory.GetSummaryAsync(filter, interval, CancellationToken.None);
+                RequestHistorySummaryResult result = await _RequestHistory.GetSummaryAsync(filter, interval, CancellationToken.None).ConfigureAwait(false);
                 return new ResponseContext
                 {
                     Success = true,
                     StatusCode = 200,
                     Data = result
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         private async Task DeleteRequestHistoryEntryRoute(HttpContextBase ctx)
@@ -2013,7 +2013,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Request ID is required");
                 }
 
-                bool deleted = await _RequestHistory.DeleteAsync(requestId, CancellationToken.None);
+                bool deleted = await _RequestHistory.DeleteAsync(requestId, CancellationToken.None).ConfigureAwait(false);
                 if (!deleted)
                 {
                     return new ResponseContext(false, 404, "Request history entry not found");
@@ -2025,7 +2025,7 @@ namespace Lattice.Server.API.REST
                     StatusCode = 200,
                     Data = new { Deleted = true, RequestId = requestId }
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         private async Task DeleteRequestHistoryBulkRoute(HttpContextBase ctx)
@@ -2050,14 +2050,14 @@ namespace Lattice.Server.API.REST
                     filter = request;
                 }
 
-                long deletedCount = await _RequestHistory.DeleteBulkAsync(filter, CancellationToken.None);
+                long deletedCount = await _RequestHistory.DeleteBulkAsync(filter, CancellationToken.None).ConfigureAwait(false);
                 return new ResponseContext
                 {
                     Success = true,
                     StatusCode = 200,
                     Data = new { DeletedCount = deletedCount }
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         #endregion
@@ -2068,14 +2068,14 @@ namespace Lattice.Server.API.REST
         {
             await WrappedRequestHandler(ctx, RequestTypeEnum.Collection, async (reqCtx) =>
             {
-                List<Lattice.Core.Models.Schema> schemas = await _Client.Schema.ReadAll(CancellationToken.None);
+                List<Lattice.Core.Models.Schema> schemas = await _Client.Schema.ReadAll(CancellationToken.None).ConfigureAwait(false);
                 return new ResponseContext
                 {
                     Success = true,
                     StatusCode = 200,
                     Data = schemas
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         private async Task GetSchemaRoute(HttpContextBase ctx)
@@ -2088,7 +2088,7 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Schema ID is required");
                 }
 
-                Lattice.Core.Models.Schema? schema = await _Client.Schema.ReadById(schemaId, CancellationToken.None);
+                Lattice.Core.Models.Schema? schema = await _Client.Schema.ReadById(schemaId, CancellationToken.None).ConfigureAwait(false);
                 if (schema == null)
                 {
                     return new ResponseContext(false, 404, "Schema not found");
@@ -2100,7 +2100,7 @@ namespace Lattice.Server.API.REST
                     StatusCode = 200,
                     Data = schema
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         private async Task GetSchemaElementsRoute(HttpContextBase ctx)
@@ -2113,20 +2113,20 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 400, "Schema ID is required");
                 }
 
-                Lattice.Core.Models.Schema? schema = await _Client.Schema.ReadById(schemaId, CancellationToken.None);
+                Lattice.Core.Models.Schema? schema = await _Client.Schema.ReadById(schemaId, CancellationToken.None).ConfigureAwait(false);
                 if (schema == null)
                 {
                     return new ResponseContext(false, 404, "Schema not found");
                 }
 
-                List<SchemaElement> elements = await _Client.Schema.GetElements(schemaId, CancellationToken.None);
+                List<SchemaElement> elements = await _Client.Schema.GetElements(schemaId, CancellationToken.None).ConfigureAwait(false);
                 return new ResponseContext
                 {
                     Success = true,
                     StatusCode = 200,
                     Data = elements
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         #endregion
@@ -2137,14 +2137,14 @@ namespace Lattice.Server.API.REST
         {
             await WrappedRequestHandler(ctx, RequestTypeEnum.Collection, async (reqCtx) =>
             {
-                List<IndexTableMapping> mappings = await _Client.Index.GetMappings(CancellationToken.None);
+                List<IndexTableMapping> mappings = await _Client.Index.GetMappings(CancellationToken.None).ConfigureAwait(false);
                 return new ResponseContext
                 {
                     Success = true,
                     StatusCode = 200,
                     Data = mappings
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         private async Task GetTableEntriesRoute(HttpContextBase ctx)
@@ -2174,11 +2174,11 @@ namespace Lattice.Server.API.REST
                 }
 
                 // Verify table exists
-                IndexTableMapping? mapping = await _Client.Index.GetMappingByKey(tableName, CancellationToken.None);
+                IndexTableMapping? mapping = await _Client.Index.GetMappingByKey(tableName, CancellationToken.None).ConfigureAwait(false);
                 if (mapping == null)
                 {
                     // Try by table name directly
-                    List<IndexTableMapping> allMappings = await _Client.Index.GetMappings(CancellationToken.None);
+                    List<IndexTableMapping> allMappings = await _Client.Index.GetMappings(CancellationToken.None).ConfigureAwait(false);
                     mapping = allMappings.Find(m => m.TableName == tableName);
                 }
 
@@ -2187,8 +2187,8 @@ namespace Lattice.Server.API.REST
                     return new ResponseContext(false, 404, "Index table not found");
                 }
 
-                List<IndexTableEntry> entries = await _Client.Index.GetTableEntries(mapping.TableName, skip, limit, CancellationToken.None);
-                long totalCount = await _Client.Index.GetTableEntryCount(mapping.TableName, CancellationToken.None);
+                List<IndexTableEntry> entries = await _Client.Index.GetTableEntries(mapping.TableName, skip, limit, CancellationToken.None).ConfigureAwait(false);
+                long totalCount = await _Client.Index.GetTableEntryCount(mapping.TableName, CancellationToken.None).ConfigureAwait(false);
 
                 return new ResponseContext
                 {
@@ -2204,7 +2204,7 @@ namespace Lattice.Server.API.REST
                         Limit = limit
                     }
                 };
-            });
+            }).ConfigureAwait(false);
         }
 
         #endregion

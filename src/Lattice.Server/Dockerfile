@@ -20,6 +20,11 @@ RUN dotnet publish Lattice.Server/Lattice.Server.csproj -c Release -f net10.0 -a
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 
+# curl is used by the container healthcheck
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
 # Create directories for data persistence
 RUN mkdir -p /app/logs /app/documents /app/data
 

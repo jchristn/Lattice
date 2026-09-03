@@ -16,6 +16,9 @@ RUN npm run build
 # Runtime stage
 FROM nginx:alpine AS runtime
 
+# curl is used by the container healthcheck
+RUN apk add --no-cache curl
+
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
