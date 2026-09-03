@@ -1,5 +1,40 @@
 # Changelog
 
+## Unreleased
+
+**v0.3.0**
+
+### Added
+- **Authentication, authorization, RBAC, and multi-tenancy.** When enabled (default), every route except
+  health, the OpenAPI spec, and login requires a bearer token.
+  - **Two authentication methods**, both via `Authorization: Bearer <value>` (with an `x-token` alias):
+    (1) a **session token** from `POST /v1.0/token` (email + password + tenant), and (2) a **credential
+    access key** (`access_...`) presented directly. No `x-api-key`, no secret key, no request signing.
+  - **Single-tier multi-tenancy**: the tenant is resolved from the principal; there is no tenant id in
+    URLs. A system administrator may target another tenant via an explicit `tenantId` in the request body
+    (writes) or query (lists).
+  - **RBAC** with deny-over-permit evaluation, resource types and operations (`Write` expands to
+    Create/Update/Delete), built-in roles (TenantAdmin, SecurityAdmin, Auditor, CollectionAdmin, Editor,
+    Viewer, TenantMember), and per-user/credential assignments. Passwords are hashed with SHA-256.
+  - **First-run seeding** of a default tenant, administrator (`admin@lattice` / `password`), and access
+    key, printed to the console once.
+  - New management endpoints (flat, principal-scoped): `POST/GET/DELETE /v1.0/token`, `GET /v1.0/whoami`,
+    and CRUD for `/v1.0/tenants`, `/v1.0/users`, `/v1.0/credentials`, `/v1.0/roles`, `/v1.0/assignments`,
+    and `/v1.0/audit`. Data layer implemented across SQLite, MySQL, PostgreSQL, and SQL Server.
+- **In-process MCP server** (`POST /v1.0/mcp`): a hand-rolled JSON-RPC 2.0 [Model Context
+  Protocol](https://modelcontextprotocol.io) endpoint behind the same auth and RBAC as the REST API, with
+  a 22-tool catalog mirroring the data plane plus identity/RBAC read surfaces. Configured under a new
+  `Mcp` block in `lattice.json`. Documented in `MCP_API.md`.
+- **Security audit trail**: authentication failures (401) and authorization denials (403) are persisted to
+  an append-only audit store with principal, required permission, verdict, path, and response code.
+- **Auth telemetry**: five new counters on the `Lattice.Server` meter — `lattice.auth.requests`,
+  `lattice.auth.session.events`, `lattice.auth.rbac.mutations`, `lattice.authz.requests`, and
+  `lattice.authz.denials`.
+
+### Changed
+- `lattice.json` gains `Auth` and `Mcp` configuration blocks (both enabled by default in the server image;
+  disabled in the factory image).
+
 ## Current release
 
 **v0.2.1** (2026-09-02)

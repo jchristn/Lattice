@@ -33,5 +33,11 @@
     "InMemory": false,
     "DefaultDocumentsDirectory": "/app/documents",
     "EnableLogging": false
+  },
+  "Auth": {
+    "Enable": false
+  },
+  "Mcp": {
+    "Enable": false
   }
 }

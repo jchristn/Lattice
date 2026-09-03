@@ -15,6 +15,8 @@ Lattice is a JSON document store with automatic schema detection, SQL-like query
 - **Automatic Indexing**: Fields indexed by default with selective override
 - **Optional Schema Enforcement**: Add constraints at any time
 - **REST API**: Built-in HTTP server for remote access
+- **Authentication & RBAC**: Bearer-token auth, role-based access control, and single-tier multi-tenancy
+- **MCP Server**: In-process Model Context Protocol endpoint for agents and LLM tools
 
 ## Screenshots
 
@@ -291,6 +293,36 @@ dotnet run --project src/Lattice.Server -- mysettings.json
   }
 }
 ```
+
+## Authentication & Multi-tenancy
+
+When authentication is enabled (the default), every route except health, the OpenAPI spec, and login
+requires a bearer token. There are two ways to authenticate, both presented with the
+`Authorization: Bearer <value>` header:
+
+1. **Session token** — log in with email, password, and tenant to obtain a token:
+
+   ```bash
+   curl http://localhost:8000/v1.0/token \
+     -H 'Content-Type: application/json' \
+     -d '{"email":"admin@lattice","password":"password","tenantId":"ten_..."}'
+   # -> { "token": "...", "expiresUtc": "...", "tenantId": "...", "isAdmin": true, ... }
+
+   curl http://localhost:8000/v1.0/collections -H "Authorization: Bearer <token>"
+   ```
+
+2. **Access key** — present a credential's access key (`access_...`) directly as the bearer value:
+
+   ```bash
+   curl http://localhost:8000/v1.0/collections -H "Authorization: Bearer access_..."
+   ```
+
+On first run the server seeds a default tenant, an administrator (`admin@lattice` / `password`), and an
+access key, printing them to the console once — change them for any shared deployment via the `Auth` block
+in `lattice.json`. Access is governed by role-based access control (deny-over-permit) with built-in roles,
+and every request is scoped to the caller's tenant. Authentication and MCP are configured under the `Auth`
+and `Mcp` blocks in `lattice.json`. See [`REST_API.md`](REST_API.md) for the full auth surface and
+[`MCP_API.md`](MCP_API.md) for the Model Context Protocol endpoint.
 
 ## Horizontal Scaling
 

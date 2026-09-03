@@ -43,5 +43,18 @@
     "Logs": { "Enable": true, "MinimumSeverity": 2 },
     "Prometheus": { "Enable": false, "Hostname": "localhost", "Port": 9464, "Path": "/metrics" },
     "Loki": { "Enable": false, "Endpoint": "http://localhost:3100/otlp", "TenantId": null }
+  },
+  "Auth": {
+    "Enable": true,
+    "TokenSecret": "lattice-token-secret-change-me",
+    "SessionTtlMinutes": 60,
+    "DefaultTenantName": "Default Tenant",
+    "DefaultAdminEmail": "admin@lattice",
+    "DefaultAdminPassword": "password"
+  },
+  "Mcp": {
+    "Enable": true,
+    "Path": "/v1.0/mcp",
+    "ServerName": "lattice"
   }
 }
