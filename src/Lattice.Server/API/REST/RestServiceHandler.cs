@@ -20,15 +20,17 @@ namespace Lattice.Server.API.REST
     using Lattice.Core.Exceptions;
     using Lattice.Core.Models;
     using Lattice.Core.Search;
+    using Lattice.Core.Security;
     using Lattice.Core.Validation;
     using Lattice.Server.Classes;
+    using Lattice.Server.Security;
     using Lattice.Server.Services;
     using Lattice.Server.Telemetry;
 
     /// <summary>
     /// REST service handler for Lattice API.
     /// </summary>
-    public class RestServiceHandler
+    public partial class RestServiceHandler
     {
         #region Public-Members
 
@@ -49,6 +51,10 @@ namespace Lattice.Server.API.REST
         private LoggingModule? _Logging;
         private Webserver? _Webserver;
         private RequestHistoryService _RequestHistory;
+        private readonly bool _AuthEnabled;
+        private readonly SessionTokenCodec? _Codec;
+        private readonly AuthenticationService? _AuthN;
+        private readonly AuthorizationService? _AuthZ;
         private readonly string _Header = "[RestServiceHandler] ";
 
         #endregion
@@ -68,6 +74,16 @@ namespace Lattice.Server.API.REST
             _Client = client ?? throw new ArgumentNullException(nameof(client));
             _Logging = logging ?? throw new ArgumentNullException(nameof(logging));
             _RequestHistory = new RequestHistoryService(_Client, _Settings.RequestHistory, _Logging);
+
+            _AuthEnabled = _Settings.Auth.Enable;
+            if (_AuthEnabled)
+            {
+                _Codec = new SessionTokenCodec(_Settings.Auth.TokenSecret);
+                _AuthN = new AuthenticationService(
+                    _Client.Tenants, _Client.Users, _Client.Credentials, _Client.Sessions,
+                    _Codec, _Settings.Auth.SessionTtlMinutes);
+                _AuthZ = new AuthorizationService(_Client.Roles);
+            }
 
             InitializeWebserver();
         }
@@ -166,6 +182,9 @@ namespace Lattice.Server.API.REST
             _Webserver!.Routes.Preflight = PreflightRoute;
             _Webserver.Routes.PreRouting = PreRoutingRoute;
             _Webserver.Routes.PostRouting = PostRoutingRoute;
+
+            // Authentication, identity, RBAC, and audit routes (only when auth is enabled).
+            if (_AuthEnabled) InitializeAuthRoutes();
 
             // Health check routes
             _Webserver.Routes.PreAuthentication.Static.Add(
@@ -736,6 +755,46 @@ namespace Lattice.Server.API.REST
             RequestContext requestContext = await BuildRequestContext(ctx, requestType).ConfigureAwait(false);
             DateTime startTime = requestContext.CreatedUtc;
             ResponseContext responseContext;
+
+            // Authentication and authorization gate.
+            if (_AuthEnabled)
+            {
+                RequiredPermission required = RequestPermissionMap.Resolve(requestContext.Method, requestContext.Path);
+                CallerContext caller = await AuthenticateAsync(ctx).ConfigureAwait(false);
+
+                if (caller != null && caller.IsAuthenticated)
+                {
+                    requestContext.Caller = caller;
+                    requestContext.TenantId = caller.TenantId;
+                }
+
+                if (!required.Public)
+                {
+                    if (caller == null || !caller.IsAuthenticated)
+                    {
+                        DateTime unauthUtc = DateTime.UtcNow;
+                        ResponseContext unauth = new ResponseContext(false, 401, "Authentication required") { Guid = requestContext.Guid };
+                        string unauthBody = await SendResponse(ctx, unauth).ConfigureAwait(false);
+                        await RecordRequestHistoryAsync(requestContext, unauth, unauthBody, unauthUtc).ConfigureAwait(false);
+                        return;
+                    }
+
+                    if (!required.AnyAuthenticated)
+                    {
+                        string resourceId = ResolveResourceId(requestContext, required.ResourceType);
+                        AuthorizationVerdict verdict = await _AuthZ.AuthorizeAsync(caller, required.ResourceType, required.Operation, resourceId).ConfigureAwait(false);
+                        if (verdict != AuthorizationVerdict.Permitted)
+                        {
+                            DateTime deniedUtc = DateTime.UtcNow;
+                            ResponseContext forbidden = new ResponseContext(false, 403,
+                                "Authorization denied: requires " + required.ResourceType + ":" + required.Operation) { Guid = requestContext.Guid };
+                            string forbiddenBody = await SendResponse(ctx, forbidden).ConfigureAwait(false);
+                            await RecordRequestHistoryAsync(requestContext, forbidden, forbiddenBody, deniedUtc).ConfigureAwait(false);
+                            return;
+                        }
+                    }
+                }
+            }
 
             // Start an HTTP server span. Core-engine spans started during handler execution nest under
             // it (same async context). Disposed at method end via the using declaration.

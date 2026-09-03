@@ -3,6 +3,7 @@ namespace Lattice.Server.Classes
     using System;
     using System.Collections.Generic;
     using System.Collections.Specialized;
+    using Lattice.Core.Security;
 
     /// <summary>
     /// Request context containing metadata about the incoming request.
@@ -85,6 +86,16 @@ namespace Lattice.Server.Classes
         /// Table name when present in the route.
         /// </summary>
         public string? TableName { get; set; } = null;
+
+        /// <summary>
+        /// Identifier of the resolved tenant, when authenticated.
+        /// </summary>
+        public string? TenantId { get; set; } = null;
+
+        /// <summary>
+        /// The resolved principal, when authenticated.
+        /// </summary>
+        public CallerContext? Caller { get; set; } = null;
 
         #endregion
 

@@ -244,6 +244,208 @@ namespace Lattice.Core.Repositories.Mysql.Queries
                 CREATE INDEX IF NOT EXISTS `idx_requesthistory_schemaid_createdutc` ON `requesthistory`(`schemaid`, `createdutc`);
                 CREATE INDEX IF NOT EXISTS `idx_requesthistory_tablename_createdutc` ON `requesthistory`(`tablename`, `createdutc`);
                 CREATE INDEX IF NOT EXISTS `idx_requesthistory_sourceip_createdutc` ON `requesthistory`(`sourceip`, `createdutc`);
+
+                -- Tenants table
+                CREATE TABLE IF NOT EXISTS `tenants` (
+                    `id` VARCHAR(64) NOT NULL,
+                    `name` VARCHAR(512) NOT NULL,
+                    `region` VARCHAR(256),
+                    `active` TINYINT NOT NULL DEFAULT 1,
+                    `isprotected` TINYINT NOT NULL DEFAULT 0,
+                    `createdutc` DATETIME(6) NOT NULL,
+                    `lastupdateutc` DATETIME(6) NOT NULL,
+                    PRIMARY KEY (`id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE INDEX IF NOT EXISTS `idx_tenants_name` ON `tenants`(`name`(255));
+                CREATE INDEX IF NOT EXISTS `idx_tenants_createdutc` ON `tenants`(`createdutc`);
+
+                -- Users table
+                CREATE TABLE IF NOT EXISTS `users` (
+                    `id` VARCHAR(64) NOT NULL,
+                    `tenantid` VARCHAR(64) NOT NULL,
+                    `firstname` VARCHAR(256),
+                    `lastname` VARCHAR(256),
+                    `email` VARCHAR(256) NOT NULL,
+                    `passwordsha256` VARCHAR(128),
+                    `isadmin` TINYINT NOT NULL DEFAULT 0,
+                    `istenantadmin` TINYINT NOT NULL DEFAULT 0,
+                    `active` TINYINT NOT NULL DEFAULT 1,
+                    `isprotected` TINYINT NOT NULL DEFAULT 0,
+                    `createdutc` DATETIME(6) NOT NULL,
+                    `lastupdateutc` DATETIME(6) NOT NULL,
+                    PRIMARY KEY (`id`),
+                    CONSTRAINT `fk_users_tenants` FOREIGN KEY (`tenantid`) REFERENCES `tenants`(`id`) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE UNIQUE INDEX IF NOT EXISTS `idx_users_tenantid_email` ON `users`(`tenantid`, `email`);
+                CREATE INDEX IF NOT EXISTS `idx_users_tenantid` ON `users`(`tenantid`);
+
+                -- Credentials table (access key used as bearer token)
+                CREATE TABLE IF NOT EXISTS `credentials` (
+                    `id` VARCHAR(64) NOT NULL,
+                    `tenantid` VARCHAR(64) NOT NULL,
+                    `userid` VARCHAR(64) NOT NULL,
+                    `name` VARCHAR(512),
+                    `accesskeysha256` VARCHAR(128) NOT NULL,
+                    `accesskeylast4` VARCHAR(16),
+                    `expiresutc` DATETIME(6),
+                    `lastusedutc` DATETIME(6),
+                    `active` TINYINT NOT NULL DEFAULT 1,
+                    `isprotected` TINYINT NOT NULL DEFAULT 0,
+                    `createdutc` DATETIME(6) NOT NULL,
+                    `lastupdateutc` DATETIME(6) NOT NULL,
+                    PRIMARY KEY (`id`),
+                    CONSTRAINT `fk_credentials_tenants` FOREIGN KEY (`tenantid`) REFERENCES `tenants`(`id`) ON DELETE CASCADE,
+                    CONSTRAINT `fk_credentials_users` FOREIGN KEY (`userid`) REFERENCES `users`(`id`) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE UNIQUE INDEX IF NOT EXISTS `idx_credentials_accesskeysha256` ON `credentials`(`accesskeysha256`);
+                CREATE INDEX IF NOT EXISTS `idx_credentials_tenantid` ON `credentials`(`tenantid`);
+                CREATE INDEX IF NOT EXISTS `idx_credentials_userid` ON `credentials`(`userid`);
+
+                -- Authentication sessions table (user login sessions)
+                CREATE TABLE IF NOT EXISTS `authsessions` (
+                    `id` VARCHAR(64) NOT NULL,
+                    `tenantid` VARCHAR(64) NOT NULL,
+                    `principaltype` INT NOT NULL DEFAULT 0,
+                    `userid` VARCHAR(64),
+                    `tokenid` VARCHAR(256) NOT NULL,
+                    `sourceip` VARCHAR(128),
+                    `useragent` VARCHAR(1024),
+                    `expiresutc` DATETIME(6) NOT NULL,
+                    `lastusedutc` DATETIME(6),
+                    `revokedutc` DATETIME(6),
+                    `revocationreason` VARCHAR(512),
+                    `active` TINYINT NOT NULL DEFAULT 1,
+                    `createdutc` DATETIME(6) NOT NULL,
+                    `lastupdateutc` DATETIME(6) NOT NULL,
+                    PRIMARY KEY (`id`),
+                    CONSTRAINT `fk_authsessions_tenants` FOREIGN KEY (`tenantid`) REFERENCES `tenants`(`id`) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE INDEX IF NOT EXISTS `idx_authsessions_tokenid` ON `authsessions`(`tokenid`);
+                CREATE INDEX IF NOT EXISTS `idx_authsessions_tenantid` ON `authsessions`(`tenantid`);
+                CREATE INDEX IF NOT EXISTS `idx_authsessions_userid` ON `authsessions`(`userid`);
+
+                -- Roles table (built-in roles have null tenantid)
+                CREATE TABLE IF NOT EXISTS `userroles` (
+                    `id` VARCHAR(64) NOT NULL,
+                    `tenantid` VARCHAR(64),
+                    `name` VARCHAR(512) NOT NULL,
+                    `isbuiltin` TINYINT NOT NULL DEFAULT 0,
+                    `active` TINYINT NOT NULL DEFAULT 1,
+                    `isprotected` TINYINT NOT NULL DEFAULT 0,
+                    `createdutc` DATETIME(6) NOT NULL,
+                    `lastupdateutc` DATETIME(6) NOT NULL,
+                    PRIMARY KEY (`id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE INDEX IF NOT EXISTS `idx_userroles_tenantid` ON `userroles`(`tenantid`);
+                CREATE INDEX IF NOT EXISTS `idx_userroles_name` ON `userroles`(`name`(255));
+
+                -- Permissions table
+                CREATE TABLE IF NOT EXISTS `permissions` (
+                    `id` VARCHAR(64) NOT NULL,
+                    `tenantid` VARCHAR(64),
+                    `name` VARCHAR(512),
+                    `resourcetypes` TEXT,
+                    `operationtypes` TEXT,
+                    `permissiontype` INT NOT NULL DEFAULT 0,
+                    `active` TINYINT NOT NULL DEFAULT 1,
+                    `isprotected` TINYINT NOT NULL DEFAULT 0,
+                    `createdutc` DATETIME(6) NOT NULL,
+                    `lastupdateutc` DATETIME(6) NOT NULL,
+                    PRIMARY KEY (`id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE INDEX IF NOT EXISTS `idx_permissions_tenantid` ON `permissions`(`tenantid`);
+
+                -- Role/permission maps table
+                CREATE TABLE IF NOT EXISTS `rolepermissionmaps` (
+                    `id` VARCHAR(64) NOT NULL,
+                    `tenantid` VARCHAR(64),
+                    `roleid` VARCHAR(64) NOT NULL,
+                    `permissionid` VARCHAR(64) NOT NULL,
+                    `active` TINYINT NOT NULL DEFAULT 1,
+                    `createdutc` DATETIME(6) NOT NULL,
+                    `lastupdateutc` DATETIME(6) NOT NULL,
+                    PRIMARY KEY (`id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE INDEX IF NOT EXISTS `idx_rolepermissionmaps_roleid` ON `rolepermissionmaps`(`roleid`);
+                CREATE INDEX IF NOT EXISTS `idx_rolepermissionmaps_permissionid` ON `rolepermissionmaps`(`permissionid`);
+
+                -- User role assignments table
+                CREATE TABLE IF NOT EXISTS `userroleassignments` (
+                    `id` VARCHAR(64) NOT NULL,
+                    `tenantid` VARCHAR(64) NOT NULL,
+                    `userid` VARCHAR(64) NOT NULL,
+                    `roleid` VARCHAR(64),
+                    `rolename` VARCHAR(512),
+                    `resourcescope` INT NOT NULL DEFAULT 0,
+                    `resourceid` VARCHAR(64),
+                    `inheritstochildren` TINYINT NOT NULL DEFAULT 1,
+                    `active` TINYINT NOT NULL DEFAULT 1,
+                    `createdutc` DATETIME(6) NOT NULL,
+                    `lastupdateutc` DATETIME(6) NOT NULL,
+                    PRIMARY KEY (`id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE INDEX IF NOT EXISTS `idx_userroleassignments_tenantid` ON `userroleassignments`(`tenantid`);
+                CREATE INDEX IF NOT EXISTS `idx_userroleassignments_userid` ON `userroleassignments`(`userid`);
+
+                -- Credential scope assignments table
+                CREATE TABLE IF NOT EXISTS `credentialscopeassignments` (
+                    `id` VARCHAR(64) NOT NULL,
+                    `tenantid` VARCHAR(64) NOT NULL,
+                    `credentialid` VARCHAR(64) NOT NULL,
+                    `roleid` VARCHAR(64),
+                    `rolename` VARCHAR(512),
+                    `resourcescope` INT NOT NULL DEFAULT 0,
+                    `resourceid` VARCHAR(64),
+                    `permissions` TEXT,
+                    `resourcetypes` TEXT,
+                    `active` TINYINT NOT NULL DEFAULT 1,
+                    `createdutc` DATETIME(6) NOT NULL,
+                    `lastupdateutc` DATETIME(6) NOT NULL,
+                    PRIMARY KEY (`id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE INDEX IF NOT EXISTS `idx_credentialscopeassignments_tenantid` ON `credentialscopeassignments`(`tenantid`);
+                CREATE INDEX IF NOT EXISTS `idx_credentialscopeassignments_credentialid` ON `credentialscopeassignments`(`credentialid`);
+
+                -- Audit table (append-only security events)
+                CREATE TABLE IF NOT EXISTS `audit` (
+                    `id` VARCHAR(64) NOT NULL,
+                    `tenantid` VARCHAR(64),
+                    `eventtype` VARCHAR(128),
+                    `requestid` VARCHAR(128),
+                    `correlationid` VARCHAR(128),
+                    `traceid` VARCHAR(128),
+                    `principaltype` INT,
+                    `principalid` VARCHAR(64),
+                    `userid` VARCHAR(64),
+                    `credentialid` VARCHAR(64),
+                    `resourcetype` INT,
+                    `resourceid` VARCHAR(64),
+                    `requesttype` VARCHAR(64),
+                    `method` VARCHAR(16),
+                    `path` VARCHAR(1024),
+                    `sourceip` VARCHAR(128),
+                    `authresult` VARCHAR(128),
+                    `authzresult` VARCHAR(128),
+                    `denialreason` VARCHAR(512),
+                    `bypassreason` VARCHAR(512),
+                    `requiredpermission` VARCHAR(512),
+                    `responsecode` INT NOT NULL DEFAULT 0,
+                    `createdutc` DATETIME(6) NOT NULL,
+                    PRIMARY KEY (`id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+                CREATE INDEX IF NOT EXISTS `idx_audit_tenantid_createdutc` ON `audit`(`tenantid`, `createdutc`);
+                CREATE INDEX IF NOT EXISTS `idx_audit_createdutc` ON `audit`(`createdutc`);
+                CREATE INDEX IF NOT EXISTS `idx_audit_eventtype` ON `audit`(`eventtype`);
             ";
         }
 

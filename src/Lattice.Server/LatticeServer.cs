@@ -6,6 +6,7 @@ namespace Lattice.Server
     using System.Threading.Tasks;
     using Lattice.Core;
     using Lattice.Core.Models;
+    using Lattice.Core.Security;
     using Lattice.Core.Telemetry;
     using Lattice.Server.API.REST;
     using Lattice.Server.Classes;
@@ -90,6 +91,12 @@ namespace Lattice.Server
             _Client = new LatticeClient(_Settings.Lattice);
             _Logging.Info(_Header + "Lattice client initialized");
 
+            // Seed the security model (built-in roles; default tenant/admin/credential on first run)
+            if (_Settings.Auth.Enable)
+            {
+                await SeedSecurityAsync().ConfigureAwait(false);
+            }
+
             // Ensure a default collection exists on first run
             await EnsureDefaultCollectionAsync().ConfigureAwait(false);
 
@@ -134,6 +141,36 @@ namespace Lattice.Server
             }
 
             _Logging.Info(_Header + "server stopped");
+        }
+
+        private static async Task SeedSecurityAsync(CancellationToken token = default)
+        {
+            try
+            {
+                SeedResult seed = await FirstBootSeeder.SeedAsync(
+                    _Client,
+                    _Settings.Auth.DefaultTenantName,
+                    _Settings.Auth.DefaultAdminEmail,
+                    _Settings.Auth.DefaultAdminPassword,
+                    token).ConfigureAwait(false);
+
+                if (seed.CreatedDefaults)
+                {
+                    _Logging.Info(_Header + "seeded default tenant " + seed.TenantId + " and administrator " + seed.AdminEmail);
+                    Console.WriteLine(_Header + "==================================================================");
+                    Console.WriteLine(_Header + " First run: default credentials (store these now, shown only once)");
+                    Console.WriteLine(_Header + "   Tenant id:    " + seed.TenantId);
+                    Console.WriteLine(_Header + "   Admin email:  " + seed.AdminEmail);
+                    Console.WriteLine(_Header + "   Admin passwd: " + _Settings.Auth.DefaultAdminPassword);
+                    Console.WriteLine(_Header + "   Access key:   " + seed.DefaultAccessKey);
+                    Console.WriteLine(_Header + "   Use the access key as a bearer token: Authorization: Bearer <access key>");
+                    Console.WriteLine(_Header + "==================================================================");
+                }
+            }
+            catch (Exception e)
+            {
+                _Logging.Warn(_Header + "security seeding failed: " + e.Message);
+            }
         }
 
         private static async Task EnsureDefaultCollectionAsync(CancellationToken token = default)

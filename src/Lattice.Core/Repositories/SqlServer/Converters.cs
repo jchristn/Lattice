@@ -347,5 +347,242 @@ namespace Lattice.Core.Repositories.SqlServer
                 return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             }
         }
+
+        internal static Tenant TenantFromDataRow(DataRow row)
+        {
+            if (row == null) return null;
+
+            return new Tenant
+            {
+                Id = row["id"]?.ToString(),
+                Name = row["name"]?.ToString(),
+                Region = row["region"] != DBNull.Value ? row["region"]?.ToString() : null,
+                Active = Convert.ToBoolean(row["active"]),
+                IsProtected = Convert.ToBoolean(row["isprotected"]),
+                CreatedUtc = Convert.ToDateTime(row["createdutc"]),
+                LastUpdateUtc = Convert.ToDateTime(row["lastupdateutc"])
+            };
+        }
+
+        internal static User UserFromDataRow(DataRow row)
+        {
+            if (row == null) return null;
+
+            return new User
+            {
+                Id = row["id"]?.ToString(),
+                TenantId = row["tenantid"]?.ToString(),
+                FirstName = row["firstname"] != DBNull.Value ? row["firstname"]?.ToString() : null,
+                LastName = row["lastname"] != DBNull.Value ? row["lastname"]?.ToString() : null,
+                Email = row["email"]?.ToString(),
+                PasswordSha256 = row["passwordsha256"] != DBNull.Value ? row["passwordsha256"]?.ToString() : null,
+                IsAdmin = Convert.ToBoolean(row["isadmin"]),
+                IsTenantAdmin = Convert.ToBoolean(row["istenantadmin"]),
+                Active = Convert.ToBoolean(row["active"]),
+                IsProtected = Convert.ToBoolean(row["isprotected"]),
+                CreatedUtc = Convert.ToDateTime(row["createdutc"]),
+                LastUpdateUtc = Convert.ToDateTime(row["lastupdateutc"])
+            };
+        }
+
+        internal static Credential CredentialFromDataRow(DataRow row)
+        {
+            if (row == null) return null;
+
+            return new Credential
+            {
+                Id = row["id"]?.ToString(),
+                TenantId = row["tenantid"]?.ToString(),
+                UserId = row["userid"]?.ToString(),
+                Name = row["name"] != DBNull.Value ? row["name"]?.ToString() : null,
+                AccessKeySha256 = row["accesskeysha256"]?.ToString(),
+                AccessKeyLast4 = row["accesskeylast4"] != DBNull.Value ? row["accesskeylast4"]?.ToString() : null,
+                ExpiresUtc = row["expiresutc"] != DBNull.Value ? Convert.ToDateTime(row["expiresutc"]) : (DateTime?)null,
+                LastUsedUtc = row["lastusedutc"] != DBNull.Value ? Convert.ToDateTime(row["lastusedutc"]) : (DateTime?)null,
+                Active = Convert.ToBoolean(row["active"]),
+                IsProtected = Convert.ToBoolean(row["isprotected"]),
+                CreatedUtc = Convert.ToDateTime(row["createdutc"]),
+                LastUpdateUtc = Convert.ToDateTime(row["lastupdateutc"])
+            };
+        }
+
+        internal static AuthSession AuthSessionFromDataRow(DataRow row)
+        {
+            if (row == null) return null;
+
+            return new AuthSession
+            {
+                Id = row["id"]?.ToString(),
+                TenantId = row["tenantid"]?.ToString(),
+                PrincipalType = (PrincipalType)Convert.ToInt32(row["principaltype"]),
+                UserId = row["userid"] != DBNull.Value ? row["userid"]?.ToString() : null,
+                TokenId = row["tokenid"]?.ToString(),
+                SourceIp = row["sourceip"] != DBNull.Value ? row["sourceip"]?.ToString() : null,
+                UserAgent = row["useragent"] != DBNull.Value ? row["useragent"]?.ToString() : null,
+                ExpiresUtc = Convert.ToDateTime(row["expiresutc"]),
+                LastUsedUtc = row["lastusedutc"] != DBNull.Value ? Convert.ToDateTime(row["lastusedutc"]) : (DateTime?)null,
+                RevokedUtc = row["revokedutc"] != DBNull.Value ? Convert.ToDateTime(row["revokedutc"]) : (DateTime?)null,
+                RevocationReason = row["revocationreason"] != DBNull.Value ? row["revocationreason"]?.ToString() : null,
+                Active = Convert.ToBoolean(row["active"]),
+                CreatedUtc = Convert.ToDateTime(row["createdutc"]),
+                LastUpdateUtc = Convert.ToDateTime(row["lastupdateutc"])
+            };
+        }
+
+        internal static UserRole UserRoleFromDataRow(DataRow row)
+        {
+            if (row == null) return null;
+
+            return new UserRole
+            {
+                Id = row["id"]?.ToString(),
+                TenantId = row["tenantid"] != DBNull.Value ? row["tenantid"]?.ToString() : null,
+                Name = row["name"]?.ToString(),
+                IsBuiltIn = Convert.ToBoolean(row["isbuiltin"]),
+                Active = Convert.ToBoolean(row["active"]),
+                IsProtected = Convert.ToBoolean(row["isprotected"]),
+                CreatedUtc = Convert.ToDateTime(row["createdutc"]),
+                LastUpdateUtc = Convert.ToDateTime(row["lastupdateutc"])
+            };
+        }
+
+        internal static Permission PermissionFromDataRow(DataRow row)
+        {
+            if (row == null) return null;
+
+            return new Permission
+            {
+                Id = row["id"]?.ToString(),
+                TenantId = row["tenantid"] != DBNull.Value ? row["tenantid"]?.ToString() : null,
+                Name = row["name"] != DBNull.Value ? row["name"]?.ToString() : null,
+                ResourceTypes = DeserializeEnumList<ResourceType>(row, "resourcetypes"),
+                OperationTypes = DeserializeEnumList<OperationType>(row, "operationtypes"),
+                PermissionType = (PermissionType)Convert.ToInt32(row["permissiontype"]),
+                Active = Convert.ToBoolean(row["active"]),
+                IsProtected = Convert.ToBoolean(row["isprotected"]),
+                CreatedUtc = Convert.ToDateTime(row["createdutc"]),
+                LastUpdateUtc = Convert.ToDateTime(row["lastupdateutc"])
+            };
+        }
+
+        internal static RolePermissionMap RolePermissionMapFromDataRow(DataRow row)
+        {
+            if (row == null) return null;
+
+            return new RolePermissionMap
+            {
+                Id = row["id"]?.ToString(),
+                TenantId = row["tenantid"] != DBNull.Value ? row["tenantid"]?.ToString() : null,
+                RoleId = row["roleid"]?.ToString(),
+                PermissionId = row["permissionid"]?.ToString(),
+                Active = Convert.ToBoolean(row["active"]),
+                CreatedUtc = Convert.ToDateTime(row["createdutc"]),
+                LastUpdateUtc = Convert.ToDateTime(row["lastupdateutc"])
+            };
+        }
+
+        internal static UserRoleAssignment UserRoleAssignmentFromDataRow(DataRow row)
+        {
+            if (row == null) return null;
+
+            return new UserRoleAssignment
+            {
+                Id = row["id"]?.ToString(),
+                TenantId = row["tenantid"]?.ToString(),
+                UserId = row["userid"]?.ToString(),
+                RoleId = row["roleid"] != DBNull.Value ? row["roleid"]?.ToString() : null,
+                RoleName = row["rolename"] != DBNull.Value ? row["rolename"]?.ToString() : null,
+                ResourceScope = (ResourceScope)Convert.ToInt32(row["resourcescope"]),
+                ResourceId = row["resourceid"] != DBNull.Value ? row["resourceid"]?.ToString() : null,
+                InheritsToChildren = Convert.ToBoolean(row["inheritstochildren"]),
+                Active = Convert.ToBoolean(row["active"]),
+                CreatedUtc = Convert.ToDateTime(row["createdutc"]),
+                LastUpdateUtc = Convert.ToDateTime(row["lastupdateutc"])
+            };
+        }
+
+        internal static CredentialScopeAssignment CredentialScopeAssignmentFromDataRow(DataRow row)
+        {
+            if (row == null) return null;
+
+            return new CredentialScopeAssignment
+            {
+                Id = row["id"]?.ToString(),
+                TenantId = row["tenantid"]?.ToString(),
+                CredentialId = row["credentialid"]?.ToString(),
+                RoleId = row["roleid"] != DBNull.Value ? row["roleid"]?.ToString() : null,
+                RoleName = row["rolename"] != DBNull.Value ? row["rolename"]?.ToString() : null,
+                ResourceScope = (ResourceScope)Convert.ToInt32(row["resourcescope"]),
+                ResourceId = row["resourceid"] != DBNull.Value ? row["resourceid"]?.ToString() : null,
+                Permissions = DeserializeEnumList<OperationType>(row, "permissions"),
+                ResourceTypes = DeserializeEnumList<ResourceType>(row, "resourcetypes"),
+                Active = Convert.ToBoolean(row["active"]),
+                CreatedUtc = Convert.ToDateTime(row["createdutc"]),
+                LastUpdateUtc = Convert.ToDateTime(row["lastupdateutc"])
+            };
+        }
+
+        internal static AuditEntry AuditEntryFromDataRow(DataRow row)
+        {
+            if (row == null) return null;
+
+            return new AuditEntry
+            {
+                Id = row["id"]?.ToString(),
+                TenantId = row["tenantid"] != DBNull.Value ? row["tenantid"]?.ToString() : null,
+                EventType = row["eventtype"] != DBNull.Value ? row["eventtype"]?.ToString() : null,
+                RequestId = row["requestid"] != DBNull.Value ? row["requestid"]?.ToString() : null,
+                CorrelationId = row["correlationid"] != DBNull.Value ? row["correlationid"]?.ToString() : null,
+                TraceId = row["traceid"] != DBNull.Value ? row["traceid"]?.ToString() : null,
+                PrincipalType = row["principaltype"] != DBNull.Value ? (PrincipalType)Convert.ToInt32(row["principaltype"]) : (PrincipalType?)null,
+                PrincipalId = row["principalid"] != DBNull.Value ? row["principalid"]?.ToString() : null,
+                UserId = row["userid"] != DBNull.Value ? row["userid"]?.ToString() : null,
+                CredentialId = row["credentialid"] != DBNull.Value ? row["credentialid"]?.ToString() : null,
+                ResourceType = row["resourcetype"] != DBNull.Value ? (ResourceType)Convert.ToInt32(row["resourcetype"]) : (ResourceType?)null,
+                ResourceId = row["resourceid"] != DBNull.Value ? row["resourceid"]?.ToString() : null,
+                RequestType = row["requesttype"] != DBNull.Value ? row["requesttype"]?.ToString() : null,
+                Method = row["method"] != DBNull.Value ? row["method"]?.ToString() : null,
+                Path = row["path"] != DBNull.Value ? row["path"]?.ToString() : null,
+                SourceIp = row["sourceip"] != DBNull.Value ? row["sourceip"]?.ToString() : null,
+                AuthResult = row["authresult"] != DBNull.Value ? row["authresult"]?.ToString() : null,
+                AuthzResult = row["authzresult"] != DBNull.Value ? row["authzresult"]?.ToString() : null,
+                DenialReason = row["denialreason"] != DBNull.Value ? row["denialreason"]?.ToString() : null,
+                BypassReason = row["bypassreason"] != DBNull.Value ? row["bypassreason"]?.ToString() : null,
+                RequiredPermission = row["requiredpermission"] != DBNull.Value ? row["requiredpermission"]?.ToString() : null,
+                ResponseCode = Convert.ToInt32(row["responsecode"]),
+                CreatedUtc = Convert.ToDateTime(row["createdutc"])
+            };
+        }
+
+        private static List<TEnum> DeserializeEnumList<TEnum>(DataRow row, string columnName) where TEnum : struct, Enum
+        {
+            List<TEnum> result = new List<TEnum>();
+
+            if (!row.Table.Columns.Contains(columnName) || row[columnName] == DBNull.Value)
+                return result;
+
+            string json = row[columnName]?.ToString();
+            if (string.IsNullOrWhiteSpace(json))
+                return result;
+
+            try
+            {
+                List<string> names = JsonSerializer.Deserialize<List<string>>(json);
+                if (names != null)
+                {
+                    foreach (string name in names)
+                    {
+                        if (string.IsNullOrWhiteSpace(name)) continue;
+                        if (Enum.TryParse<TEnum>(name, out TEnum value)) result.Add(value);
+                    }
+                }
+            }
+            catch
+            {
+                return new List<TEnum>();
+            }
+
+            return result;
+        }
     }
 }

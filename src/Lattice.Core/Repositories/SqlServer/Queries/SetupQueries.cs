@@ -275,6 +275,245 @@ namespace Lattice.Core.Repositories.SqlServer.Queries
 
                 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_requesthistory_sourceip_createdutc')
                 CREATE INDEX [idx_requesthistory_sourceip_createdutc] ON [requesthistory]([sourceip], [createdutc]);
+
+                -- Tenants table
+                IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'tenants')
+                CREATE TABLE [tenants] (
+                    [id] NVARCHAR(64) NOT NULL PRIMARY KEY,
+                    [name] NVARCHAR(512) NOT NULL,
+                    [region] NVARCHAR(256),
+                    [active] BIT NOT NULL DEFAULT 1,
+                    [isprotected] BIT NOT NULL DEFAULT 0,
+                    [createdutc] DATETIME2 NOT NULL,
+                    [lastupdateutc] DATETIME2 NOT NULL
+                );
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_tenants_name')
+                CREATE INDEX [idx_tenants_name] ON [tenants]([name]);
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_tenants_createdutc')
+                CREATE INDEX [idx_tenants_createdutc] ON [tenants]([createdutc]);
+
+                -- Users table
+                IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'users')
+                CREATE TABLE [users] (
+                    [id] NVARCHAR(64) NOT NULL PRIMARY KEY,
+                    [tenantid] NVARCHAR(64) NOT NULL,
+                    [firstname] NVARCHAR(256),
+                    [lastname] NVARCHAR(256),
+                    [email] NVARCHAR(512) NOT NULL,
+                    [passwordsha256] NVARCHAR(128),
+                    [isadmin] BIT NOT NULL DEFAULT 0,
+                    [istenantadmin] BIT NOT NULL DEFAULT 0,
+                    [active] BIT NOT NULL DEFAULT 1,
+                    [isprotected] BIT NOT NULL DEFAULT 0,
+                    [createdutc] DATETIME2 NOT NULL,
+                    [lastupdateutc] DATETIME2 NOT NULL,
+                    CONSTRAINT [fk_users_tenants] FOREIGN KEY ([tenantid]) REFERENCES [tenants]([id]) ON DELETE CASCADE
+                );
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_users_tenantid_email')
+                CREATE UNIQUE INDEX [idx_users_tenantid_email] ON [users]([tenantid], [email]);
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_users_tenantid')
+                CREATE INDEX [idx_users_tenantid] ON [users]([tenantid]);
+
+                -- Credentials table (access key used as bearer token)
+                -- Note: the tenant FK intentionally does not cascade because the userid FK
+                -- already provides a cascade path to tenants (via users); SQL Server forbids
+                -- multiple cascade paths to the same table.
+                IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'credentials')
+                CREATE TABLE [credentials] (
+                    [id] NVARCHAR(64) NOT NULL PRIMARY KEY,
+                    [tenantid] NVARCHAR(64) NOT NULL,
+                    [userid] NVARCHAR(64) NOT NULL,
+                    [name] NVARCHAR(512),
+                    [accesskeysha256] NVARCHAR(128) NOT NULL,
+                    [accesskeylast4] NVARCHAR(16),
+                    [expiresutc] DATETIME2,
+                    [lastusedutc] DATETIME2,
+                    [active] BIT NOT NULL DEFAULT 1,
+                    [isprotected] BIT NOT NULL DEFAULT 0,
+                    [createdutc] DATETIME2 NOT NULL,
+                    [lastupdateutc] DATETIME2 NOT NULL,
+                    CONSTRAINT [fk_credentials_tenants] FOREIGN KEY ([tenantid]) REFERENCES [tenants]([id]),
+                    CONSTRAINT [fk_credentials_users] FOREIGN KEY ([userid]) REFERENCES [users]([id]) ON DELETE CASCADE
+                );
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_credentials_accesskeysha256')
+                CREATE UNIQUE INDEX [idx_credentials_accesskeysha256] ON [credentials]([accesskeysha256]);
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_credentials_tenantid')
+                CREATE INDEX [idx_credentials_tenantid] ON [credentials]([tenantid]);
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_credentials_userid')
+                CREATE INDEX [idx_credentials_userid] ON [credentials]([userid]);
+
+                -- Authentication sessions table (user login sessions)
+                IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'authsessions')
+                CREATE TABLE [authsessions] (
+                    [id] NVARCHAR(64) NOT NULL PRIMARY KEY,
+                    [tenantid] NVARCHAR(64) NOT NULL,
+                    [principaltype] INT NOT NULL DEFAULT 0,
+                    [userid] NVARCHAR(64),
+                    [tokenid] NVARCHAR(128) NOT NULL,
+                    [sourceip] NVARCHAR(128),
+                    [useragent] NVARCHAR(1024),
+                    [expiresutc] DATETIME2 NOT NULL,
+                    [lastusedutc] DATETIME2,
+                    [revokedutc] DATETIME2,
+                    [revocationreason] NVARCHAR(512),
+                    [active] BIT NOT NULL DEFAULT 1,
+                    [createdutc] DATETIME2 NOT NULL,
+                    [lastupdateutc] DATETIME2 NOT NULL,
+                    CONSTRAINT [fk_authsessions_tenants] FOREIGN KEY ([tenantid]) REFERENCES [tenants]([id]) ON DELETE CASCADE
+                );
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_authsessions_tokenid')
+                CREATE INDEX [idx_authsessions_tokenid] ON [authsessions]([tokenid]);
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_authsessions_tenantid')
+                CREATE INDEX [idx_authsessions_tenantid] ON [authsessions]([tenantid]);
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_authsessions_userid')
+                CREATE INDEX [idx_authsessions_userid] ON [authsessions]([userid]);
+
+                -- Roles table (built-in roles have null tenantid)
+                IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'userroles')
+                CREATE TABLE [userroles] (
+                    [id] NVARCHAR(64) NOT NULL PRIMARY KEY,
+                    [tenantid] NVARCHAR(64),
+                    [name] NVARCHAR(512) NOT NULL,
+                    [isbuiltin] BIT NOT NULL DEFAULT 0,
+                    [active] BIT NOT NULL DEFAULT 1,
+                    [isprotected] BIT NOT NULL DEFAULT 0,
+                    [createdutc] DATETIME2 NOT NULL,
+                    [lastupdateutc] DATETIME2 NOT NULL
+                );
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_userroles_tenantid')
+                CREATE INDEX [idx_userroles_tenantid] ON [userroles]([tenantid]);
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_userroles_name')
+                CREATE INDEX [idx_userroles_name] ON [userroles]([name]);
+
+                -- Permissions table
+                IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'permissions')
+                CREATE TABLE [permissions] (
+                    [id] NVARCHAR(64) NOT NULL PRIMARY KEY,
+                    [tenantid] NVARCHAR(64),
+                    [name] NVARCHAR(512),
+                    [resourcetypes] NVARCHAR(MAX),
+                    [operationtypes] NVARCHAR(MAX),
+                    [permissiontype] INT NOT NULL DEFAULT 0,
+                    [active] BIT NOT NULL DEFAULT 1,
+                    [isprotected] BIT NOT NULL DEFAULT 0,
+                    [createdutc] DATETIME2 NOT NULL,
+                    [lastupdateutc] DATETIME2 NOT NULL
+                );
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_permissions_tenantid')
+                CREATE INDEX [idx_permissions_tenantid] ON [permissions]([tenantid]);
+
+                -- Role/permission maps table
+                IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'rolepermissionmaps')
+                CREATE TABLE [rolepermissionmaps] (
+                    [id] NVARCHAR(64) NOT NULL PRIMARY KEY,
+                    [tenantid] NVARCHAR(64),
+                    [roleid] NVARCHAR(64) NOT NULL,
+                    [permissionid] NVARCHAR(64) NOT NULL,
+                    [active] BIT NOT NULL DEFAULT 1,
+                    [createdutc] DATETIME2 NOT NULL,
+                    [lastupdateutc] DATETIME2 NOT NULL
+                );
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_rolepermissionmaps_roleid')
+                CREATE INDEX [idx_rolepermissionmaps_roleid] ON [rolepermissionmaps]([roleid]);
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_rolepermissionmaps_permissionid')
+                CREATE INDEX [idx_rolepermissionmaps_permissionid] ON [rolepermissionmaps]([permissionid]);
+
+                -- User role assignments table
+                IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'userroleassignments')
+                CREATE TABLE [userroleassignments] (
+                    [id] NVARCHAR(64) NOT NULL PRIMARY KEY,
+                    [tenantid] NVARCHAR(64) NOT NULL,
+                    [userid] NVARCHAR(64) NOT NULL,
+                    [roleid] NVARCHAR(64),
+                    [rolename] NVARCHAR(512),
+                    [resourcescope] INT NOT NULL DEFAULT 0,
+                    [resourceid] NVARCHAR(64),
+                    [inheritstochildren] BIT NOT NULL DEFAULT 1,
+                    [active] BIT NOT NULL DEFAULT 1,
+                    [createdutc] DATETIME2 NOT NULL,
+                    [lastupdateutc] DATETIME2 NOT NULL
+                );
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_userroleassignments_tenantid')
+                CREATE INDEX [idx_userroleassignments_tenantid] ON [userroleassignments]([tenantid]);
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_userroleassignments_userid')
+                CREATE INDEX [idx_userroleassignments_userid] ON [userroleassignments]([userid]);
+
+                -- Credential scope assignments table
+                IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'credentialscopeassignments')
+                CREATE TABLE [credentialscopeassignments] (
+                    [id] NVARCHAR(64) NOT NULL PRIMARY KEY,
+                    [tenantid] NVARCHAR(64) NOT NULL,
+                    [credentialid] NVARCHAR(64) NOT NULL,
+                    [roleid] NVARCHAR(64),
+                    [rolename] NVARCHAR(512),
+                    [resourcescope] INT NOT NULL DEFAULT 0,
+                    [resourceid] NVARCHAR(64),
+                    [permissions] NVARCHAR(MAX),
+                    [resourcetypes] NVARCHAR(MAX),
+                    [active] BIT NOT NULL DEFAULT 1,
+                    [createdutc] DATETIME2 NOT NULL,
+                    [lastupdateutc] DATETIME2 NOT NULL
+                );
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_credentialscopeassignments_tenantid')
+                CREATE INDEX [idx_credentialscopeassignments_tenantid] ON [credentialscopeassignments]([tenantid]);
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_credentialscopeassignments_credentialid')
+                CREATE INDEX [idx_credentialscopeassignments_credentialid] ON [credentialscopeassignments]([credentialid]);
+
+                -- Audit table (append-only security events)
+                IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'audit')
+                CREATE TABLE [audit] (
+                    [id] NVARCHAR(64) NOT NULL PRIMARY KEY,
+                    [tenantid] NVARCHAR(64),
+                    [eventtype] NVARCHAR(128),
+                    [requestid] NVARCHAR(128),
+                    [correlationid] NVARCHAR(128),
+                    [traceid] NVARCHAR(128),
+                    [principaltype] INT,
+                    [principalid] NVARCHAR(64),
+                    [userid] NVARCHAR(64),
+                    [credentialid] NVARCHAR(64),
+                    [resourcetype] INT,
+                    [resourceid] NVARCHAR(64),
+                    [requesttype] NVARCHAR(64),
+                    [method] NVARCHAR(16),
+                    [path] NVARCHAR(MAX),
+                    [sourceip] NVARCHAR(128),
+                    [authresult] NVARCHAR(128),
+                    [authzresult] NVARCHAR(128),
+                    [denialreason] NVARCHAR(512),
+                    [bypassreason] NVARCHAR(512),
+                    [requiredpermission] NVARCHAR(256),
+                    [responsecode] INT NOT NULL DEFAULT 0,
+                    [createdutc] DATETIME2 NOT NULL
+                );
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_audit_tenantid_createdutc')
+                CREATE INDEX [idx_audit_tenantid_createdutc] ON [audit]([tenantid], [createdutc]);
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_audit_createdutc')
+                CREATE INDEX [idx_audit_createdutc] ON [audit]([createdutc]);
+
+                IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_audit_eventtype')
+                CREATE INDEX [idx_audit_eventtype] ON [audit]([eventtype]);
             ";
         }
 

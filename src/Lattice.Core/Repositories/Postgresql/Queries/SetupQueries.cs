@@ -219,6 +219,184 @@ namespace Lattice.Core.Repositories.Postgresql.Queries
                 CREATE INDEX IF NOT EXISTS idx_requesthistory_schemaid_createdutc ON requesthistory(schemaid, createdutc);
                 CREATE INDEX IF NOT EXISTS idx_requesthistory_tablename_createdutc ON requesthistory(tablename, createdutc);
                 CREATE INDEX IF NOT EXISTS idx_requesthistory_sourceip_createdutc ON requesthistory(sourceip, createdutc);
+
+                -- Tenants table
+                CREATE TABLE IF NOT EXISTS tenants (
+                    id VARCHAR(64) NOT NULL PRIMARY KEY,
+                    name VARCHAR(512) NOT NULL,
+                    region VARCHAR(256),
+                    active BOOLEAN NOT NULL DEFAULT TRUE,
+                    isprotected BOOLEAN NOT NULL DEFAULT FALSE,
+                    createdutc TIMESTAMP NOT NULL,
+                    lastupdateutc TIMESTAMP NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_tenants_name ON tenants(name);
+                CREATE INDEX IF NOT EXISTS idx_tenants_createdutc ON tenants(createdutc);
+
+                -- Users table
+                CREATE TABLE IF NOT EXISTS users (
+                    id VARCHAR(64) NOT NULL PRIMARY KEY,
+                    tenantid VARCHAR(64) NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                    firstname VARCHAR(256),
+                    lastname VARCHAR(256),
+                    email VARCHAR(512) NOT NULL,
+                    passwordsha256 VARCHAR(128),
+                    isadmin BOOLEAN NOT NULL DEFAULT FALSE,
+                    istenantadmin BOOLEAN NOT NULL DEFAULT FALSE,
+                    active BOOLEAN NOT NULL DEFAULT TRUE,
+                    isprotected BOOLEAN NOT NULL DEFAULT FALSE,
+                    createdutc TIMESTAMP NOT NULL,
+                    lastupdateutc TIMESTAMP NOT NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_users_tenantid_email ON users(tenantid, email);
+                CREATE INDEX IF NOT EXISTS idx_users_tenantid ON users(tenantid);
+
+                -- Credentials table (access key used as bearer token)
+                CREATE TABLE IF NOT EXISTS credentials (
+                    id VARCHAR(64) NOT NULL PRIMARY KEY,
+                    tenantid VARCHAR(64) NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                    userid VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    name VARCHAR(512),
+                    accesskeysha256 VARCHAR(128) NOT NULL,
+                    accesskeylast4 VARCHAR(16),
+                    expiresutc TIMESTAMP,
+                    lastusedutc TIMESTAMP,
+                    active BOOLEAN NOT NULL DEFAULT TRUE,
+                    isprotected BOOLEAN NOT NULL DEFAULT FALSE,
+                    createdutc TIMESTAMP NOT NULL,
+                    lastupdateutc TIMESTAMP NOT NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_credentials_accesskeysha256 ON credentials(accesskeysha256);
+                CREATE INDEX IF NOT EXISTS idx_credentials_tenantid ON credentials(tenantid);
+                CREATE INDEX IF NOT EXISTS idx_credentials_userid ON credentials(userid);
+
+                -- Authentication sessions table (user login sessions)
+                CREATE TABLE IF NOT EXISTS authsessions (
+                    id VARCHAR(64) NOT NULL PRIMARY KEY,
+                    tenantid VARCHAR(64) NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                    principaltype INTEGER NOT NULL DEFAULT 0,
+                    userid VARCHAR(64),
+                    tokenid VARCHAR(128) NOT NULL,
+                    sourceip VARCHAR(128),
+                    useragent TEXT,
+                    expiresutc TIMESTAMP NOT NULL,
+                    lastusedutc TIMESTAMP,
+                    revokedutc TIMESTAMP,
+                    revocationreason VARCHAR(512),
+                    active BOOLEAN NOT NULL DEFAULT TRUE,
+                    createdutc TIMESTAMP NOT NULL,
+                    lastupdateutc TIMESTAMP NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_authsessions_tokenid ON authsessions(tokenid);
+                CREATE INDEX IF NOT EXISTS idx_authsessions_tenantid ON authsessions(tenantid);
+                CREATE INDEX IF NOT EXISTS idx_authsessions_userid ON authsessions(userid);
+
+                -- Roles table (built-in roles have null tenantid)
+                CREATE TABLE IF NOT EXISTS userroles (
+                    id VARCHAR(64) NOT NULL PRIMARY KEY,
+                    tenantid VARCHAR(64),
+                    name VARCHAR(512) NOT NULL,
+                    isbuiltin BOOLEAN NOT NULL DEFAULT FALSE,
+                    active BOOLEAN NOT NULL DEFAULT TRUE,
+                    isprotected BOOLEAN NOT NULL DEFAULT FALSE,
+                    createdutc TIMESTAMP NOT NULL,
+                    lastupdateutc TIMESTAMP NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_userroles_tenantid ON userroles(tenantid);
+                CREATE INDEX IF NOT EXISTS idx_userroles_name ON userroles(name);
+
+                -- Permissions table
+                CREATE TABLE IF NOT EXISTS permissions (
+                    id VARCHAR(64) NOT NULL PRIMARY KEY,
+                    tenantid VARCHAR(64),
+                    name VARCHAR(512),
+                    resourcetypes TEXT,
+                    operationtypes TEXT,
+                    permissiontype INTEGER NOT NULL DEFAULT 0,
+                    active BOOLEAN NOT NULL DEFAULT TRUE,
+                    isprotected BOOLEAN NOT NULL DEFAULT FALSE,
+                    createdutc TIMESTAMP NOT NULL,
+                    lastupdateutc TIMESTAMP NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_permissions_tenantid ON permissions(tenantid);
+
+                -- Role/permission maps table
+                CREATE TABLE IF NOT EXISTS rolepermissionmaps (
+                    id VARCHAR(64) NOT NULL PRIMARY KEY,
+                    tenantid VARCHAR(64),
+                    roleid VARCHAR(64) NOT NULL,
+                    permissionid VARCHAR(64) NOT NULL,
+                    active BOOLEAN NOT NULL DEFAULT TRUE,
+                    createdutc TIMESTAMP NOT NULL,
+                    lastupdateutc TIMESTAMP NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_rolepermissionmaps_roleid ON rolepermissionmaps(roleid);
+                CREATE INDEX IF NOT EXISTS idx_rolepermissionmaps_permissionid ON rolepermissionmaps(permissionid);
+
+                -- User role assignments table
+                CREATE TABLE IF NOT EXISTS userroleassignments (
+                    id VARCHAR(64) NOT NULL PRIMARY KEY,
+                    tenantid VARCHAR(64) NOT NULL,
+                    userid VARCHAR(64) NOT NULL,
+                    roleid VARCHAR(64),
+                    rolename VARCHAR(512),
+                    resourcescope INTEGER NOT NULL DEFAULT 0,
+                    resourceid VARCHAR(64),
+                    inheritstochildren BOOLEAN NOT NULL DEFAULT TRUE,
+                    active BOOLEAN NOT NULL DEFAULT TRUE,
+                    createdutc TIMESTAMP NOT NULL,
+                    lastupdateutc TIMESTAMP NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_userroleassignments_tenantid ON userroleassignments(tenantid);
+                CREATE INDEX IF NOT EXISTS idx_userroleassignments_userid ON userroleassignments(userid);
+
+                -- Credential scope assignments table
+                CREATE TABLE IF NOT EXISTS credentialscopeassignments (
+                    id VARCHAR(64) NOT NULL PRIMARY KEY,
+                    tenantid VARCHAR(64) NOT NULL,
+                    credentialid VARCHAR(64) NOT NULL,
+                    roleid VARCHAR(64),
+                    rolename VARCHAR(512),
+                    resourcescope INTEGER NOT NULL DEFAULT 0,
+                    resourceid VARCHAR(64),
+                    permissions TEXT,
+                    resourcetypes TEXT,
+                    active BOOLEAN NOT NULL DEFAULT TRUE,
+                    createdutc TIMESTAMP NOT NULL,
+                    lastupdateutc TIMESTAMP NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_credentialscopeassignments_tenantid ON credentialscopeassignments(tenantid);
+                CREATE INDEX IF NOT EXISTS idx_credentialscopeassignments_credentialid ON credentialscopeassignments(credentialid);
+
+                -- Audit table (append-only security events)
+                CREATE TABLE IF NOT EXISTS audit (
+                    id VARCHAR(64) NOT NULL PRIMARY KEY,
+                    tenantid VARCHAR(64),
+                    eventtype VARCHAR(128),
+                    requestid VARCHAR(64),
+                    correlationid VARCHAR(64),
+                    traceid VARCHAR(64),
+                    principaltype INTEGER,
+                    principalid VARCHAR(64),
+                    userid VARCHAR(64),
+                    credentialid VARCHAR(64),
+                    resourcetype INTEGER,
+                    resourceid VARCHAR(64),
+                    requesttype VARCHAR(64),
+                    method VARCHAR(16),
+                    path TEXT,
+                    sourceip VARCHAR(128),
+                    authresult VARCHAR(128),
+                    authzresult VARCHAR(128),
+                    denialreason TEXT,
+                    bypassreason TEXT,
+                    requiredpermission VARCHAR(512),
+                    responsecode INTEGER NOT NULL DEFAULT 0,
+                    createdutc TIMESTAMP NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_audit_tenantid_createdutc ON audit(tenantid, createdutc);
+                CREATE INDEX IF NOT EXISTS idx_audit_createdutc ON audit(createdutc);
+                CREATE INDEX IF NOT EXISTS idx_audit_eventtype ON audit(eventtype);
             ";
         }
 

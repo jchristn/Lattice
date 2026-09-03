@@ -98,6 +98,38 @@ namespace Lattice.Server.Classes
             }
         }
 
+        /// <summary>
+        /// Authentication and authorization settings.
+        /// </summary>
+        public AuthSettings Auth
+        {
+            get
+            {
+                return _Auth;
+            }
+            set
+            {
+                if (value == null) _Auth = new AuthSettings();
+                else _Auth = value;
+            }
+        }
+
+        /// <summary>
+        /// Model Context Protocol (MCP) server settings.
+        /// </summary>
+        public McpSettings Mcp
+        {
+            get
+            {
+                return _Mcp;
+            }
+            set
+            {
+                if (value == null) _Mcp = new McpSettings();
+                else _Mcp = value;
+            }
+        }
+
         #endregion
 
         #region Private-Members
@@ -107,6 +139,8 @@ namespace Lattice.Server.Classes
         private LatticeSettings _Lattice = new LatticeSettings();
         private RequestHistorySettings _RequestHistory = new RequestHistorySettings();
         private TelemetrySettings _Telemetry = new TelemetrySettings();
+        private AuthSettings _Auth = new AuthSettings();
+        private McpSettings _Mcp = new McpSettings();
 
         #endregion
 
