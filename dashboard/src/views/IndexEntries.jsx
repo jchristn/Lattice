@@ -90,6 +90,15 @@ export default function IndexEntries() {
     return result
   }, [entriesData, filters, sort])
 
+  // Position only applies to array-element values. Because an index table holds
+  // entries for a single field key, it is either all-array (every row has a
+  // position) or all-scalar (every row is null). Only show the column when the
+  // table actually has positions, so scalar-field tables aren't cluttered with "-".
+  const hasPosition = useMemo(
+    () => (entriesData?.objects || []).some((e) => e.position !== null && e.position !== undefined),
+    [entriesData],
+  )
+
   // EnumerationResult: total count is `totalRecords` (was `totalCount`).
   const totalRecords = entriesData?.totalRecords ?? 0
   const totalPages = entriesData ? Math.max(1, Math.ceil(totalRecords / pageSize)) : 1
@@ -282,29 +291,31 @@ export default function IndexEntries() {
                 <th className={`sortable ${sort.column === 'value' ? 'sorted' : ''}`} onClick={() => handleSort('value')} title="The indexed field value stored for this document; click to sort by value">
                   <span className="th-content">Value <span className="sort-icon">{getSortIcon('value')}</span></span>
                 </th>
-                <th className={`sortable ${sort.column === 'position' ? 'sorted' : ''}`} onClick={() => handleSort('position')} title="Array position of the value when the field holds multiple values; click to sort by position">
-                  <span className="th-content">Position <span className="sort-icon">{getSortIcon('position')}</span></span>
-                </th>
+                {hasPosition ? (
+                  <th className={`sortable ${sort.column === 'position' ? 'sorted' : ''}`} onClick={() => handleSort('position')} title="Array position of the value within a multi-valued (array) field; click to sort by position">
+                    <span className="th-content">Position <span className="sort-icon">{getSortIcon('position')}</span></span>
+                  </th>
+                ) : null}
                 <th title="Per-row actions such as copying the document ID or viewing the entry's raw JSON">Actions</th>
               </tr>
               <tr className="filter-row">
                 <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.documentId} onChange={(event) => handleFilterChange('documentId', event.target.value)} title="Filter the current page to entries whose document ID contains this text" /></td>
                 <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.value} onChange={(event) => handleFilterChange('value', event.target.value)} title="Filter the current page to entries whose indexed value contains this text" /></td>
-                <td className="no-filter"></td>
+                {hasPosition ? <td className="no-filter"></td> : null}
                 <td className="no-filter"></td>
               </tr>
             </thead>
             <tbody>
               {filteredEntries.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="empty-row">No entries match your filters.</td>
+                  <td colSpan={hasPosition ? 4 : 3} className="empty-row">No entries match your filters.</td>
                 </tr>
               ) : (
                 filteredEntries.map((entry) => (
                   <tr key={entry.id} className="clickable-row" title="Click to view this record's details" onClick={(event) => onRowClick(event, entry)}>
                     <td><CopyableId value={entry.documentId} /></td>
                     <td className="entry-value-cell">{entry.value ?? <em className="null-value">null</em>}</td>
-                    <td>{entry.position ?? '-'}</td>
+                    {hasPosition ? <td>{entry.position ?? '-'}</td> : null}
                     <td>
                       <ActionMenu
                         items={[
