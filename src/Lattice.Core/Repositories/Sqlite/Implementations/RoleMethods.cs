@@ -289,6 +289,15 @@ namespace Lattice.Core.Repositories.Sqlite.Implementations
             await _Repo.ExecuteNonQueryAsync(query, token).ConfigureAwait(false);
         }
 
+        public async Task DeleteRolePermissionMapsByRole(string roleId, CancellationToken token = default)
+        {
+            if (string.IsNullOrWhiteSpace(roleId)) throw new ArgumentNullException(nameof(roleId));
+            token.ThrowIfCancellationRequested();
+
+            string query = $"DELETE FROM rolepermissionmaps WHERE roleid = '{Sanitizer.Sanitize(roleId)}';";
+            await _Repo.ExecuteNonQueryAsync(query, token).ConfigureAwait(false);
+        }
+
         #endregion
 
         #region User-Role-Assignments

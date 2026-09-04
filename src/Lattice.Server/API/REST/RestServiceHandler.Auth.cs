@@ -199,6 +199,42 @@ namespace Lattice.Server.API.REST
                 openApiMetadata: OpenApiRouteMetadata.Create("List roles", "Roles")
                     .WithDescription("Enumerate the roles visible to the caller's tenant (its own plus global built-ins).")
                     .WithResponse(200, OpenApiResponseMetadata.Create("Roles retrieved.")));
+            routes.PreAuthentication.Static.Add(HttpMethod.PUT, "/v1.0/roles", PutRoleRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Create a role", "Roles")
+                    .WithDescription("Create a tenant role and the grants it confers (built-in roles are global and read-only).")
+                    .WithRequestBody(OpenApiRequestBodyMetadata.Json(new OpenApiSchemaMetadata
+                    {
+                        Type = "object",
+                        Required = new List<string> { "name" },
+                        Properties = new Dictionary<string, OpenApiSchemaMetadata>
+                        {
+                            ["name"] = new OpenApiSchemaMetadata { Type = "string", Description = "Role name (unique within the tenant)." },
+                            ["permissions"] = new OpenApiSchemaMetadata
+                            {
+                                Type = "array",
+                                Description = "The grants: each has permissionType (permit/deny), resourceTypes[], and operationTypes[].",
+                                Items = new OpenApiSchemaMetadata { Type = "object" }
+                            }
+                        }
+                    }, "Role to create", true))
+                    .WithResponse(201, OpenApiResponseMetadata.Create("Role created."))
+                    .WithResponse(409, OpenApiResponseMetadata.Create("A role with that name already exists.")));
+            routes.PreAuthentication.Parameter.Add(HttpMethod.GET, "/v1.0/roles/{roleId}", GetRoleRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Get a role", "Roles")
+                    .WithParameter(OpenApiParameterMetadata.Path("roleId", "Role identifier", OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Role retrieved with its grants."))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
+            routes.PreAuthentication.Parameter.Add(HttpMethod.PUT, "/v1.0/roles/{roleId}", UpdateRoleRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Update a role", "Roles")
+                    .WithDescription("Rename a tenant role and/or replace its grants. Built-in roles cannot be modified.")
+                    .WithParameter(OpenApiParameterMetadata.Path("roleId", "Role identifier", OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Role updated."))
+                    .WithResponse(409, OpenApiResponseMetadata.Create("Built-in roles cannot be modified.")));
+            routes.PreAuthentication.Parameter.Add(HttpMethod.DELETE, "/v1.0/roles/{roleId}", DeleteRoleRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Delete a role", "Roles")
+                    .WithParameter(OpenApiParameterMetadata.Path("roleId", "Role identifier", OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Role deleted."))
+                    .WithResponse(409, OpenApiResponseMetadata.Create("Built-in roles cannot be deleted.")));
 
             // Assignments (authorization scope).
             routes.PreAuthentication.Static.Add(HttpMethod.GET, "/v1.0/assignments", GetAssignmentsRoute, ExceptionRoute,
@@ -296,6 +332,10 @@ namespace Lattice.Server.API.REST
                 ServerTelemetry.RecordAuthRequest("session", true);
                 ServerTelemetry.RecordSessionEvent("created");
 
+                reqCtx.Caller = login.Caller;
+                reqCtx.TenantId = login.Caller?.TenantId;
+                await WriteAuditEventAsync(reqCtx, "AuthSuccess", ResourceType.Session, login.Caller?.SessionId, 200).ConfigureAwait(false);
+
                 AuthTokenResponse response = new AuthTokenResponse
                 {
                     Token = login.Token,
@@ -345,6 +385,7 @@ namespace Lattice.Server.API.REST
                         session.Active = false;
                         await _Client.Sessions.Update(session, CancellationToken.None).ConfigureAwait(false);
                         ServerTelemetry.RecordSessionEvent("revoked");
+                        await WriteAuditEventAsync(reqCtx, "SessionRevoked", ResourceType.Session, caller.SessionId, 200).ConfigureAwait(false);
                     }
                 }
                 return new ResponseContext { Success = true, StatusCode = 200, Data = null };
@@ -376,6 +417,7 @@ namespace Lattice.Server.API.REST
                 request.LastUpdateUtc = DateTime.UtcNow;
                 Tenant created = await _Client.Tenants.Create(request, CancellationToken.None).ConfigureAwait(false);
                 ServerTelemetry.RecordRbacMutation("tenant", "create");
+                await WriteAuditEventAsync(reqCtx, "TenantCreated", ResourceType.Tenant, created?.Id, 201).ConfigureAwait(false);
                 return new ResponseContext { Success = true, StatusCode = 201, Data = created };
             }).ConfigureAwait(false);
         }
@@ -401,6 +443,7 @@ namespace Lattice.Server.API.REST
                 if (tenant.IsProtected) return new ResponseContext(false, 409, "Tenant is protected");
                 await _Client.Tenants.Delete(tenantId, CancellationToken.None).ConfigureAwait(false);
                 ServerTelemetry.RecordRbacMutation("tenant", "delete");
+                await WriteAuditEventAsync(reqCtx, "TenantDeleted", ResourceType.Tenant, tenantId, 200).ConfigureAwait(false);
                 return new ResponseContext { Success = true, StatusCode = 200, Data = null };
             }).ConfigureAwait(false);
         }
@@ -445,6 +488,11 @@ namespace Lattice.Server.API.REST
                 User created = await _Client.Users.Create(user, CancellationToken.None).ConfigureAwait(false);
                 if (created != null) created.PasswordSha256 = null;
                 ServerTelemetry.RecordRbacMutation("user", "create");
+                if (created != null)
+                {
+                    await AssignDefaultRoleAsync(created).ConfigureAwait(false);
+                    await WriteAuditEventAsync(reqCtx, "UserCreated", ResourceType.User, created.Id, 201).ConfigureAwait(false);
+                }
                 return new ResponseContext { Success = true, StatusCode = 201, Data = created };
             }).ConfigureAwait(false);
         }
@@ -471,6 +519,7 @@ namespace Lattice.Server.API.REST
                 if (user.IsProtected) return new ResponseContext(false, 409, "User is protected");
                 await _Client.Users.Delete(userId, CancellationToken.None).ConfigureAwait(false);
                 ServerTelemetry.RecordRbacMutation("user", "delete");
+                await WriteAuditEventAsync(reqCtx, "UserDeleted", ResourceType.User, userId, 200).ConfigureAwait(false);
                 return new ResponseContext { Success = true, StatusCode = 200, Data = null };
             }).ConfigureAwait(false);
         }
@@ -518,6 +567,7 @@ namespace Lattice.Server.API.REST
                     created.AccessKeySha256 = null;   // never expose the stored hash
                 }
                 ServerTelemetry.RecordRbacMutation("credential", "create");
+                await WriteAuditEventAsync(reqCtx, "CredentialCreated", ResourceType.Credential, created?.Id, 201).ConfigureAwait(false);
                 return new ResponseContext { Success = true, StatusCode = 201, Data = created };
             }).ConfigureAwait(false);
         }
@@ -544,6 +594,7 @@ namespace Lattice.Server.API.REST
                 if (credential.IsProtected) return new ResponseContext(false, 409, "Credential is protected");
                 await _Client.Credentials.Delete(credentialId, CancellationToken.None).ConfigureAwait(false);
                 ServerTelemetry.RecordRbacMutation("credential", "delete");
+                await WriteAuditEventAsync(reqCtx, "CredentialDeleted", ResourceType.Credential, credentialId, 200).ConfigureAwait(false);
                 return new ResponseContext { Success = true, StatusCode = 200, Data = null };
             }).ConfigureAwait(false);
         }
@@ -558,6 +609,100 @@ namespace Lattice.Server.API.REST
             {
                 List<UserRole> roles = await _Client.Roles.ReadRoles(reqCtx.TenantId, CancellationToken.None).ConfigureAwait(false);
                 return new ResponseContext { Success = true, StatusCode = 200, Data = BuildEnumerationResult(roles, reqCtx) };
+            }).ConfigureAwait(false);
+        }
+
+        private async Task PutRoleRoute(HttpContextBase ctx)
+        {
+            await WrappedRequestHandler(ctx, RequestTypeEnum.Collection, async (reqCtx) =>
+            {
+                CreateRoleRequest request = Deserialize<CreateRoleRequest>(reqCtx.RequestBody);
+                if (request == null || String.IsNullOrWhiteSpace(request.Name)) return new ResponseContext(false, 400, "name is required");
+
+                UserRole existing = await _Client.Roles.ReadRoleByName(reqCtx.TenantId, request.Name, CancellationToken.None).ConfigureAwait(false);
+                if (existing != null) return new ResponseContext(false, 409, "A role with that name already exists");
+
+                DateTime now = DateTime.UtcNow;
+                UserRole role = new UserRole
+                {
+                    Id = IdGenerator.NewUserRoleId(),
+                    TenantId = reqCtx.TenantId,
+                    Name = request.Name,
+                    IsBuiltIn = false,
+                    Active = true,
+                    IsProtected = false,
+                    CreatedUtc = now,
+                    LastUpdateUtc = now
+                };
+                await _Client.Roles.CreateRole(role, CancellationToken.None).ConfigureAwait(false);
+                await CreateRoleGrantsAsync(role, request.Permissions).ConfigureAwait(false);
+
+                ServerTelemetry.RecordRbacMutation("role", "create");
+                await WriteAuditEventAsync(reqCtx, "RoleCreated", ResourceType.Role, role.Id, 201).ConfigureAwait(false);
+                return new ResponseContext { Success = true, StatusCode = 201, Data = await BuildRoleDetailAsync(role).ConfigureAwait(false) };
+            }).ConfigureAwait(false);
+        }
+
+        private async Task GetRoleRoute(HttpContextBase ctx)
+        {
+            await WrappedRequestHandler(ctx, RequestTypeEnum.Collection, async (reqCtx) =>
+            {
+                string roleId = ctx.Request.Url.Parameters["roleId"];
+                UserRole role = await _Client.Roles.ReadRoleById(roleId, CancellationToken.None).ConfigureAwait(false);
+                if (role == null || !RoleVisible(reqCtx, role)) return new ResponseContext(false, 404, "Role not found");
+                return new ResponseContext { Success = true, StatusCode = 200, Data = await BuildRoleDetailAsync(role).ConfigureAwait(false) };
+            }).ConfigureAwait(false);
+        }
+
+        private async Task UpdateRoleRoute(HttpContextBase ctx)
+        {
+            await WrappedRequestHandler(ctx, RequestTypeEnum.Collection, async (reqCtx) =>
+            {
+                string roleId = ctx.Request.Url.Parameters["roleId"];
+                UserRole role = await _Client.Roles.ReadRoleById(roleId, CancellationToken.None).ConfigureAwait(false);
+                if (role == null || !RoleVisible(reqCtx, role)) return new ResponseContext(false, 404, "Role not found");
+                if (role.IsBuiltIn || role.IsProtected) return new ResponseContext(false, 409, "Built-in roles cannot be modified");
+                if (!RoleEditable(reqCtx, role)) return new ResponseContext(false, 403, "Role belongs to another tenant");
+
+                CreateRoleRequest request = Deserialize<CreateRoleRequest>(reqCtx.RequestBody);
+                if (request == null) return new ResponseContext(false, 400, "A role body is required");
+
+                if (!String.IsNullOrWhiteSpace(request.Name) && !String.Equals(request.Name, role.Name, StringComparison.Ordinal))
+                {
+                    role.Name = request.Name;
+                    role.LastUpdateUtc = DateTime.UtcNow;
+                    await _Client.Roles.UpdateRole(role, CancellationToken.None).ConfigureAwait(false);
+                }
+
+                // Replace the role's grants when a permission set was supplied.
+                if (request.Permissions != null)
+                {
+                    await ClearRoleGrantsAsync(role.Id).ConfigureAwait(false);
+                    await CreateRoleGrantsAsync(role, request.Permissions).ConfigureAwait(false);
+                }
+
+                ServerTelemetry.RecordRbacMutation("role", "update");
+                await WriteAuditEventAsync(reqCtx, "RoleUpdated", ResourceType.Role, role.Id, 200).ConfigureAwait(false);
+                return new ResponseContext { Success = true, StatusCode = 200, Data = await BuildRoleDetailAsync(role).ConfigureAwait(false) };
+            }).ConfigureAwait(false);
+        }
+
+        private async Task DeleteRoleRoute(HttpContextBase ctx)
+        {
+            await WrappedRequestHandler(ctx, RequestTypeEnum.Collection, async (reqCtx) =>
+            {
+                string roleId = ctx.Request.Url.Parameters["roleId"];
+                UserRole role = await _Client.Roles.ReadRoleById(roleId, CancellationToken.None).ConfigureAwait(false);
+                if (role == null || !RoleVisible(reqCtx, role)) return new ResponseContext(false, 404, "Role not found");
+                if (role.IsBuiltIn || role.IsProtected) return new ResponseContext(false, 409, "Built-in roles cannot be deleted");
+                if (!RoleEditable(reqCtx, role)) return new ResponseContext(false, 403, "Role belongs to another tenant");
+
+                await ClearRoleGrantsAsync(role.Id).ConfigureAwait(false);
+                await _Client.Roles.DeleteRole(role.Id, CancellationToken.None).ConfigureAwait(false);
+
+                ServerTelemetry.RecordRbacMutation("role", "delete");
+                await WriteAuditEventAsync(reqCtx, "RoleDeleted", ResourceType.Role, role.Id, 200).ConfigureAwait(false);
+                return new ResponseContext { Success = true, StatusCode = 200, Data = null };
             }).ConfigureAwait(false);
         }
 
@@ -585,6 +730,7 @@ namespace Lattice.Server.API.REST
                 request.LastUpdateUtc = DateTime.UtcNow;
                 UserRoleAssignment created = await _Client.Roles.CreateUserRoleAssignment(request, CancellationToken.None).ConfigureAwait(false);
                 ServerTelemetry.RecordRbacMutation("assignment", "create");
+                await WriteAuditEventAsync(reqCtx, "AssignmentCreated", ResourceType.Assignment, created?.Id, 201).ConfigureAwait(false);
                 return new ResponseContext { Success = true, StatusCode = 201, Data = created };
             }).ConfigureAwait(false);
         }
@@ -598,6 +744,7 @@ namespace Lattice.Server.API.REST
                 if (assignment == null || !TenantVisible(reqCtx, assignment.TenantId)) return new ResponseContext(false, 404, "Assignment not found");
                 await _Client.Roles.DeleteUserRoleAssignment(assignmentId, CancellationToken.None).ConfigureAwait(false);
                 ServerTelemetry.RecordRbacMutation("assignment", "delete");
+                await WriteAuditEventAsync(reqCtx, "AssignmentDeleted", ResourceType.Assignment, assignmentId, 200).ConfigureAwait(false);
                 return new ResponseContext { Success = true, StatusCode = 200, Data = null };
             }).ConfigureAwait(false);
         }
@@ -652,6 +799,111 @@ namespace Lattice.Server.API.REST
         {
             if (reqCtx.Caller != null && reqCtx.Caller.IsAdmin) return true;
             return String.Equals(reqCtx.TenantId, recordTenantId, StringComparison.Ordinal);
+        }
+
+        // A role is visible when it is a global built-in, owned by the caller's tenant, or the caller is a
+        // system administrator.
+        private static bool RoleVisible(RequestContext reqCtx, UserRole role)
+        {
+            if (role == null) return false;
+            if (reqCtx.Caller != null && reqCtx.Caller.IsAdmin) return true;
+            if (String.IsNullOrEmpty(role.TenantId)) return true;
+            return String.Equals(reqCtx.TenantId, role.TenantId, StringComparison.Ordinal);
+        }
+
+        // A role is editable only when it is a tenant-owned (non-global) role in the caller's tenant.
+        private static bool RoleEditable(RequestContext reqCtx, UserRole role)
+        {
+            if (role == null || String.IsNullOrEmpty(role.TenantId)) return false;
+            if (reqCtx.Caller != null && reqCtx.Caller.IsAdmin) return true;
+            return String.Equals(reqCtx.TenantId, role.TenantId, StringComparison.Ordinal);
+        }
+
+        // Build the role + its grants for the role detail responses.
+        private async Task<RoleDetailResponse> BuildRoleDetailAsync(UserRole role)
+        {
+            RoleDetailResponse detail = new RoleDetailResponse
+            {
+                Id = role.Id,
+                TenantId = role.TenantId,
+                Name = role.Name,
+                IsBuiltIn = role.IsBuiltIn,
+                Active = role.Active,
+                IsProtected = role.IsProtected,
+                CreatedUtc = role.CreatedUtc,
+                LastUpdateUtc = role.LastUpdateUtc
+            };
+
+            List<Permission> permissions = await _Client.Roles.ReadPermissionsForRole(role.Id, CancellationToken.None).ConfigureAwait(false);
+            if (permissions != null)
+            {
+                foreach (Permission permission in permissions)
+                {
+                    detail.Permissions.Add(new RolePermissionSpec
+                    {
+                        PermissionType = permission.PermissionType,
+                        ResourceTypes = new List<ResourceType>(permission.ResourceTypes ?? new List<ResourceType>()),
+                        OperationTypes = new List<OperationType>(permission.OperationTypes ?? new List<OperationType>())
+                    });
+                }
+            }
+
+            return detail;
+        }
+
+        // Create the permission records and role/permission maps for a role's grant specs.
+        private async Task CreateRoleGrantsAsync(UserRole role, List<RolePermissionSpec> specs)
+        {
+            if (specs == null) return;
+            DateTime now = DateTime.UtcNow;
+
+            foreach (RolePermissionSpec spec in specs)
+            {
+                if (spec == null) continue;
+                if (spec.ResourceTypes == null || spec.ResourceTypes.Count == 0) continue;
+                if (spec.OperationTypes == null || spec.OperationTypes.Count == 0) continue;
+
+                Permission permission = new Permission
+                {
+                    Id = IdGenerator.NewPermissionId(),
+                    TenantId = role.TenantId,
+                    Name = role.Name + " grant",
+                    PermissionType = spec.PermissionType,
+                    ResourceTypes = new List<ResourceType>(spec.ResourceTypes),
+                    OperationTypes = new List<OperationType>(spec.OperationTypes),
+                    Active = true,
+                    IsProtected = false,
+                    CreatedUtc = now,
+                    LastUpdateUtc = now
+                };
+                await _Client.Roles.CreatePermission(permission, CancellationToken.None).ConfigureAwait(false);
+
+                RolePermissionMap map = new RolePermissionMap
+                {
+                    Id = IdGenerator.NewRolePermissionMapId(),
+                    TenantId = role.TenantId,
+                    RoleId = role.Id,
+                    PermissionId = permission.Id,
+                    Active = true,
+                    CreatedUtc = now,
+                    LastUpdateUtc = now
+                };
+                await _Client.Roles.CreateRolePermissionMap(map, CancellationToken.None).ConfigureAwait(false);
+            }
+        }
+
+        // Remove all grants (permissions + maps) for a role, used when editing or deleting it.
+        private async Task ClearRoleGrantsAsync(string roleId)
+        {
+            List<Permission> permissions = await _Client.Roles.ReadPermissionsForRole(roleId, CancellationToken.None).ConfigureAwait(false);
+            if (permissions != null)
+            {
+                foreach (Permission permission in permissions)
+                {
+                    await _Client.Roles.DeletePermission(permission.Id, CancellationToken.None).ConfigureAwait(false);
+                }
+            }
+            await _Client.Roles.DeleteRolePermissionMapsByRole(roleId, CancellationToken.None).ConfigureAwait(false);
         }
 
         // True when the caller may access the given collection: auth disabled, a system administrator, a
@@ -717,6 +969,75 @@ namespace Lattice.Server.API.REST
                     AuthzResult = authzResult,
                     DenialReason = denialReason,
                     RequiredPermission = required != null ? (required.ResourceType + ":" + required.Operation) : null,
+                    ResponseCode = responseCode,
+                    CreatedUtc = DateTime.UtcNow
+                };
+                await _Client.Audit.Create(entry, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                _Logging?.Warn(_Header + "audit write failed: " + e.Message);
+            }
+        }
+
+        // Give a newly created user a baseline TenantMember role assignment so the tenant has visible,
+        // meaningful role assignments as users are added. Best-effort; failures are logged, not fatal.
+        private async Task AssignDefaultRoleAsync(User user)
+        {
+            if (user == null) return;
+
+            try
+            {
+                UserRole role = await _Client.Roles.ReadRoleByName(null, "TenantMember", CancellationToken.None).ConfigureAwait(false);
+                if (role == null) return;
+
+                UserRoleAssignment assignment = new UserRoleAssignment
+                {
+                    Id = IdGenerator.NewUserRoleAssignmentId(),
+                    TenantId = user.TenantId,
+                    UserId = user.Id,
+                    RoleId = role.Id,
+                    RoleName = role.Name,
+                    ResourceScope = ResourceScope.Tenant,
+                    InheritsToChildren = true,
+                    Active = true,
+                    CreatedUtc = DateTime.UtcNow,
+                    LastUpdateUtc = DateTime.UtcNow
+                };
+                await _Client.Roles.CreateUserRoleAssignment(assignment, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                _Logging?.Warn(_Header + "default role assignment failed: " + e.Message);
+            }
+        }
+
+        // Append an audit entry for a successful, security-relevant event (a login, a logout, or an
+        // identity/RBAC mutation). Best-effort; never breaks request handling.
+        private async Task WriteAuditEventAsync(RequestContext reqCtx, string eventType, ResourceType? resourceType, string resourceId, int responseCode)
+        {
+            if (!_AuthEnabled || _Client?.Audit == null) return;
+
+            try
+            {
+                CallerContext caller = reqCtx?.Caller;
+                AuditEntry entry = new AuditEntry
+                {
+                    Id = IdGenerator.NewAuditId(),
+                    TenantId = caller?.TenantId,
+                    EventType = eventType,
+                    RequestId = reqCtx?.Guid,
+                    PrincipalType = caller?.PrincipalType,
+                    PrincipalId = caller?.PrincipalId,
+                    UserId = caller?.UserId,
+                    CredentialId = caller?.CredentialId,
+                    ResourceType = resourceType,
+                    ResourceId = resourceId,
+                    RequestType = reqCtx?.RequestType.ToString(),
+                    Method = reqCtx?.Method,
+                    Path = reqCtx?.Path,
+                    SourceIp = reqCtx?.IpAddress,
+                    AuthResult = "Success",
                     ResponseCode = responseCode,
                     CreatedUtc = DateTime.UtcNow
                 };

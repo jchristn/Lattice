@@ -86,6 +86,27 @@ namespace Lattice.Core.Security
             };
             await client.Credentials.Create(credential, token).ConfigureAwait(false);
 
+            // Give the default administrator an explicit TenantAdmin assignment so the tenant has a visible,
+            // non-empty set of role assignments out of the box (the admin also bypasses RBAC as a system admin).
+            UserRole tenantAdminRole = await client.Roles.ReadRoleByName(null, "TenantAdmin", token).ConfigureAwait(false);
+            if (tenantAdminRole != null)
+            {
+                UserRoleAssignment assignment = new UserRoleAssignment
+                {
+                    Id = IdGenerator.NewUserRoleAssignmentId(),
+                    TenantId = tenant.Id,
+                    UserId = admin.Id,
+                    RoleId = tenantAdminRole.Id,
+                    RoleName = tenantAdminRole.Name,
+                    ResourceScope = ResourceScope.Tenant,
+                    InheritsToChildren = true,
+                    Active = true,
+                    CreatedUtc = now,
+                    LastUpdateUtc = now
+                };
+                await client.Roles.CreateUserRoleAssignment(assignment, token).ConfigureAwait(false);
+            }
+
             result.CreatedDefaults = true;
             result.TenantId = tenant.Id;
             result.AdminEmail = admin.Email;

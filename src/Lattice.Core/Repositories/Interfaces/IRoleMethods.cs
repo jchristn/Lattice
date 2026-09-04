@@ -106,6 +106,12 @@ namespace Lattice.Core.Repositories.Interfaces
         /// <returns>A task.</returns>
         Task DeleteRolePermissionMap(string id, CancellationToken token = default);
 
+        /// <summary>Delete every permission mapping for a role (used when editing or deleting a role).</summary>
+        /// <param name="roleId">Role identifier.</param>
+        /// <param name="token">Cancellation token.</param>
+        /// <returns>A task.</returns>
+        Task DeleteRolePermissionMapsByRole(string roleId, CancellationToken token = default);
+
         #endregion
 
         #region User-Role-Assignments
