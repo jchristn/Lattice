@@ -154,18 +154,35 @@
   text-decoration: underline;
 }
 
-.theme-toggle {
+.login-top-actions {
   position: absolute;
   top: 16px;
   right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.theme-toggle {
   background: none;
   border: none;
   font-size: 20px;
+  line-height: 1;
   cursor: pointer;
   padding: 4px;
   border-radius: 4px;
 }
 
-.theme-toggle:hover {
+.login-github {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.theme-toggle:hover,
+.login-github:hover {
   background-color: var(--bg-secondary);
 }

@@ -35,7 +35,7 @@
     "EnableLogging": false
   },
   "Auth": {
-    "Enable": false
+    "Enable": true
   },
   "Mcp": {
     "Enable": false

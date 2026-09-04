@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
+import { GithubIcon } from '../components/Icons'
 import './Login.css'
 
 export default function Login() {
@@ -275,9 +276,27 @@ export default function Login() {
 
         {renderBody()}
 
-        <button className="theme-toggle" onClick={toggleTheme} title="Switch between light and dark color themes">
-          {theme === 'light' ? '🌙' : '☀️'}
-        </button>
+        <div className="login-top-actions">
+          <button
+            type="button"
+            className="theme-toggle"
+            onClick={toggleTheme}
+            title="Switch between light and dark color themes"
+            aria-label="Toggle color theme"
+          >
+            {theme === 'light' ? '🌙' : '☀️'}
+          </button>
+          <a
+            className="login-github"
+            href="https://github.com/jchristn/lattice"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open the Lattice project on GitHub in a new tab"
+            aria-label="Open the Lattice project on GitHub"
+          >
+            <GithubIcon size={18} />
+          </a>
+        </div>
       </div>
     </div>
   )

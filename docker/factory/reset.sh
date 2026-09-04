@@ -37,15 +37,11 @@ else
 fi
 
 echo ""
-echo "Restoring factory database..."
+echo "Clearing database (the server re-seeds a fresh admin on next start)..."
 rm -f "$DOCKER_DIR/server/data/lattice.db" \
       "$DOCKER_DIR/server/data/lattice.db-shm" \
       "$DOCKER_DIR/server/data/lattice.db-wal"
-if cp "$SCRIPT_DIR/lattice.db" "$DOCKER_DIR/server/data/lattice.db"; then
-    echo "  [OK] lattice.db restored"
-else
-    echo "  ERROR: Failed to copy lattice.db"
-fi
+echo "  [OK] Database cleared; a fresh admin (admin@lattice / password) will be seeded on next start"
 
 echo ""
 echo "Deleting log files..."

@@ -35,16 +35,11 @@ if errorlevel 1 (
 )
 
 echo.
-echo Restoring factory database...
+echo Clearing database (the server re-seeds a fresh admin on next start)...
 del /q "%~dp0..\server\data\lattice.db" 2>nul
 del /q "%~dp0..\server\data\lattice.db-shm" 2>nul
 del /q "%~dp0..\server\data\lattice.db-wal" 2>nul
-copy /y "%~dp0lattice.db" "%~dp0..\server\data\lattice.db" >nul
-if errorlevel 1 (
-    echo ERROR: Failed to copy lattice.db
-) else (
-    echo   [OK] lattice.db restored
-)
+echo   [OK] Database cleared; a fresh admin (admin@lattice / password) will be seeded on next start
 
 echo.
 echo Deleting log files...
