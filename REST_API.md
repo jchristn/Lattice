@@ -123,7 +123,7 @@ The `<ResourceType>:<Operation>` in the 403 message names the permission that wa
 
 There are exactly **two** ways to authenticate, both presented as the `Authorization: Bearer <value>` header:
 
-1. **Session token.** Obtain a session token by posting an email, password, and tenant id to [`POST /v1.0/token`](#post-v10token--login). The `token` returned in the response is used as the bearer value. Session tokens expire (default **60 minutes**); after expiry, log in again. A session may be ended early with [`DELETE /v1.0/token`](#delete-v10token--logout).
+1. **Session token.** Obtain a session token by posting an email and password (and, optionally, a tenant id) to [`POST /v1.0/token`](#post-v10token--login). The tenant is inferred from the credentials when omitted; if they match more than one tenant the response asks you to choose one. The `token` returned in the response is used as the bearer value. Session tokens expire (default **60 minutes**); after expiry, log in again. A session may be ended early with [`DELETE /v1.0/token`](#delete-v10token--logout).
 2. **Access key.** A credential's access key (format `access_...`) is presented **directly** as the bearer value. Access keys are long-lived and intended for machine-to-machine use. Create one with [`PUT /v1.0/credentials`](#put-v10credentials--create-credential); the raw access key is returned **once** at creation and cannot be retrieved again.
 
 > There is **no** `x-api-key` header, no separate secret key, and no request signing. A bearer value is either a session token or an access key; the server resolves which one it is.
@@ -468,29 +468,28 @@ Routes for logging in, inspecting the current principal, and logging out. See [A
 
 #### POST /v1.0/token -- Login
 
-Exchanges an email, password, and tenant id for a session token. **This route is public** (no bearer required). The returned `token` is used as the bearer value on subsequent requests; it expires after the configured session lifetime (default 60 minutes).
+Exchanges an email and password for a session token. **This route is public** (no bearer required). The returned `token` is used as the bearer value on subsequent requests; it expires after the configured session lifetime (default 60 minutes).
+
+`tenantId` is **optional**. When omitted, the tenant is inferred from the credentials. If the email and password match a user in exactly one tenant, a token is issued. If they match users in **more than one** tenant, the response instead has `tenantSelectionRequired: true` and lists the candidate `tenants` (no token) — repeat the request with a chosen `tenantId`. A wrong password matches no tenants (it does not reveal tenant membership).
 
 **cURL:**
 
 ```bash
+# Tenant inferred from the credentials (omit tenantId):
 curl -X POST http://localhost:8000/v1.0/token \
   -H "Content-Type: application/json" \
-  -d '{
-    "email": "admin@lattice",
-    "password": "password",
-    "tenantId": "ten_abcdef0123456789"
-  }'
+  -d '{ "email": "admin@lattice", "password": "password" }'
 ```
 
 **Request Body:**
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `email` | string | **Yes** | User email (unique within the tenant). |
+| `email` | string | **Yes** | User email (unique within a tenant). |
 | `password` | string | **Yes** | User password. |
-| `tenantId` | string | **Yes** | Identifier of the tenant to authenticate against. |
+| `tenantId` | string | No | Tenant to authenticate against. Omit to infer it from the credentials. |
 
-**Response (200 OK):**
+**Response (200 OK) -- token issued:**
 
 ```json
 {
@@ -504,9 +503,23 @@ curl -X POST http://localhost:8000/v1.0/token \
 }
 ```
 
+**Response (200 OK) -- tenant selection required** (credentials match multiple tenants and none was supplied):
+
+```json
+{
+  "tenantSelectionRequired": true,
+  "tenants": [
+    { "tenantId": "ten_abcdef0123456789", "tenantName": "Acme" },
+    { "tenantId": "ten_1122334455667788", "tenantName": "Globex" }
+  ]
+}
+```
+
+Repeat the request including the chosen `tenantId` to obtain a token.
+
 **Errors:**
 
-- `400 Bad Request` -- `email`, `password`, or `tenantId` missing. Body: `{ "error": "email, password, and tenantId are required" }`.
+- `400 Bad Request` -- `email` or `password` missing. Body: `{ "error": "email and password are required" }`.
 - `401 Unauthorized` -- Credentials are invalid or the user/tenant is inactive. Body: `{ "error": "Invalid credentials" }`.
 
 ---

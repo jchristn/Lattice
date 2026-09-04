@@ -94,23 +94,26 @@ class LatticeClient:
         else:
             self._session.headers.pop("Authorization", None)
 
-    def login(self, email: str, password: str, tenant_id: str) -> Optional[Dict[str, Any]]:
+    def login(self, email: str, password: str, tenant_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
-        Log in with email, password, and tenant to obtain a session token. On success the
-        returned token is stored on the client and used for subsequent requests.
+        Log in with email and password to obtain a session token. The tenant is optional: when
+        omitted it is inferred from the credentials, and if they match users in more than one
+        tenant the response has ``tenantSelectionRequired`` set with the candidate ``tenants``
+        (no token) — call again with a chosen ``tenant_id``. On a successful login the returned
+        token is stored on the client and used for subsequent requests.
 
         Args:
             email: User email
             password: User password
-            tenant_id: Tenant identifier
+            tenant_id: Tenant identifier, or None to infer it from the credentials
 
         Returns:
-            The login response dict (token and principal information), or None.
+            The login response dict (a token, or a tenant selection to complete), or None.
         """
-        payload = self._request(
-            "POST", "/v1.0/token",
-            data={"email": email, "password": password, "tenantId": tenant_id}
-        )
+        data: Dict[str, Any] = {"email": email, "password": password}
+        if tenant_id:
+            data["tenantId"] = tenant_id
+        payload = self._request("POST", "/v1.0/token", data=data)
         if isinstance(payload, dict) and payload.get("token"):
             self.set_bearer_token(payload["token"])
         return payload

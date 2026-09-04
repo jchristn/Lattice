@@ -300,13 +300,17 @@ When authentication is enabled (the default), every route except health, the Ope
 requires a bearer token. There are two ways to authenticate, both presented with the
 `Authorization: Bearer <value>` header:
 
-1. **Session token** — log in with email, password, and tenant to obtain a token:
+1. **Session token** — log in with email and password to obtain a token. The tenant is inferred from the
+   credentials (pass `tenantId` only to disambiguate when the email exists in more than one tenant):
 
    ```bash
    curl http://localhost:8000/v1.0/token \
      -H 'Content-Type: application/json' \
-     -d '{"email":"admin@lattice","password":"password","tenantId":"ten_..."}'
+     -d '{"email":"admin@lattice","password":"password"}'
    # -> { "token": "...", "expiresUtc": "...", "tenantId": "...", "isAdmin": true, ... }
+   # If the email maps to multiple tenants:
+   # -> { "tenantSelectionRequired": true, "tenants": [ { "tenantId": "...", "tenantName": "..." }, ... ] }
+   #    repeat with "tenantId" set to the chosen tenant.
 
    curl http://localhost:8000/v1.0/collections -H "Authorization: Bearer <token>"
    ```
@@ -356,8 +360,9 @@ To sign in:
 
 - **Access key (quickest):** paste the `access_...` value into the dashboard's "Access key" login tab, or
   send it as `Authorization: Bearer access_...`. No tenant id required.
-- **Email + password:** use `admin@lattice` / `password` together with the generated **tenant id**
-  (required by the email/password login).
+- **Email + password:** use `admin@lattice` / `password`. On first run there is only one tenant, so the
+  tenant is inferred automatically — you only need to supply a tenant id once the same email exists in more
+  than one tenant.
 
 > **Change these for any shared deployment.** Set `DefaultAdminEmail`, `DefaultAdminPassword`, and
 > `TokenSecret` in `lattice.json` (for Docker, `docker/server/lattice.json`) before exposing the server —

@@ -184,6 +184,29 @@ namespace Test.Shared.Suites
                 TestAssert.Null(await authn.AuthenticateBearerAsync("garbage-bearer"), "A garbage bearer must not authenticate.");
             });
 
+            builder.Add("Login resolves the tenant from credentials and lists candidates when ambiguous", async client =>
+            {
+                Tenant a = await CreateTenantAsync(client, "resolve-a");
+                Tenant b = await CreateTenantAsync(client, "resolve-b");
+                await CreateUserAsync(client, a.Id, "solo@x", "pw", false, false);
+                await CreateUserAsync(client, a.Id, "dup@x", "pw", false, false);
+                await CreateUserAsync(client, b.Id, "dup@x", "pw", false, false);
+                AuthenticationService authn = NewAuthN(client);
+
+                List<LoginTenantOption> solo = await authn.ResolveTenantsForLoginAsync("solo@x", "pw");
+                TestAssert.Equal(1, solo.Count, "A unique email resolves to exactly one tenant.");
+                TestAssert.Equal(a.Id, solo[0].TenantId, "The single match must be the owning tenant.");
+
+                List<LoginTenantOption> dup = await authn.ResolveTenantsForLoginAsync("dup@x", "pw");
+                TestAssert.Equal(2, dup.Count, "A shared email with a matching password resolves to both tenants.");
+
+                List<LoginTenantOption> wrong = await authn.ResolveTenantsForLoginAsync("dup@x", "nope");
+                TestAssert.Equal(0, wrong.Count, "A wrong password resolves to no tenants (no enumeration).");
+
+                List<LoginTenantOption> unknown = await authn.ResolveTenantsForLoginAsync("ghost@x", "pw");
+                TestAssert.Equal(0, unknown.Count, "An unknown email resolves to no tenants.");
+            });
+
             builder.Add("Access-key bearer resolves the credential principal", async client =>
             {
                 Tenant tenant = await CreateTenantAsync(client, "key-co");

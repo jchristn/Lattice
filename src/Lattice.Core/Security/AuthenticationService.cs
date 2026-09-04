@@ -1,6 +1,7 @@
 namespace Lattice.Core.Security
 {
     using System;
+    using System.Collections.Generic;
     using System.Threading;
     using System.Threading.Tasks;
     using Lattice.Core.Helpers;
@@ -123,6 +124,44 @@ namespace Lattice.Core.Security
                 Caller = BuildUserCaller(user, session.Id)
             };
             return result;
+        }
+
+        /// <summary>
+        /// Resolve which tenant(s) a set of login credentials belongs to, without issuing a token. Returns
+        /// only the tenants in which an active user with this email has this password and the tenant is
+        /// active — so a wrong password reveals nothing. Callers use this to infer the tenant when none was
+        /// supplied (one match) or to prompt the user to choose (several matches).
+        /// </summary>
+        /// <param name="email">User email.</param>
+        /// <param name="password">User password (plaintext, compared as SHA-256).</param>
+        /// <param name="token">Cancellation token.</param>
+        /// <returns>The matching tenants (possibly empty).</returns>
+        public async Task<List<LoginTenantOption>> ResolveTenantsForLoginAsync(string email, string password, CancellationToken token = default)
+        {
+            List<LoginTenantOption> matches = new List<LoginTenantOption>();
+            if (String.IsNullOrWhiteSpace(email) || password == null) return matches;
+
+            List<User> users = await _Users.ReadByEmailAcrossTenants(email, token).ConfigureAwait(false);
+            if (users == null || users.Count == 0) return matches;
+
+            string presented = PasswordHasher.Sha256Hex(password);
+            foreach (User user in users)
+            {
+                if (!user.Active) continue;
+                if (!PasswordHasher.ConstantTimeEquals(user.PasswordSha256, presented)) continue;
+
+                Tenant tenant = await _Tenants.ReadById(user.TenantId, token).ConfigureAwait(false);
+                if (tenant == null || !tenant.Active) continue;
+
+                bool already = false;
+                foreach (LoginTenantOption option in matches)
+                {
+                    if (String.Equals(option.TenantId, tenant.Id, StringComparison.Ordinal)) { already = true; break; }
+                }
+                if (!already) matches.Add(new LoginTenantOption { TenantId = tenant.Id, TenantName = tenant.Name });
+            }
+
+            return matches;
         }
 
         /// <summary>

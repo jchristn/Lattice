@@ -94,17 +94,22 @@ namespace Lattice.Sdk
         }
 
         /// <summary>
-        /// Log in with email, password, and tenant to obtain a session token. On success the returned
-        /// token is stored on the client and used for subsequent requests.
+        /// Log in with email and password to obtain a session token. The tenant is optional: when omitted,
+        /// it is inferred from the credentials, and if they match users in more than one tenant the response
+        /// has <see cref="AuthTokenResponse.TenantSelectionRequired"/> set with the candidate
+        /// <see cref="AuthTokenResponse.Tenants"/> (no token issued) — call again with a chosen tenant id.
+        /// On a successful login the returned token is stored on the client for subsequent requests.
         /// </summary>
         /// <param name="email">User email.</param>
         /// <param name="password">User password.</param>
-        /// <param name="tenantId">Tenant identifier.</param>
+        /// <param name="tenantId">Tenant identifier, or null to infer it from the credentials.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
-        /// <returns>The login response (token and principal information).</returns>
-        public async Task<AuthTokenResponse?> LoginAsync(string email, string password, string tenantId, CancellationToken cancellationToken = default)
+        /// <returns>The login response (a token, or a tenant selection to complete).</returns>
+        public async Task<AuthTokenResponse?> LoginAsync(string email, string password, string? tenantId = null, CancellationToken cancellationToken = default)
         {
-            object body = new { email, password, tenantId };
+            object body = string.IsNullOrEmpty(tenantId)
+                ? new { email, password }
+                : new { email, password, tenantId };
             AuthTokenResponse? response = await RequestJsonAsync<AuthTokenResponse>("POST", "/v1.0/token", body, cancellationToken: cancellationToken).ConfigureAwait(false);
             if (response != null && !string.IsNullOrEmpty(response.Token)) _bearerToken = response.Token;
             return response;

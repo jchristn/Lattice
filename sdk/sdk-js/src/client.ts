@@ -112,14 +112,18 @@ export class LatticeClient {
     }
 
     /**
-     * Log in with email, password, and tenant to obtain a session token. On success the returned
-     * token is stored on the client and used for subsequent requests.
+     * Log in with email and password to obtain a session token. The tenant is optional: when omitted it
+     * is inferred from the credentials, and if they match users in more than one tenant the response has
+     * `tenantSelectionRequired` set with the candidate `tenants` (no token) — call again with a chosen
+     * tenant id. On a successful login the returned token is stored on the client for subsequent requests.
      */
-    async login(email: string, password: string, tenantId: string): Promise<any> {
+    async login(email: string, password: string, tenantId?: string): Promise<any> {
+        const data: Record<string, string> = { email, password };
+        if (tenantId) data.tenantId = tenantId;
         const payload = await this.request<any>({
             method: "POST",
             path: "/v1.0/token",
-            data: { email, password, tenantId }
+            data
         });
         if (payload && payload.token) this.bearerToken = payload.token;
         return payload;

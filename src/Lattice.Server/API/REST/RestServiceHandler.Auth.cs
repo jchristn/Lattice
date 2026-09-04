@@ -109,10 +109,33 @@ namespace Lattice.Server.API.REST
             await WrappedRequestHandler(ctx, RequestTypeEnum.HealthCheck, async (reqCtx) =>
             {
                 LoginRequest request = Deserialize<LoginRequest>(reqCtx.RequestBody);
-                if (request == null || String.IsNullOrWhiteSpace(request.Email) || request.Password == null || String.IsNullOrWhiteSpace(request.TenantId))
-                    return new ResponseContext(false, 400, "email, password, and tenantId are required");
+                if (request == null || String.IsNullOrWhiteSpace(request.Email) || request.Password == null)
+                    return new ResponseContext(false, 400, "email and password are required");
 
-                LoginResult login = await _AuthN.LoginAsync(request.TenantId, request.Email, request.Password, reqCtx.IpAddress, null).ConfigureAwait(false);
+                // The tenant is inferred from the credentials when not supplied. If they match users in
+                // several tenants, ask the caller to choose one; a wrong password matches nothing.
+                string effectiveTenantId = request.TenantId;
+                if (String.IsNullOrWhiteSpace(effectiveTenantId))
+                {
+                    List<LoginTenantOption> candidates = await _AuthN.ResolveTenantsForLoginAsync(request.Email, request.Password).ConfigureAwait(false);
+                    if (candidates.Count == 0)
+                    {
+                        ServerTelemetry.RecordAuthRequest("session", false);
+                        return new ResponseContext(false, 401, "Invalid credentials");
+                    }
+                    if (candidates.Count > 1)
+                    {
+                        AuthTokenResponse selection = new AuthTokenResponse { TenantSelectionRequired = true };
+                        List<TenantOption> options = new List<TenantOption>();
+                        foreach (LoginTenantOption candidate in candidates)
+                            options.Add(new TenantOption { TenantId = candidate.TenantId, TenantName = candidate.TenantName });
+                        selection.Tenants = options;
+                        return new ResponseContext { Success = true, StatusCode = 200, Data = selection };
+                    }
+                    effectiveTenantId = candidates[0].TenantId;
+                }
+
+                LoginResult login = await _AuthN.LoginAsync(effectiveTenantId, request.Email, request.Password, reqCtx.IpAddress, null).ConfigureAwait(false);
                 if (login == null)
                 {
                     ServerTelemetry.RecordAuthRequest("session", false);

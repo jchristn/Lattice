@@ -36,6 +36,15 @@ namespace Lattice.Core.Repositories.Interfaces
         /// <returns>The tenant's users.</returns>
         Task<List<User>> ReadByTenant(string tenantId, CancellationToken token = default);
 
+        /// <summary>
+        /// Read every user with the given email across all tenants. Used at login to resolve which tenant
+        /// (or tenants) a set of credentials belongs to when no tenant is supplied.
+        /// </summary>
+        /// <param name="email">Email address.</param>
+        /// <param name="token">Cancellation token.</param>
+        /// <returns>The matching users (possibly in different tenants).</returns>
+        Task<List<User>> ReadByEmailAcrossTenants(string email, CancellationToken token = default);
+
         /// <summary>Update a user.</summary>
         /// <param name="user">User to update.</param>
         /// <param name="token">Cancellation token.</param>

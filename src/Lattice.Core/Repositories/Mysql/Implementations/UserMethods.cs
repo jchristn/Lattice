@@ -95,6 +95,21 @@ namespace Lattice.Core.Repositories.Mysql.Implementations
             return users;
         }
 
+        public async Task<List<User>> ReadByEmailAcrossTenants(string email, CancellationToken token = default)
+        {
+            if (string.IsNullOrWhiteSpace(email)) throw new ArgumentNullException(nameof(email));
+            token.ThrowIfCancellationRequested();
+
+            string query = $"SELECT * FROM `users` WHERE `email` = '{Sanitizer.Sanitize(email)}' ORDER BY `createdutc` DESC;";
+            DataTable result = await _Repo.ExecuteQueryAsync(query, false, token).ConfigureAwait(false);
+
+            List<User> users = new List<User>();
+            foreach (DataRow row in result.Rows)
+                users.Add(Converters.UserFromDataRow(row));
+
+            return users;
+        }
+
         public async Task<User> Update(User user, CancellationToken token = default)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
