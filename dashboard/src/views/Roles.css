@@ -130,3 +130,81 @@
 .perm-remove {
   flex: 0 0 auto;
 }
+
+/* Structured permissions display in the role View modal. */
+.role-grant-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.role-grant {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-primary);
+}
+
+.role-grant-effect {
+  flex: 0 0 auto;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.role-grant-effect.permit {
+  background: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+}
+
+.role-grant-effect.deny {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--danger-color, #ef4444);
+}
+
+.role-grant-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.role-grant-line {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.role-grant-key {
+  flex: 0 0 84px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.role-grant-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.role-grant-chip {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  font-size: 12.5px;
+  color: var(--text-primary);
+}
+
+.role-grant-none {
+  color: var(--text-muted);
+}

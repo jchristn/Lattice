@@ -211,6 +211,7 @@ export default function Credentials() {
         onClose={closeCreate}
         title={createdKey ? 'Credential Created' : 'New Credential'}
         subtitle={createdKey ? 'Your new access key is shown below.' : 'Generate an access key that an application can use to authenticate to the API.'}
+        wide
       >
         {createdKey ? (
           <>

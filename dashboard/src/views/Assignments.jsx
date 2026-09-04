@@ -208,6 +208,7 @@ export default function Assignments() {
         onClose={() => setShowCreate(false)}
         title="New Role Assignment"
         subtitle="Grant a user a role, optionally scoped to a specific resource."
+        wide
       >
         <div className="form-group">
           <label className="form-label" title="The ID of the user who should receive this role">User ID *</label>

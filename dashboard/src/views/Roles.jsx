@@ -79,7 +79,40 @@ export default function Roles() {
     { label: 'Protected', value: r.isProtected ? 'Yes' : 'No', title: 'Protected roles are system-managed and cannot be deleted' },
     { label: 'Created', value: formatDate(r.createdUtc), title: 'When the role was first created' },
     { label: 'Last Updated', value: formatDate(r.lastUpdateUtc), title: 'When the role was last modified' },
-    viewPermissions ? { label: 'Permissions', value: JSON.stringify(viewPermissions, null, 2), multiline: true, rows: 8, title: 'The grants this role confers (permit/deny x resource types x operations)' } : null,
+    viewPermissions && viewPermissions.length ? {
+      label: 'Permissions',
+      full: true,
+      title: 'The grants this role confers — each permits or denies a set of operations on a set of resource types',
+      node: (
+        <div className="role-grant-list">
+          {viewPermissions.map((p, i) => (
+            <div className="role-grant" key={i}>
+              <span className={`role-grant-effect ${p.permissionType === 'deny' ? 'deny' : 'permit'}`}>
+                {p.permissionType === 'deny' ? 'Deny' : 'Permit'}
+              </span>
+              <div className="role-grant-body">
+                <div className="role-grant-line">
+                  <span className="role-grant-key">Resources</span>
+                  <span className="role-grant-chips">
+                    {(p.resourceTypes || []).length
+                      ? (p.resourceTypes || []).map((rt) => <span className="role-grant-chip" key={rt}>{rt}</span>)
+                      : <span className="role-grant-none">—</span>}
+                  </span>
+                </div>
+                <div className="role-grant-line">
+                  <span className="role-grant-key">Operations</span>
+                  <span className="role-grant-chips">
+                    {(p.operationTypes || []).length
+                      ? (p.operationTypes || []).map((ot) => <span className="role-grant-chip" key={ot}>{ot}</span>)
+                      : <span className="role-grant-none">—</span>}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ),
+    } : (viewPermissions ? { label: 'Permissions', value: 'This role grants no permissions.', full: true, title: 'The grants this role confers' } : null),
   ] : []
 
   const load = async () => {
@@ -337,7 +370,7 @@ export default function Roles() {
         onClose={closeEditor}
         title={editingId ? 'Edit Role' : 'New Role'}
         subtitle="Name the role and choose the permission grants it bundles together."
-        wide
+        extraWide
       >
         {editorLoading ? (
           <div className="loading">Loading permissions...</div>

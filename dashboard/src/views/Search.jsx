@@ -276,6 +276,7 @@ export default function Search() {
         }}
         title="Document Metadata"
         subtitle="This metadata explains why the document matched and how it is stored within the selected collection."
+        wide
       >
         {selectedDocument && (
           <>

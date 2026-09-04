@@ -560,6 +560,7 @@ export default function Collections() {
         onClose={() => setShowCreateModal(false)}
         title="New Collection"
         subtitle="Create a collection to define where documents live and how schema enforcement and indexing should behave."
+        wide
       >
         <div className="form-group">
           <label className="form-label" title="Required unique name used to identify this collection throughout the dashboard">Name *</label>
@@ -804,6 +805,7 @@ export default function Collections() {
         }}
         title="Collection Metadata"
         subtitle="Review identifiers and collection-level metadata before drilling further into constraints, indexing, or documents."
+        wide
       >
         {selectedCollection && (
           <>
@@ -869,6 +871,7 @@ export default function Collections() {
           setSelectedCollection(null)
         }}
         title="Schema Constraints"
+        wide
       >
         {selectedCollection && (
           <>
@@ -1030,6 +1033,7 @@ export default function Collections() {
           setSelectedCollection(null)
         }}
         title="Indexing Configuration"
+        wide
       >
         {selectedCollection && (
           <>

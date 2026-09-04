@@ -1,70 +1,66 @@
 .detail-modal {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-}
-
-.detail-modal-subtitle {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 13px;
+  gap: 16px;
 }
 
 .detail-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px 18px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
 }
 
-.detail-field {
+.detail-item {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background-color: var(--bg-secondary);
   min-width: 0;
 }
 
-.detail-field-full {
+.detail-item-full {
   grid-column: 1 / -1;
 }
 
-.detail-label {
+.detail-item-label {
+  color: var(--text-muted);
   font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.08em;
 }
 
-.detail-value {
-  width: 100%;
-  padding: 8px 10px;
+.detail-item-value {
   font-size: 14px;
   color: var(--text-primary);
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  box-sizing: border-box;
+  line-height: 1.45;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
-.detail-value:focus {
-  outline: none;
-  border-color: var(--border-color);
+.detail-item-copyable {
+  padding-top: 2px;
 }
 
-.detail-textarea {
-  resize: vertical;
+.detail-item-code {
+  margin: 0;
+  padding: 12px 14px;
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
   font-size: 12.5px;
   line-height: 1.5;
-  white-space: pre;
-  overflow-x: auto;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 360px;
+  overflow: auto;
 }
 
-.detail-value-copyable {
-  padding: 4px 0;
-}
-
-@media (max-width: 640px) {
+@media (max-width: 560px) {
   .detail-grid {
     grid-template-columns: 1fr;
   }
