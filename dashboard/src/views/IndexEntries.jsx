@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext'
 import { copyToClipboard } from '../utils/clipboard'
 import ActionMenu from '../components/ActionMenu'
 import CopyableId from '../components/CopyableId'
+import DetailModal from '../components/DetailModal'
 import JsonViewerModal from '../components/JsonViewerModal'
 import TablePagination from '../components/TablePagination'
 import './IndexEntries.css'
@@ -21,6 +22,7 @@ export default function IndexEntries() {
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(50)
   const [jsonViewer, setJsonViewer] = useState({ open: false, title: '', subtitle: '', identifier: '', value: null })
+  const [viewRow, setViewRow] = useState(null)
   const [filters, setFilters] = useState({
     documentId: '',
     value: '',
@@ -171,10 +173,23 @@ export default function IndexEntries() {
     })
   }
 
-  // Row body click opens the full-row JSON viewer; interactive controls inside the row are ignored.
+  // Row body click opens the formatted detail view; interactive controls inside the row are ignored.
   const onRowClick = (event, entry) => {
     if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
-    handleViewJson(entry)
+    setViewRow(entry)
+  }
+
+  // Maps an index-entry record to labeled detail fields; null entries are skipped by DetailModal.
+  const buildFields = (entry) => {
+    if (!entry) return []
+    return [
+      entry.id ? { label: 'ID', value: entry.id, copyable: true, title: 'Unique identifier for this index entry row' } : null,
+      { label: 'Document ID', value: entry.documentId, copyable: true, title: 'Identifier of the document this indexed value belongs to' },
+      { label: 'Value', value: entry.value ?? '', title: 'The indexed field value stored for this document' },
+      entry.position !== undefined && entry.position !== null
+        ? { label: 'Position', value: entry.position, title: 'Array position of the value when the field holds multiple values' }
+        : null,
+    ]
   }
 
   const handleCopyDocumentId = async (entry) => {
@@ -292,8 +307,9 @@ export default function IndexEntries() {
                     <td>
                       <ActionMenu
                         items={[
+                          { label: 'View', onClick: () => setViewRow(entry), title: 'Open the formatted details for this record' },
+                          { label: 'View JSON', onClick: () => handleViewJson(entry), title: 'View the raw JSON for this record' },
                           { label: 'Copy Document ID', onClick: () => handleCopyDocumentId(entry) },
-                          { label: 'View JSON', onClick: () => handleViewJson(entry) },
                         ]}
                       />
                     </td>
@@ -304,6 +320,14 @@ export default function IndexEntries() {
           </table>
         </div>
       )}
+
+      <DetailModal
+        isOpen={!!viewRow}
+        onClose={() => setViewRow(null)}
+        title="Index Entry Details"
+        subtitle="This record is the raw indexed value row stored for a flattened field in the selected index table."
+        fields={buildFields(viewRow)}
+      />
 
       <JsonViewerModal
         isOpen={jsonViewer.open}

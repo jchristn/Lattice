@@ -5,6 +5,7 @@ import ActionMenu from '../components/ActionMenu'
 import CopyableId from '../components/CopyableId'
 import TablePagination from '../components/TablePagination'
 import JsonViewerModal from '../components/JsonViewerModal'
+import DetailModal from '../components/DetailModal'
 import './Audit.css'
 
 export default function Audit() {
@@ -19,13 +20,34 @@ export default function Audit() {
   const [eventTypeDraft, setEventTypeDraft] = useState('')
   const [eventType, setEventType] = useState('')
   const [jsonRow, setJsonRow] = useState(null)
+  const [viewRow, setViewRow] = useState(null)
 
   const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize))
 
   const onRowClick = (event, row) => {
     if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
-    setJsonRow(row)
+    setViewRow(row)
   }
+
+  const buildFields = (e) => e ? [
+    { label: 'Time', value: formatDate(e.createdUtc), title: 'When the audited event occurred (UTC)' },
+    e.eventType ? { label: 'Event Type', value: e.eventType, title: 'The category of the event, such as Authorize or CreateUser' } : null,
+    e.method ? { label: 'Method', value: e.method, title: 'The HTTP method of the request that triggered the event' } : null,
+    e.path ? { label: 'Path', value: e.path, title: 'The request path that was accessed' } : null,
+    (e.responseCode !== null && e.responseCode !== undefined) ? { label: 'Response Code', value: e.responseCode, title: 'The HTTP status code returned for the request' } : null,
+    e.authResult ? { label: 'Auth Result', value: e.authResult, title: 'The authentication outcome for the request' } : null,
+    e.authzResult ? { label: 'Authz Result', value: e.authzResult, title: 'The authorization decision for the request' } : null,
+    e.denialReason ? { label: 'Denial Reason', value: e.denialReason, title: 'The reason the request was denied, if applicable' } : null,
+    e.requiredPermission ? { label: 'Required Permission', value: e.requiredPermission, title: 'The permission that was required to perform the request' } : null,
+    e.principalType ? { label: 'Principal Type', value: e.principalType, title: 'The kind of principal that performed the action, such as a user or credential' } : null,
+    e.userId ? { label: 'User ID', value: e.userId, copyable: true, title: 'The user that performed the action' } : null,
+    e.credentialId ? { label: 'Credential ID', value: e.credentialId, copyable: true, title: 'The credential used to perform the action' } : null,
+    e.tenantId ? { label: 'Tenant ID', value: e.tenantId, copyable: true, title: 'The tenant the event pertains to' } : null,
+    e.resourceType ? { label: 'Resource Type', value: e.resourceType, title: 'The type of resource the request targeted' } : null,
+    e.resourceId ? { label: 'Resource ID', value: e.resourceId, title: 'The specific resource the request targeted' } : null,
+    e.sourceIp ? { label: 'Source IP', value: e.sourceIp, title: 'The client IP address the request originated from' } : null,
+    e.requestId ? { label: 'Request ID', value: e.requestId, copyable: true, title: 'The unique identifier of the request that produced this entry' } : null,
+  ] : []
 
   const load = async () => {
     try {
@@ -154,7 +176,7 @@ export default function Audit() {
             </thead>
             <tbody>
               {entries.map((e) => (
-                <tr key={e.id} className="clickable-row" title="Click to view the full record as JSON" onClick={(ev) => onRowClick(ev, e)}>
+                <tr key={e.id} className="clickable-row" title="Click to view details" onClick={(ev) => onRowClick(ev, e)}>
                   <td>{formatDate(e.createdUtc)}</td>
                   <td>{e.eventType || '-'}</td>
                   <td className="monospace" title="HTTP method">{e.method || '-'}</td>
@@ -171,9 +193,14 @@ export default function Audit() {
                     <ActionMenu
                       items={[
                         {
-                          label: 'View Details',
+                          label: 'View',
+                          onClick: () => setViewRow(e),
+                          title: 'Open the formatted details for this record',
+                        },
+                        {
+                          label: 'View JSON',
                           onClick: () => setJsonRow(e),
-                          title: 'View this audit entry’s full record as JSON',
+                          title: 'View the raw JSON for this record',
                         },
                         {
                           label: 'Delete Entry',
@@ -197,6 +224,13 @@ export default function Audit() {
         title={jsonRow ? `Audit entry: ${jsonRow.eventType}` : ''}
         identifier={jsonRow?.id}
         value={jsonRow}
+      />
+
+      <DetailModal
+        isOpen={!!viewRow}
+        onClose={() => setViewRow(null)}
+        title={viewRow ? `Audit entry: ${viewRow.eventType}` : ''}
+        fields={buildFields(viewRow)}
       />
     </div>
   )

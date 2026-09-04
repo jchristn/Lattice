@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import ActionMenu from '../components/ActionMenu'
+import DetailModal from '../components/DetailModal'
 import JsonViewerModal from '../components/JsonViewerModal'
 import TablePagination from '../components/TablePagination'
 import './SchemaElements.css'
@@ -18,6 +19,7 @@ export default function SchemaElements() {
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(25)
   const [jsonViewer, setJsonViewer] = useState({ open: false, title: '', subtitle: '', identifier: '', value: null })
+  const [viewRow, setViewRow] = useState(null)
   const [filters, setFilters] = useState({
     key: '',
     dataType: '',
@@ -159,10 +161,22 @@ export default function SchemaElements() {
     })
   }
 
-  // Row body click opens the full-row JSON viewer; interactive controls inside the row are ignored.
+  // Row body click opens the formatted detail view; interactive controls inside the row are ignored.
   const onRowClick = (event, element) => {
     if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
-    handleViewJson(element)
+    setViewRow(element)
+  }
+
+  // Maps a schema element record to labeled detail fields; null entries are skipped by DetailModal.
+  const buildFields = (element) => {
+    if (!element) return []
+    return [
+      { label: 'ID', value: element.id, copyable: true, title: 'Unique identifier for this schema element' },
+      element.schemaId ? { label: 'Schema ID', value: element.schemaId, copyable: true, title: 'Identifier of the schema this element belongs to' } : null,
+      { label: 'Key', value: element.key, title: 'Flattened dot-notation field path within the schema' },
+      { label: 'Data Type', value: element.dataType, title: 'Inferred data type for values at this field' },
+      { label: 'Nullable', value: element.nullable ? 'Yes' : 'No', title: 'Whether this field was observed holding null values' },
+    ]
   }
 
   if (loading) {
@@ -266,8 +280,9 @@ export default function SchemaElements() {
                     <td>
                       <ActionMenu
                         items={[
+                          { label: 'View', onClick: () => setViewRow(element), title: 'Open the formatted details for this record' },
+                          { label: 'View JSON', onClick: () => handleViewJson(element), title: 'View the raw JSON for this record' },
                           { label: 'View Index Tables', onClick: () => handleViewIndexTables(element) },
-                          { label: 'View JSON', onClick: () => handleViewJson(element) },
                         ]}
                       />
                     </td>
@@ -278,6 +293,14 @@ export default function SchemaElements() {
           </table>
         </div>
       )}
+
+      <DetailModal
+        isOpen={!!viewRow}
+        onClose={() => setViewRow(null)}
+        title="Schema Element Details"
+        subtitle="This schema element explains one flattened field and its inferred type characteristics."
+        fields={buildFields(viewRow)}
+      />
 
       <JsonViewerModal
         isOpen={jsonViewer.open}

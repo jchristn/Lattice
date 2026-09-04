@@ -7,6 +7,7 @@ import CopyableId from '../components/CopyableId'
 import CopyButton from '../components/CopyButton'
 import TablePagination from '../components/TablePagination'
 import JsonViewerModal from '../components/JsonViewerModal'
+import DetailModal from '../components/DetailModal'
 import './Credentials.css'
 
 export default function Credentials() {
@@ -23,13 +24,26 @@ export default function Credentials() {
   // Holds the freshly created access key, shown exactly once after creation.
   const [createdKey, setCreatedKey] = useState(null)
   const [jsonRow, setJsonRow] = useState(null)
+  const [viewRow, setViewRow] = useState(null)
 
   const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize))
 
   const onRowClick = (event, row) => {
     if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
-    setJsonRow(row)
+    setViewRow(row)
   }
+
+  const buildFields = (c) => c ? [
+    { label: 'ID', value: c.id, copyable: true, title: 'The unique identifier of the credential' },
+    c.name ? { label: 'Name', value: c.name, title: 'The human-readable label describing this credential’s purpose' } : null,
+    { label: 'User ID', value: c.userId, copyable: true, title: 'The user this credential authenticates as and inherits permissions from' },
+    { label: 'Tenant ID', value: c.tenantId, copyable: true, title: 'The tenant this credential belongs to' },
+    c.accessKeyLast4 ? { label: 'Access key (last 4)', value: c.accessKeyLast4, title: 'The last four characters of the access key, for identifying it without exposing the secret' } : null,
+    { label: 'Active', value: c.active ? 'Yes' : 'No', title: 'Whether the credential is active and accepted for authentication' },
+    { label: 'Protected', value: c.isProtected ? 'Yes' : 'No', title: 'Protected credentials are system-managed and cannot be deleted' },
+    { label: 'Created', value: formatDate(c.createdUtc), title: 'When the credential was created' },
+    { label: 'Last Updated', value: formatDate(c.lastUpdateUtc), title: 'When the credential was last modified' },
+  ] : []
 
   const load = async () => {
     try {
@@ -156,7 +170,7 @@ export default function Credentials() {
             </thead>
             <tbody>
               {credentials.map((c) => (
-                <tr key={c.id} className="clickable-row" title="Click to view the full record as JSON" onClick={(e) => onRowClick(e, c)}>
+                <tr key={c.id} className="clickable-row" title="Click to view details" onClick={(e) => onRowClick(e, c)}>
                   <td><CopyableId value={c.id} /></td>
                   <td>{c.name || '-'}</td>
                   <td>{c.userId ? <CopyableId value={c.userId} /> : '-'}</td>
@@ -167,9 +181,14 @@ export default function Credentials() {
                     <ActionMenu
                       items={[
                         {
-                          label: 'View Details',
+                          label: 'View',
+                          onClick: () => setViewRow(c),
+                          title: 'Open the formatted details for this record',
+                        },
+                        {
+                          label: 'View JSON',
                           onClick: () => setJsonRow(c),
-                          title: 'View this credential’s full record as JSON',
+                          title: 'View the raw JSON for this record',
                         },
                         {
                           label: 'Delete Credential',
@@ -253,6 +272,13 @@ export default function Credentials() {
         title={jsonRow ? `Credential: ${jsonRow.name || jsonRow.id}` : ''}
         identifier={jsonRow?.id}
         value={jsonRow}
+      />
+
+      <DetailModal
+        isOpen={!!viewRow}
+        onClose={() => setViewRow(null)}
+        title={viewRow ? `Credential: ${viewRow.name || viewRow.id}` : ''}
+        fields={buildFields(viewRow)}
       />
     </div>
   )

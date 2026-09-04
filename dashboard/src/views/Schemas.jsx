@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext'
 import { formatDate } from '../utils/api'
 import ActionMenu from '../components/ActionMenu'
 import CopyableId from '../components/CopyableId'
+import DetailModal from '../components/DetailModal'
 import JsonViewerModal from '../components/JsonViewerModal'
 import TablePagination from '../components/TablePagination'
 import './Schemas.css'
@@ -22,6 +23,7 @@ export default function Schemas() {
   })
   const [sort, setSort] = useState({ column: 'id', direction: 'asc' })
   const [jsonViewer, setJsonViewer] = useState({ open: false, title: '', subtitle: '', identifier: '', value: null })
+  const [viewRow, setViewRow] = useState(null)
 
   const loadSchemas = async () => {
     try {
@@ -104,10 +106,28 @@ export default function Schemas() {
     })
   }
 
-  // Row body click opens the full-row JSON viewer; interactive controls inside the row are ignored.
+  // Row body click opens the formatted detail view; interactive controls inside the row are ignored.
   const onRowClick = (event, schema) => {
     if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
-    handleViewJson(schema)
+    setViewRow(schema)
+  }
+
+  // Maps a schema record to labeled detail fields; null entries are skipped by DetailModal.
+  const buildFields = (schema) => {
+    if (!schema) return []
+    return [
+      { label: 'ID', value: schema.id, copyable: true, title: 'Unique identifier for this schema' },
+      { label: 'Hash', value: schema.hash, copyable: true, title: 'Content hash that uniquely fingerprints the schema structure' },
+      schema.name ? { label: 'Name', value: schema.name, title: 'Human-readable name assigned to this schema' } : null,
+      schema.elementCount !== undefined && schema.elementCount !== null
+        ? { label: 'Element Count', value: schema.elementCount, title: 'Number of flattened elements (fields) inferred for this schema' }
+        : null,
+      schema.documentCount !== undefined && schema.documentCount !== null
+        ? { label: 'Document Count', value: schema.documentCount, title: 'Number of documents that share this schema' }
+        : null,
+      schema.createdUtc ? { label: 'Created (UTC)', value: formatDate(schema.createdUtc), title: 'When this schema was first inferred (UTC)' } : null,
+      schema.lastUpdateUtc ? { label: 'Last Update (UTC)', value: formatDate(schema.lastUpdateUtc), title: 'When this schema was most recently updated (UTC)' } : null,
+    ]
   }
 
   if (loading) {
@@ -180,8 +200,9 @@ export default function Schemas() {
                     <td>
                       <ActionMenu
                         items={[
+                          { label: 'View', onClick: () => setViewRow(schema), title: 'Open the formatted details for this record' },
+                          { label: 'View JSON', onClick: () => handleViewJson(schema), title: 'View the raw JSON for this record' },
                           { label: 'View Elements', onClick: () => navigate(`/schemas/${schema.id}/elements`) },
-                          { label: 'View JSON', onClick: () => handleViewJson(schema) },
                         ]}
                       />
                     </td>
@@ -192,6 +213,14 @@ export default function Schemas() {
           </table>
         </div>
       )}
+
+      <DetailModal
+        isOpen={!!viewRow}
+        onClose={() => setViewRow(null)}
+        title="Schema Details"
+        subtitle="This object captures the inferred structure that Lattice uses to group similar documents."
+        fields={buildFields(viewRow)}
+      />
 
       <JsonViewerModal
         isOpen={jsonViewer.open}

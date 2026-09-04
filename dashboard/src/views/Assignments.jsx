@@ -6,6 +6,7 @@ import ActionMenu from '../components/ActionMenu'
 import CopyableId from '../components/CopyableId'
 import TablePagination from '../components/TablePagination'
 import JsonViewerModal from '../components/JsonViewerModal'
+import DetailModal from '../components/DetailModal'
 import './Assignments.css'
 
 const EMPTY_FORM = { userId: '', roleName: '', roleId: '', resourceScope: '', resourceId: '' }
@@ -22,13 +23,27 @@ export default function Assignments() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [jsonRow, setJsonRow] = useState(null)
+  const [viewRow, setViewRow] = useState(null)
 
   const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize))
 
   const onRowClick = (event, row) => {
     if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
-    setJsonRow(row)
+    setViewRow(row)
   }
+
+  const buildFields = (a) => a ? [
+    { label: 'ID', value: a.id, copyable: true, title: 'The unique identifier of this role assignment' },
+    { label: 'User ID', value: a.userId, copyable: true, title: 'The user who is granted the role by this assignment' },
+    { label: 'Role', value: a.roleName || a.roleId, title: 'The role granted to the user, such as Viewer or Editor' },
+    { label: 'Role ID', value: a.roleId, copyable: true, title: 'The unique identifier of the granted role' },
+    a.resourceScope ? { label: 'Resource Scope', value: a.resourceScope, title: 'The kind of resource this grant applies to; blank means it applies everywhere' } : null,
+    a.resourceId ? { label: 'Resource ID', value: a.resourceId, copyable: true, title: 'The specific resource the grant is limited to; blank means all resources of the scope' } : null,
+    { label: 'Inherits to Children', value: a.inheritsToChildren ? 'Yes' : 'No', title: 'Whether this grant also applies to child resources of the scoped resource' },
+    { label: 'Tenant ID', value: a.tenantId, copyable: true, title: 'The tenant this assignment belongs to' },
+    { label: 'Active', value: a.active ? 'Yes' : 'No', title: 'Whether the assignment is active and currently granting access' },
+    { label: 'Created', value: formatDate(a.createdUtc), title: 'When this role assignment was created' },
+  ] : []
 
   const load = async () => {
     try {
@@ -152,7 +167,7 @@ export default function Assignments() {
             </thead>
             <tbody>
               {assignments.map((a) => (
-                <tr key={a.id} className="clickable-row" title="Click to view the full record as JSON" onClick={(e) => onRowClick(e, a)}>
+                <tr key={a.id} className="clickable-row" title="Click to view details" onClick={(e) => onRowClick(e, a)}>
                   <td><CopyableId value={a.id} /></td>
                   <td>{a.userId ? <CopyableId value={a.userId} /> : '-'}</td>
                   <td title="The role granted to the user">{a.roleName || a.roleId || '-'}</td>
@@ -163,9 +178,14 @@ export default function Assignments() {
                     <ActionMenu
                       items={[
                         {
-                          label: 'View Details',
+                          label: 'View',
+                          onClick: () => setViewRow(a),
+                          title: 'Open the formatted details for this record',
+                        },
+                        {
+                          label: 'View JSON',
                           onClick: () => setJsonRow(a),
-                          title: 'View this role assignment’s full record as JSON',
+                          title: 'View the raw JSON for this record',
                         },
                         {
                           label: 'Delete Assignment',
@@ -260,6 +280,13 @@ export default function Assignments() {
         title={jsonRow ? `Assignment: ${jsonRow.id}` : ''}
         identifier={jsonRow?.id}
         value={jsonRow}
+      />
+
+      <DetailModal
+        isOpen={!!viewRow}
+        onClose={() => setViewRow(null)}
+        title={viewRow ? `Assignment: ${viewRow.id}` : ''}
+        fields={buildFields(viewRow)}
       />
     </div>
   )

@@ -6,6 +6,7 @@ import ActionMenu from '../components/ActionMenu'
 import CopyableId from '../components/CopyableId'
 import TablePagination from '../components/TablePagination'
 import JsonViewerModal from '../components/JsonViewerModal'
+import DetailModal from '../components/DetailModal'
 import './Users.css'
 
 const EMPTY_FORM = { email: '', password: '', firstName: '', lastName: '', isTenantAdmin: false, isAdmin: false }
@@ -23,13 +24,28 @@ export default function Users() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [jsonRow, setJsonRow] = useState(null)
+  const [viewRow, setViewRow] = useState(null)
 
   const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize))
 
   const onRowClick = (event, row) => {
     if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
-    setJsonRow(row)
+    setViewRow(row)
   }
+
+  const buildFields = (u) => u ? [
+    { label: 'ID', value: u.id, copyable: true, title: 'The unique identifier of the user' },
+    { label: 'Email', value: u.email, title: 'The email address the user signs in with' },
+    u.firstName ? { label: 'First Name', value: u.firstName, title: 'The user’s given name' } : null,
+    u.lastName ? { label: 'Last Name', value: u.lastName, title: 'The user’s family name' } : null,
+    { label: 'Tenant ID', value: u.tenantId, copyable: true, title: 'The tenant this user belongs to' },
+    { label: 'Admin', value: u.isAdmin ? 'Yes' : 'No', title: 'System administrators can manage every tenant on the server' },
+    { label: 'Tenant Admin', value: u.isTenantAdmin ? 'Yes' : 'No', title: 'Tenant administrators can manage users and settings within their own tenant' },
+    { label: 'Active', value: u.active ? 'Yes' : 'No', title: 'Whether the account is active and allowed to sign in' },
+    { label: 'Protected', value: u.isProtected ? 'Yes' : 'No', title: 'Protected users are system-managed and cannot be deleted' },
+    { label: 'Created', value: formatDate(u.createdUtc), title: 'When the user account was created' },
+    { label: 'Last Updated', value: formatDate(u.lastUpdateUtc), title: 'When the user account was last modified' },
+  ] : []
 
   const load = async () => {
     try {
@@ -156,7 +172,7 @@ export default function Users() {
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.id} className="clickable-row" title="Click to view the full record as JSON" onClick={(e) => onRowClick(e, u)}>
+                <tr key={u.id} className="clickable-row" title="Click to view details" onClick={(e) => onRowClick(e, u)}>
                   <td><CopyableId value={u.id} /></td>
                   <td>{u.email}</td>
                   <td>{u.tenantId ? <CopyableId value={u.tenantId} /> : '-'}</td>
@@ -168,9 +184,14 @@ export default function Users() {
                     <ActionMenu
                       items={[
                         {
-                          label: 'View Details',
+                          label: 'View',
+                          onClick: () => setViewRow(u),
+                          title: 'Open the formatted details for this record',
+                        },
+                        {
+                          label: 'View JSON',
                           onClick: () => setJsonRow(u),
-                          title: 'View this user’s full record as JSON',
+                          title: 'View the raw JSON for this record',
                         },
                         ...(u.isProtected ? [] : [
                           {
@@ -285,6 +306,13 @@ export default function Users() {
         title={jsonRow ? `User: ${jsonRow.email}` : ''}
         identifier={jsonRow?.id}
         value={jsonRow}
+      />
+
+      <DetailModal
+        isOpen={!!viewRow}
+        onClose={() => setViewRow(null)}
+        title={viewRow ? `User: ${viewRow.email}` : ''}
+        fields={buildFields(viewRow)}
       />
     </div>
   )

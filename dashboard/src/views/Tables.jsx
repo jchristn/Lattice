@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
+import { formatDate } from '../utils/api'
 import ActionMenu from '../components/ActionMenu'
 import CopyableId from '../components/CopyableId'
+import DetailModal from '../components/DetailModal'
 import JsonViewerModal from '../components/JsonViewerModal'
-import Modal from '../components/Modal'
 import TablePagination from '../components/TablePagination'
 import './Tables.css'
 
@@ -14,11 +15,10 @@ export default function Tables() {
   const { api, setError } = useApp()
   const [tables, setTables] = useState([])
   const [loading, setLoading] = useState(true)
-  const [showDetailsModal, setShowDetailsModal] = useState(false)
-  const [selectedTable, setSelectedTable] = useState(null)
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(25)
   const [jsonViewer, setJsonViewer] = useState({ open: false, title: '', subtitle: '', identifier: '', value: null })
+  const [viewRow, setViewRow] = useState(null)
   const [filters, setFilters] = useState({
     key: searchParams.get('key') || '',
     tableName: '',
@@ -99,11 +99,6 @@ export default function Tables() {
     return sort.direction === 'asc' ? '^' : 'v'
   }
 
-  const handleViewDetails = (table) => {
-    setSelectedTable(table)
-    setShowDetailsModal(true)
-  }
-
   const handleViewEntries = (table) => {
     navigate(`/entries?table=${encodeURIComponent(table.key)}`)
   }
@@ -118,10 +113,24 @@ export default function Tables() {
     })
   }
 
-  // Row body click opens the full-row JSON viewer; interactive controls inside the row are ignored.
+  // Row body click opens the formatted detail view; interactive controls inside the row are ignored.
   const onRowClick = (event, table) => {
     if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
-    handleViewJson(table)
+    setViewRow(table)
+  }
+
+  // Maps an index-table mapping record to labeled detail fields; null entries are skipped by DetailModal.
+  const buildFields = (table) => {
+    if (!table) return []
+    return [
+      { label: 'ID', value: table.id, copyable: true, title: 'Unique identifier for this index-table mapping' },
+      { label: 'Field Key', value: table.key, title: 'Flattened field path that this index table stores values for' },
+      { label: 'Table Name', value: table.tableName, copyable: true, title: 'Name of the physical database table backing this field key' },
+      table.entryCount !== undefined && table.entryCount !== null
+        ? { label: 'Entry Count', value: table.entryCount, title: 'Number of index entries stored in this table' }
+        : null,
+      table.createdUtc ? { label: 'Created (UTC)', value: formatDate(table.createdUtc), title: 'When this index table mapping was created (UTC)' } : null,
+    ]
   }
 
   if (loading) {
@@ -189,9 +198,9 @@ export default function Tables() {
                     <td>
                       <ActionMenu
                         items={[
+                          { label: 'View', onClick: () => setViewRow(mapping), title: 'Open the formatted details for this record' },
+                          { label: 'View JSON', onClick: () => handleViewJson(mapping), title: 'View the raw JSON for this record' },
                           { label: 'View Entries', onClick: () => handleViewEntries(mapping) },
-                          { label: 'View Details', onClick: () => handleViewDetails(mapping) },
-                          { label: 'View JSON', onClick: () => handleViewJson(mapping) },
                         ]}
                       />
                     </td>
@@ -203,29 +212,13 @@ export default function Tables() {
         </div>
       )}
 
-      <Modal
-        isOpen={showDetailsModal}
-        onClose={() => {
-          setShowDetailsModal(false)
-          setSelectedTable(null)
-        }}
-        title="Table Details"
-        subtitle="Use this metadata to understand which generated table backs a given searchable field."
-      >
-        {selectedTable && (
-          <>
-            <div className="table-detail">
-              <strong>ID:</strong> <CopyableId value={selectedTable.id} />
-            </div>
-            <div className="table-detail">
-              <strong>Field Key:</strong> <span className="monospace">{selectedTable.key}</span>
-            </div>
-            <div className="table-detail">
-              <strong>Table Name:</strong> <CopyableId value={selectedTable.tableName} />
-            </div>
-          </>
-        )}
-      </Modal>
+      <DetailModal
+        isOpen={!!viewRow}
+        onClose={() => setViewRow(null)}
+        title="Index Table Details"
+        subtitle="This mapping shows how a flattened field key is assigned to a physical index table for search operations."
+        fields={buildFields(viewRow)}
+      />
 
       <JsonViewerModal
         isOpen={jsonViewer.open}

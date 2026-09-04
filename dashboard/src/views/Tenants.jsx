@@ -6,6 +6,7 @@ import ActionMenu from '../components/ActionMenu'
 import CopyableId from '../components/CopyableId'
 import TablePagination from '../components/TablePagination'
 import JsonViewerModal from '../components/JsonViewerModal'
+import DetailModal from '../components/DetailModal'
 import './Tenants.css'
 
 export default function Tenants() {
@@ -20,13 +21,23 @@ export default function Tenants() {
   const [name, setName] = useState('')
   const [saving, setSaving] = useState(false)
   const [jsonRow, setJsonRow] = useState(null)
+  const [viewRow, setViewRow] = useState(null)
 
   const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize))
 
   const onRowClick = (event, row) => {
     if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
-    setJsonRow(row)
+    setViewRow(row)
   }
+
+  const buildFields = (t) => t ? [
+    { label: 'ID', value: t.id, copyable: true, title: 'The unique identifier of the tenant' },
+    { label: 'Name', value: t.name, title: 'The human-readable display name of the tenant' },
+    { label: 'Active', value: t.active ? 'Yes' : 'No', title: 'Whether the tenant is currently active and able to accept requests' },
+    { label: 'Protected', value: t.isProtected ? 'Yes' : 'No', title: 'Protected tenants are system-managed and cannot be deleted' },
+    { label: 'Created', value: formatDate(t.createdUtc), title: 'When the tenant was first created' },
+    { label: 'Last Updated', value: formatDate(t.lastUpdateUtc), title: 'When the tenant was last modified' },
+  ] : []
 
   const load = async () => {
     try {
@@ -141,7 +152,7 @@ export default function Tenants() {
             </thead>
             <tbody>
               {tenants.map((t) => (
-                <tr key={t.id} className="clickable-row" title="Click to view the full record as JSON" onClick={(e) => onRowClick(e, t)}>
+                <tr key={t.id} className="clickable-row" title="Click to view details" onClick={(e) => onRowClick(e, t)}>
                   <td><CopyableId value={t.id} /></td>
                   <td>{t.name}</td>
                   <td title={t.active ? 'This tenant is active' : 'This tenant is inactive'}>{t.active ? 'Yes' : 'No'}</td>
@@ -151,9 +162,14 @@ export default function Tenants() {
                     <ActionMenu
                       items={[
                         {
-                          label: 'View Details',
+                          label: 'View',
+                          onClick: () => setViewRow(t),
+                          title: 'Open the formatted details for this record',
+                        },
+                        {
+                          label: 'View JSON',
                           onClick: () => setJsonRow(t),
-                          title: 'View this tenant’s full record as JSON',
+                          title: 'View the raw JSON for this record',
                         },
                         ...(t.isProtected ? [] : [
                           {
@@ -206,6 +222,13 @@ export default function Tenants() {
         title={jsonRow ? `Tenant: ${jsonRow.name}` : ''}
         identifier={jsonRow?.id}
         value={jsonRow}
+      />
+
+      <DetailModal
+        isOpen={!!viewRow}
+        onClose={() => setViewRow(null)}
+        title={viewRow ? `Tenant: ${viewRow.name}` : ''}
+        fields={buildFields(viewRow)}
       />
     </div>
   )

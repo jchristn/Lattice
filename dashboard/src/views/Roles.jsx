@@ -6,6 +6,7 @@ import ActionMenu from '../components/ActionMenu'
 import CopyableId from '../components/CopyableId'
 import TablePagination from '../components/TablePagination'
 import JsonViewerModal from '../components/JsonViewerModal'
+import DetailModal from '../components/DetailModal'
 import './Roles.css'
 
 // Values accepted by the server's permission grant editor. Sent verbatim.
@@ -34,6 +35,9 @@ export default function Roles() {
   const [pageSize, setPageSize] = useState(25)
   const [totalRecords, setTotalRecords] = useState(0)
   const [jsonRow, setJsonRow] = useState(null)
+  const [viewRow, setViewRow] = useState(null)
+  // Grants for the currently viewed role, fetched on demand; null means unavailable/omit.
+  const [viewPermissions, setViewPermissions] = useState(null)
 
   // Create/Edit modal state. editingId is null for create, or the role id for edit.
   const [showEditor, setShowEditor] = useState(false)
@@ -46,13 +50,37 @@ export default function Roles() {
 
   const onRowClick = (event, row) => {
     if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
-    // Editable (custom) roles open the edit dialog; built-in roles open the read-only JSON viewer.
+    // Editable (custom) roles open the edit dialog; built-in roles open the formatted detail view.
     if (isEditable(row)) {
       openEdit(row)
     } else {
-      setJsonRow(row)
+      openView(row)
     }
   }
+
+  // Open the formatted detail view, fetching the role's grants to include in the Permissions field.
+  const openView = async (role) => {
+    setViewPermissions(null)
+    setViewRow(role)
+    try {
+      const full = await api.getRole(role.id)
+      setViewPermissions(full?.permissions ?? null)
+    } catch {
+      setViewPermissions(null)
+    }
+  }
+
+  const buildFields = (r) => r ? [
+    { label: 'ID', value: r.id, copyable: true, title: 'The unique identifier of the role' },
+    { label: 'Name', value: r.name, title: 'The human-readable name of the role, such as Viewer or Editor' },
+    { label: 'Tenant ID', value: r.tenantId || 'Global (built-in)', copyable: !!r.tenantId, title: 'The tenant this role belongs to; global roles apply across all tenants' },
+    { label: 'Built-in', value: r.isBuiltIn ? 'Yes' : 'No', title: 'Built-in roles are predefined by the system and cannot be modified or deleted' },
+    { label: 'Active', value: r.active ? 'Yes' : 'No', title: 'Whether the role is active and can be assigned' },
+    { label: 'Protected', value: r.isProtected ? 'Yes' : 'No', title: 'Protected roles are system-managed and cannot be deleted' },
+    { label: 'Created', value: formatDate(r.createdUtc), title: 'When the role was first created' },
+    { label: 'Last Updated', value: formatDate(r.lastUpdateUtc), title: 'When the role was last modified' },
+    viewPermissions ? { label: 'Permissions', value: JSON.stringify(viewPermissions, null, 2), multiline: true, rows: 8, title: 'The grants this role confers (permit/deny x resource types x operations)' } : null,
+  ] : []
 
   const load = async () => {
     try {
@@ -248,7 +276,7 @@ export default function Roles() {
             </thead>
             <tbody>
               {roles.map((r) => (
-                <tr key={r.id} className="clickable-row" title={isEditable(r) ? 'Click to edit this custom role and its permissions' : 'Click to view the full record as JSON'} onClick={(e) => onRowClick(e, r)}>
+                <tr key={r.id} className="clickable-row" title={isEditable(r) ? 'Click to edit this custom role and its permissions' : 'Click to view this role’s details'} onClick={(e) => onRowClick(e, r)}>
                   <td><CopyableId value={r.id} /></td>
                   <td>{r.name}</td>
                   <td title={r.isBuiltIn ? 'Predefined system role; read-only' : 'Custom role you can edit or delete'}>
@@ -263,6 +291,16 @@ export default function Roles() {
                     <ActionMenu
                       items={isEditable(r) ? [
                         {
+                          label: 'View',
+                          onClick: () => openView(r),
+                          title: 'Open the formatted details for this record',
+                        },
+                        {
+                          label: 'View JSON',
+                          onClick: () => setJsonRow(r),
+                          title: 'View the raw JSON for this record',
+                        },
+                        {
                           label: 'Edit Role',
                           onClick: () => openEdit(r),
                           title: 'Edit this role’s name and the permissions it grants',
@@ -275,9 +313,14 @@ export default function Roles() {
                         },
                       ] : [
                         {
-                          label: 'View Details',
+                          label: 'View',
+                          onClick: () => openView(r),
+                          title: 'Open the formatted details for this record',
+                        },
+                        {
+                          label: 'View JSON',
                           onClick: () => setJsonRow(r),
-                          title: 'View this built-in role and its permissions as JSON (built-in roles are read-only)',
+                          title: 'View the raw JSON for this record',
                         },
                       ]}
                     />
@@ -419,6 +462,13 @@ export default function Roles() {
         title={jsonRow ? `Role: ${jsonRow.name}` : ''}
         identifier={jsonRow?.id}
         value={jsonRow}
+      />
+
+      <DetailModal
+        isOpen={!!viewRow}
+        onClose={() => { setViewRow(null); setViewPermissions(null) }}
+        title={viewRow ? `Role: ${viewRow.name}` : ''}
+        fields={buildFields(viewRow)}
       />
     </div>
   )
