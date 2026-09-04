@@ -21,7 +21,6 @@ export default function Login() {
   const [mode, setMode] = useState('credentials') // 'credentials' | 'accessKey'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [tenantId, setTenantId] = useState('')
   const [accessKey, setAccessKey] = useState('')
 
   const [loading, setLoading] = useState(false)
@@ -77,14 +76,13 @@ export default function Login() {
       return
     }
 
-    await attemptCredentialsLogin(tenantId.trim() || null)
+    await attemptCredentialsLogin(null)
     setLoading(false)
   }
 
   const handleSelectTenant = async (chosenTenantId) => {
     setLoading(true)
     setLocalError('')
-    setTenantId(chosenTenantId)
     const success = await attemptCredentialsLogin(chosenTenantId)
     if (!success) {
       // A follow-up selection should not normally re-prompt; if it fails, fall
@@ -184,24 +182,6 @@ export default function Login() {
               autoComplete="current-password"
               required
               title="Enter your account password"
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="login-tenant" title="Optional tenant to sign in to; leave blank to let the server detect it from your credentials">
-              Tenant{' '}
-              <span className="form-optional">
-                (optional — leave blank to detect automatically)
-              </span>
-            </label>
-            <input
-              id="login-tenant"
-              type="text"
-              className="input"
-              value={tenantId}
-              onChange={(e) => setTenantId(e.target.value)}
-              placeholder="Detected from your credentials"
-              title="Enter a specific tenant ID, or leave blank to sign in to your default tenant"
             />
           </div>
         </>
