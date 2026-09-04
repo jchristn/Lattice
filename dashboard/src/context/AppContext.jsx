@@ -110,12 +110,24 @@ export function AppProvider({ children }) {
     setPrincipal(null)
   }
 
-  // Credentials login: exchange email/password/tenant for a session token, then
-  // fetch the principal descriptor.
+  // Credentials login: exchange email/password (and an optional tenant) for a
+  // session token, then fetch the principal descriptor. When tenantId is omitted
+  // the server infers the tenant; if the credentials match users in more than one
+  // tenant it responds with { tenantSelectionRequired: true, tenants: [...] }
+  // instead of a token, which we surface to the caller so it can prompt for a
+  // choice and call login() again with the chosen tenantId.
   const login = async (email, password, tenantId) => {
     if (!api) return false
     try {
       const result = await api.login(email, password, tenantId)
+
+      // Multiple tenants matched: no token yet. Surface the tenant list so the
+      // Login view can prompt; the session is not established.
+      if (result?.tenantSelectionRequired) {
+        setError(null)
+        return { tenantSelectionRequired: true, tenants: result.tenants || [] }
+      }
+
       const sessionToken = result?.token
       if (!sessionToken) {
         throw new Error('No token returned')

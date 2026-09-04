@@ -147,9 +147,16 @@ export class LatticeApi {
   }
 
   // Authentication
-  // POST /v1.0/token with { email, password, tenantId } → session token payload.
+  // POST /v1.0/token with { email, password } and an OPTIONAL tenantId. When
+  // tenantId is falsy/empty it is omitted so the server can infer the tenant
+  // from the credentials. The response is either a session token payload or a
+  // { tenantSelectionRequired: true, tenants: [...] } prompt (both HTTP 200).
   async login(email, password, tenantId) {
-    return this.request('POST', '/v1.0/token', { email, password, tenantId })
+    const body = { email, password }
+    if (tenantId) {
+      body.tenantId = tenantId
+    }
+    return this.request('POST', '/v1.0/token', body)
   }
 
   // GET /v1.0/whoami → current principal descriptor.

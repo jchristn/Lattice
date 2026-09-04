@@ -27,6 +27,11 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [localError, setLocalError] = useState('')
 
+  // Tenant selection step: populated when the credentials match users in more
+  // than one tenant. email/password are preserved so the user doesn't retype
+  // them when picking a tenant.
+  const [tenantChoices, setTenantChoices] = useState(null)
+
   const handleConnect = async (e) => {
     e.preventDefault()
     setLoading(true)
@@ -38,20 +43,60 @@ export default function Login() {
     setLoading(false)
   }
 
+  // Perform a credentials login for the given tenant (may be null to let the
+  // server infer). Returns true on a completed sign-in. Handles the
+  // tenant-selection prompt by stashing the returned tenants for the chooser.
+  const attemptCredentialsLogin = async (chosenTenantId) => {
+    const result = await login(email.trim(), password, chosenTenantId || null)
+
+    if (result && typeof result === 'object' && result.tenantSelectionRequired) {
+      setTenantChoices(result.tenants || [])
+      setLocalError('')
+      return false
+    }
+
+    if (!result) {
+      setLocalError(error || 'Login failed')
+      return false
+    }
+
+    return true
+  }
+
   const handleLogin = async (e) => {
     e.preventDefault()
     setLoading(true)
     setLocalError('')
 
-    const success =
-      mode === 'accessKey'
-        ? await loginWithAccessKey(accessKey.trim())
-        : await login(email.trim(), password, tenantId.trim() || null)
+    if (mode === 'accessKey') {
+      const success = await loginWithAccessKey(accessKey.trim())
+      if (!success) {
+        setLocalError(error || 'Login failed')
+      }
+      setLoading(false)
+      return
+    }
 
+    await attemptCredentialsLogin(tenantId.trim() || null)
+    setLoading(false)
+  }
+
+  const handleSelectTenant = async (chosenTenantId) => {
+    setLoading(true)
+    setLocalError('')
+    setTenantId(chosenTenantId)
+    const success = await attemptCredentialsLogin(chosenTenantId)
     if (!success) {
-      setLocalError(error || 'Login failed')
+      // A follow-up selection should not normally re-prompt; if it fails, fall
+      // back to the credentials form so the user can retry.
+      setTenantChoices(null)
     }
     setLoading(false)
+  }
+
+  const handleCancelTenantSelection = () => {
+    setTenantChoices(null)
+    setLocalError('')
   }
 
   const renderServerStep = () => (
@@ -139,7 +184,10 @@ export default function Login() {
 
           <div className="form-group">
             <label className="form-label" htmlFor="login-tenant">
-              Tenant ID <span className="form-optional">(optional)</span>
+              Tenant{' '}
+              <span className="form-optional">
+                (optional — leave blank to detect automatically)
+              </span>
             </label>
             <input
               id="login-tenant"
@@ -147,7 +195,7 @@ export default function Login() {
               className="input"
               value={tenantId}
               onChange={(e) => setTenantId(e.target.value)}
-              placeholder="default"
+              placeholder="Detected from your credentials"
             />
           </div>
         </>
@@ -180,16 +228,63 @@ export default function Login() {
     </form>
   )
 
+  const renderTenantStep = () => (
+    <div>
+      <p className="tenant-select-intro">
+        Your account belongs to more than one tenant. Choose which one to sign in to.
+      </p>
+
+      <div className="tenant-list">
+        {tenantChoices.map((tenant) => (
+          <button
+            key={tenant.tenantId}
+            type="button"
+            className="tenant-option"
+            onClick={() => handleSelectTenant(tenant.tenantId)}
+            disabled={loading}
+          >
+            <span className="tenant-option-name">
+              {tenant.tenantName || tenant.tenantId}
+            </span>
+            <span className="tenant-option-id">{tenant.tenantId}</span>
+          </button>
+        ))}
+      </div>
+
+      {localError && <div className="error-message">{localError}</div>}
+
+      <button
+        type="button"
+        className="login-back-btn"
+        onClick={handleCancelTenantSelection}
+        disabled={loading}
+      >
+        Back
+      </button>
+    </div>
+  )
+
+  const renderBody = () => {
+    if (!serverUrl) return renderServerStep()
+    if (tenantChoices) return renderTenantStep()
+    return renderCredentialsStep()
+  }
+
+  let subtitle = 'JSON Document Store'
+  if (serverUrl) {
+    subtitle = tenantChoices ? 'Select a tenant' : 'Sign in to continue'
+  }
+
   return (
     <div className="login-container">
       <div className="login-card">
         <div className="login-header">
           <img src="/logo.png" alt="Lattice" className="login-logo" />
           <h1>Lattice</h1>
-          <p>{serverUrl ? 'Sign in to continue' : 'JSON Document Store'}</p>
+          <p>{subtitle}</p>
         </div>
 
-        {serverUrl ? renderCredentialsStep() : renderServerStep()}
+        {renderBody()}
 
         <button className="theme-toggle" onClick={toggleTheme} title="Toggle theme">
           {theme === 'light' ? '🌙' : '☀️'}
