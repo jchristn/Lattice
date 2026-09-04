@@ -149,12 +149,20 @@ export default function Tenants() {
                   <td>{formatDate(t.createdUtc)}</td>
                   <td>
                     <ActionMenu
-                      items={t.isProtected ? [] : [
+                      items={[
                         {
-                          label: 'Delete Tenant',
-                          onClick: () => handleDelete(t),
-                          variant: 'danger',
+                          label: 'View Details',
+                          onClick: () => setJsonRow(t),
+                          title: 'View this tenant’s full record as JSON',
                         },
+                        ...(t.isProtected ? [] : [
+                          {
+                            label: 'Delete Tenant',
+                            onClick: () => handleDelete(t),
+                            variant: 'danger',
+                            title: 'Permanently delete this tenant and everything in it',
+                          },
+                        ]),
                       ]}
                     />
                   </td>

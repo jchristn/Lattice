@@ -167,9 +167,15 @@ export default function Credentials() {
                     <ActionMenu
                       items={[
                         {
+                          label: 'View Details',
+                          onClick: () => setJsonRow(c),
+                          title: 'View this credential’s full record as JSON',
+                        },
+                        {
                           label: 'Delete Credential',
                           onClick: () => handleDelete(c),
                           variant: 'danger',
+                          title: 'Permanently delete this credential; apps using its access key stop working',
                         },
                       ]}
                     />

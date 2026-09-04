@@ -273,7 +273,13 @@ export default function Roles() {
                           variant: 'danger',
                           title: 'Permanently delete this custom role',
                         },
-                      ] : []}
+                      ] : [
+                        {
+                          label: 'View Details',
+                          onClick: () => setJsonRow(r),
+                          title: 'View this built-in role and its permissions as JSON (built-in roles are read-only)',
+                        },
+                      ]}
                     />
                   </td>
                 </tr>

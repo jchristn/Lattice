@@ -171,9 +171,15 @@ export default function Audit() {
                     <ActionMenu
                       items={[
                         {
+                          label: 'View Details',
+                          onClick: () => setJsonRow(e),
+                          title: 'View this audit entry’s full record as JSON',
+                        },
+                        {
                           label: 'Delete Entry',
                           onClick: () => handleDelete(e),
                           variant: 'danger',
+                          title: 'Permanently delete this audit entry',
                         },
                       ]}
                     />

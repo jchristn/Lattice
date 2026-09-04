@@ -166,12 +166,20 @@ export default function Users() {
                   <td>{formatDate(u.createdUtc)}</td>
                   <td>
                     <ActionMenu
-                      items={u.isProtected ? [] : [
+                      items={[
                         {
-                          label: 'Delete User',
-                          onClick: () => handleDelete(u),
-                          variant: 'danger',
+                          label: 'View Details',
+                          onClick: () => setJsonRow(u),
+                          title: 'View this user’s full record as JSON',
                         },
+                        ...(u.isProtected ? [] : [
+                          {
+                            label: 'Delete User',
+                            onClick: () => handleDelete(u),
+                            variant: 'danger',
+                            title: 'Permanently delete this user and its credentials',
+                          },
+                        ]),
                       ]}
                     />
                   </td>

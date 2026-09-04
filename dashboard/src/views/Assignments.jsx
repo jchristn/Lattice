@@ -163,9 +163,15 @@ export default function Assignments() {
                     <ActionMenu
                       items={[
                         {
+                          label: 'View Details',
+                          onClick: () => setJsonRow(a),
+                          title: 'View this role assignment’s full record as JSON',
+                        },
+                        {
                           label: 'Delete Assignment',
                           onClick: () => handleDelete(a),
                           variant: 'danger',
+                          title: 'Remove this role assignment; the user loses the access it granted',
                         },
                       ]}
                     />
