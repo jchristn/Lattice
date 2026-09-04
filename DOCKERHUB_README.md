@@ -25,7 +25,7 @@ Everything is governed by authentication and RBAC. Callers authenticate with a s
 
 The dashboard puts a full UI over all of it — collections, documents, schemas, index tables, search, request history with a traffic chart, an API explorer, and admin consoles for tenants, users, credentials, roles, assignments, and the audit log.
 
-<img src="https://raw.githubusercontent.com/jchristn/Lattice/main/assets/screenshot4.png?v=2" alt="Lattice dashboard — request history">
+<img src="https://raw.githubusercontent.com/jchristn/Lattice/main/assets/dashboard-request-history.png" alt="Lattice dashboard — request history">
 
 ## Architecture
 

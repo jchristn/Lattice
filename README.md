@@ -25,31 +25,31 @@ Lattice is a JSON document store with automatic schema detection, SQL-like query
 
 ### Collections
 
-<img src="https://raw.githubusercontent.com/jchristn/Lattice/main/assets/screenshot1.png?v=2" alt="Collections">
+<img src="https://raw.githubusercontent.com/jchristn/Lattice/main/assets/dashboard-collections.png" alt="Collections">
 
 Browse and manage collections — each row shows its ID, name, description, and creation time, with per-column filters and quick actions.
 
 ### Editing a Collection
 
-<img src="https://raw.githubusercontent.com/jchristn/Lattice/main/assets/screenshot2.png?v=2" alt="Editing a Collection">
+<img src="https://raw.githubusercontent.com/jchristn/Lattice/main/assets/dashboard-edit-collection.png" alt="Editing a Collection">
 
 Click any row to edit a collection's name and description; schema constraints and indexing are managed from their own dialogs.
 
 ### Documents
 
-<img src="https://raw.githubusercontent.com/jchristn/Lattice/main/assets/screenshot3.png?v=2" alt="Documents">
+<img src="https://raw.githubusercontent.com/jchristn/Lattice/main/assets/dashboard-documents.png" alt="Documents">
 
 Open a collection to page through its documents with per-column filters, inspect schema assignment, and add new documents with labels and tags.
 
 ### Request History
 
-<img src="https://raw.githubusercontent.com/jchristn/Lattice/main/assets/screenshot4.png?v=2" alt="Request History">
+<img src="https://raw.githubusercontent.com/jchristn/Lattice/main/assets/dashboard-request-history.png" alt="Request History">
 
 Inspect captured request metadata, timings, headers, and bodies, with a traffic-summary chart of successes and failures over selectable time ranges.
 
 ### Searching Documents
 
-<img src="https://raw.githubusercontent.com/jchristn/Lattice/main/assets/screenshot5.png?v=2" alt="Searching Documents">
+<img src="https://raw.githubusercontent.com/jchristn/Lattice/main/assets/dashboard-search.png" alt="Searching Documents">
 
 Run label, tag, and SQL-style searches against a collection to validate query behavior and inspect the exact documents returned.
 
