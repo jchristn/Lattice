@@ -6,7 +6,7 @@
   width: var(--sidebar-width);
   background-color: var(--bg-primary);
   border-right: 1px solid var(--border-color);
-  padding: 16px 12px;
+  padding: 11px 8px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -22,7 +22,7 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .sidebar-group:last-child {
@@ -30,7 +30,7 @@
 }
 
 .sidebar-group-label {
-  padding: 6px 12px 4px;
+  padding: 4px 8px 3px;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -42,7 +42,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 12px;
+  padding: 6px 8px;
   color: var(--text-secondary);
   text-decoration: none;
   border-radius: 6px;
@@ -73,7 +73,7 @@
 
 .sidebar-footer {
   margin-top: auto;
-  padding-top: 16px;
+  padding-top: 11px;
   border-top: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
@@ -86,7 +86,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
+  padding: 5px 11px;
   color: var(--text-secondary);
   font-size: 13px;
   font-weight: 500;
