@@ -30,19 +30,26 @@ Comprehensive reference for the Lattice Server REST API. Lattice is a JSON docum
     - [GET /v1.0/tenants -- List Tenants](#get-v10tenants--list-tenants)
     - [PUT /v1.0/tenants -- Create Tenant](#put-v10tenants--create-tenant)
     - [GET /v1.0/tenants/{tenantId} -- Get Tenant](#get-v10tenantstenantid--get-tenant)
+    - [PUT /v1.0/tenants/{tenantId} -- Update Tenant](#put-v10tenantstenantid--update-tenant)
     - [DELETE /v1.0/tenants/{tenantId} -- Delete Tenant](#delete-v10tenantstenantid--delete-tenant)
   - [Users](#users)
     - [GET /v1.0/users -- List Users](#get-v10users--list-users)
     - [PUT /v1.0/users -- Create User](#put-v10users--create-user)
     - [GET /v1.0/users/{userId} -- Get User](#get-v10usersuserid--get-user)
+    - [PUT /v1.0/users/{userId} -- Update User](#put-v10usersuserid--update-user)
     - [DELETE /v1.0/users/{userId} -- Delete User](#delete-v10usersuserid--delete-user)
   - [Credentials](#credentials)
     - [GET /v1.0/credentials -- List Credentials](#get-v10credentials--list-credentials)
     - [PUT /v1.0/credentials -- Create Credential](#put-v10credentials--create-credential)
     - [GET /v1.0/credentials/{credentialId} -- Get Credential](#get-v10credentialscredentialid--get-credential)
+    - [PUT /v1.0/credentials/{credentialId} -- Update Credential](#put-v10credentialscredentialid--update-credential)
     - [DELETE /v1.0/credentials/{credentialId} -- Delete Credential](#delete-v10credentialscredentialid--delete-credential)
   - [Roles](#roles)
     - [GET /v1.0/roles -- List Roles](#get-v10roles--list-roles)
+    - [PUT /v1.0/roles -- Create Role](#put-v10roles--create-role)
+    - [GET /v1.0/roles/{roleId} -- Get Role](#get-v10rolesroleid--get-role)
+    - [PUT /v1.0/roles/{roleId} -- Update Role](#put-v10rolesroleid--update-role)
+    - [DELETE /v1.0/roles/{roleId} -- Delete Role](#delete-v10rolesroleid--delete-role)
   - [Assignments](#assignments)
     - [GET /v1.0/assignments -- List Assignments](#get-v10assignments--list-assignments)
     - [PUT /v1.0/assignments -- Create Assignment](#put-v10assignments--create-assignment)
@@ -56,6 +63,7 @@ Comprehensive reference for the Lattice Server REST API. Lattice is a JSON docum
     - [GET /v1.0/collections -- List Collections](#get-v10collections--list-collections)
     - [GET /v1.0/collections/{collectionId} -- Get Collection](#get-v10collectionscollectionid--get-collection)
     - [HEAD /v1.0/collections/{collectionId} -- Check Collection Exists](#head-v10collectionscollectionid--check-collection-exists)
+    - [PUT /v1.0/collections/{collectionId} -- Update Collection](#put-v10collectionscollectionid--update-collection)
     - [DELETE /v1.0/collections/{collectionId} -- Delete Collection](#delete-v10collectionscollectionid--delete-collection)
     - [GET /v1.0/collections/{collectionId}/constraints -- Get Constraints](#get-v10collectionscollectionidconstraints--get-constraints)
     - [PUT /v1.0/collections/{collectionId}/constraints -- Update Constraints](#put-v10collectionscollectionidconstraints--update-constraints)
@@ -124,7 +132,7 @@ The `<ResourceType>:<Operation>` in the 403 message names the permission that wa
 There are exactly **two** ways to authenticate, both presented as the `Authorization: Bearer <value>` header:
 
 1. **Session token.** Obtain a session token by posting an email and password (and, optionally, a tenant id) to [`POST /v1.0/token`](#post-v10token--login). The tenant is inferred from the credentials when omitted; if they match more than one tenant the response asks you to choose one. The `token` returned in the response is used as the bearer value. Session tokens expire (default **60 minutes**); after expiry, log in again. A session may be ended early with [`DELETE /v1.0/token`](#delete-v10token--logout).
-2. **Access key.** A credential's access key (format `access_...`) is presented **directly** as the bearer value. Access keys are long-lived and intended for machine-to-machine use. Create one with [`PUT /v1.0/credentials`](#put-v10credentials--create-credential); the raw access key is returned **once** at creation and cannot be retrieved again.
+2. **Access key.** A credential's access key (format `access_...`) is presented **directly** as the bearer value. Access keys are long-lived and intended for machine-to-machine use. Create one with [`PUT /v1.0/credentials`](#put-v10credentials--create-credential); the raw access key is returned at creation and, because it is persisted, can also be retrieved later by reading the credential.
 
 > There is **no** `x-api-key` header, no separate secret key, and no request signing. A bearer value is either a session token or an access key; the server resolves which one it is.
 
@@ -690,6 +698,43 @@ curl http://localhost:8000/v1.0/tenants/ten_abcdef0123456789 \
 
 ---
 
+#### PUT /v1.0/tenants/{tenantId} -- Update Tenant
+
+Updates a tenant. **Only the fields supplied** in the body are changed; omitted fields are left untouched.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `tenantId` | string | The unique identifier of the tenant. |
+
+**cURL:**
+
+```bash
+curl -X PUT http://localhost:8000/v1.0/tenants/ten_0f1e2d3c4b5a6978 \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Acme Holdings",
+    "active": true
+  }'
+```
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | No | New tenant name. Omit to leave unchanged. |
+| `active` | boolean | No | New active flag. Omit to leave unchanged. |
+
+**Response (200 OK):** The updated `Tenant` object (see [Tenant](#tenant)).
+
+**Errors:**
+
+- `404 Not Found` -- Tenant does not exist or is not visible. Body: `{ "error": "Tenant not found" }`.
+
+---
+
 #### DELETE /v1.0/tenants/{tenantId} -- Delete Tenant
 
 Deletes a tenant. Protected tenants (e.g. the seeded default tenant) cannot be deleted.
@@ -851,6 +896,48 @@ curl http://localhost:8000/v1.0/users/usr_fedcba9876543210 \
 
 ---
 
+#### PUT /v1.0/users/{userId} -- Update User
+
+Updates a user. **Only the fields supplied** in the body are changed. A new `password` is hashed (SHA-256) server-side and is never returned. `isAdmin` is honored only when the caller is itself a system administrator; otherwise it is ignored.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `userId` | string | The unique identifier of the user. |
+
+**cURL:**
+
+```bash
+curl -X PUT http://localhost:8000/v1.0/users/usr_fedcba9876543210 \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "firstName": "Jane",
+    "lastName": "Doe",
+    "isTenantAdmin": true
+  }'
+```
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `firstName` | string | No | New first name. Omit to leave unchanged. |
+| `lastName` | string | No | New last name. Omit to leave unchanged. |
+| `password` | string | No | New password; stored only as a SHA-256 hash and never returned. Omit to leave unchanged. |
+| `isTenantAdmin` | boolean | No | New tenant-administrator flag. Omit to leave unchanged. |
+| `isAdmin` | boolean | No | New system-administrator flag. Honored only when the caller is a system administrator; otherwise ignored. Omit to leave unchanged. |
+| `active` | boolean | No | New active flag. Omit to leave unchanged. |
+
+**Response (200 OK):** The updated `User` object with `passwordSha256` omitted (see [User](#user)).
+
+**Errors:**
+
+- `404 Not Found` -- User does not exist or is not visible. Body: `{ "error": "User not found" }`.
+
+---
+
 #### DELETE /v1.0/users/{userId} -- Delete User
 
 Deletes a user. Protected users (e.g. the seeded default administrator) cannot be deleted.
@@ -879,11 +966,13 @@ curl -X DELETE http://localhost:8000/v1.0/users/usr_fedcba9876543210 \
 
 ### Credentials
 
-Machine credentials (access keys) owned by a user within a tenant. The raw access key is returned **once**, at creation, and cannot be retrieved again.
+Machine credentials (access keys) owned by a user within a tenant. The raw access key is returned at creation **and** is persisted, so it can be retrieved again on subsequent credential reads.
+
+> **Security note:** The raw access key is stored in **plaintext** (alongside its SHA-256 hash) so that it can be returned on credential reads. Only the `accessKeySha256` hash is ever withheld from responses. Treat access keys as secrets and restrict `Credential` read permissions accordingly.
 
 #### GET /v1.0/credentials -- List Credentials
 
-Lists credentials in the caller's tenant. Returns an [EnumerationResult](#enumeration--pagination) with `Credential` items in `objects`. A system administrator may list another tenant's credentials with the `tenantId` query parameter. The raw `accessKey` is never present in a list response.
+Lists credentials in the caller's tenant. Returns an [EnumerationResult](#enumeration--pagination) with `Credential` items in `objects`. A system administrator may list another tenant's credentials with the `tenantId` query parameter. The raw `accessKey` **is** included on each item (it is persisted); only the stored `accessKeySha256` hash is withheld.
 
 **Query Parameters:**
 
@@ -918,6 +1007,7 @@ curl "http://localhost:8000/v1.0/credentials?maxResults=100&skip=0" \
       "tenantId": "ten_abcdef0123456789",
       "userId": "usr_0123456789abcdef",
       "name": "default",
+      "accessKey": "access_1a2b3c4d5e6f7a8b9cd12",
       "accessKeyLast4": "cd12",
       "active": true,
       "isProtected": true,
@@ -932,7 +1022,7 @@ curl "http://localhost:8000/v1.0/credentials?maxResults=100&skip=0" \
 
 #### PUT /v1.0/credentials -- Create Credential
 
-Creates a credential and generates its access key. The raw `accessKey` (format `access_...`) is included in the response **once** and cannot be retrieved later — store it securely. When `userId` is omitted, the credential is owned by the calling user.
+Creates a credential and generates its access key. The raw `accessKey` (format `access_...`) is included in the response and is also persisted, so it can be retrieved again on subsequent credential reads (see the security note in [Credentials](#credentials)). When `userId` is omitted, the credential is owned by the calling user.
 
 **cURL:**
 
@@ -970,7 +1060,7 @@ curl -X PUT http://localhost:8000/v1.0/credentials \
 }
 ```
 
-> The `accessKey` field is present **only** in this creation response. Every subsequent read of the credential omits it.
+> The `accessKey` field is persisted and is also returned on subsequent reads of the credential (`GET` list and `GET` by id). Only the stored `accessKeySha256` hash is never returned.
 
 **Errors:**
 
@@ -980,7 +1070,7 @@ curl -X PUT http://localhost:8000/v1.0/credentials \
 
 #### GET /v1.0/credentials/{credentialId} -- Get Credential
 
-Retrieves a credential by id. Neither the raw `accessKey` nor the stored `accessKeySha256` hash is ever returned — only `accessKeyLast4` is included for display. Non-admins may only read credentials in their own tenant.
+Retrieves a credential by id. The raw `accessKey` **is** returned (it is persisted server-side); only the stored `accessKeySha256` hash is withheld. Non-admins may only read credentials in their own tenant.
 
 **Path Parameters:**
 
@@ -995,7 +1085,44 @@ curl http://localhost:8000/v1.0/credentials/crd_99aabbccddeeff00 \
   -H "Authorization: Bearer sess_9f8e7d6c5b4a..."
 ```
 
-**Response (200 OK):** A `Credential` object with `accessKey` omitted (see [Credential](#credential)).
+**Response (200 OK):** A `Credential` object including the raw `accessKey`; the stored `accessKeySha256` hash is omitted (see [Credential](#credential)).
+
+**Errors:**
+
+- `404 Not Found` -- Credential does not exist or is not visible. Body: `{ "error": "Credential not found" }`.
+
+---
+
+#### PUT /v1.0/credentials/{credentialId} -- Update Credential
+
+Updates a credential. **Only the fields supplied** in the body are changed. The access key itself cannot be rotated here; the stored `accessKeySha256` hash is never returned.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `credentialId` | string | The unique identifier of the credential. |
+
+**cURL:**
+
+```bash
+curl -X PUT http://localhost:8000/v1.0/credentials/crd_99aabbccddeeff00 \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "ci-pipeline-renamed",
+    "active": false
+  }'
+```
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | No | New credential name. Omit to leave unchanged. |
+| `active` | boolean | No | New active flag. Omit to leave unchanged. |
+
+**Response (200 OK):** The updated `Credential` object including the raw `accessKey`; the stored `accessKeySha256` hash is omitted (see [Credential](#credential)).
 
 **Errors:**
 
@@ -1087,6 +1214,169 @@ curl http://localhost:8000/v1.0/roles \
 ```
 
 > A built-in role has a null `tenantId` (omitted from the response). A tenant-scoped custom role carries the owning `tenantId`.
+
+---
+
+#### PUT /v1.0/roles -- Create Role
+
+Creates a **custom role** owned by the caller's tenant, together with the grants (permissions) it confers. Built-in roles are global and read-only; a custom role's name must be unique within the tenant.
+
+Each entry in `permissions` is a **grant** — a `permissionType` of `permit` or `deny`, a list of `resourceTypes`, and a list of `operationTypes`. Authorization is evaluated **deny-over-permit** (see [Authorization (RBAC)](#authorization-rbac)). A grant is skipped unless it names at least one resource type and one operation type.
+
+**cURL:**
+
+```bash
+curl -X PUT http://localhost:8000/v1.0/roles \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "collection-reader",
+    "permissions": [
+      {
+        "permissionType": "permit",
+        "resourceTypes": ["collection", "document"],
+        "operationTypes": ["read"]
+      }
+    ]
+  }'
+```
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | **Yes** | Role name (unique within the tenant). |
+| `permissions` | RolePermissionSpec[] | No | The grants the role confers. See [RolePermissionSpec](#rolepermissionspec). |
+
+**RolePermissionSpec fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `permissionType` | string | `permit` or `deny`. A deny wins over any permit during evaluation. |
+| `resourceTypes` | string[] | Resource types the grant covers: `all`, `tenant`, `user`, `credential`, `session`, `role`, `permission`, `assignment`, `audit`, `collection`, `document`, `schema`, `index`, `requestHistory`. |
+| `operationTypes` | string[] | Operations the grant covers: `all`, `create`, `read`, `write` (expands to `create` + `update` + `delete`), `update`, `delete`, `execute`, `admin`. |
+
+**Response (201 Created):** The created role with its `permissions` (see [RoleDetailResponse](#roledetailresponse)).
+
+```json
+{
+  "id": "rol_8899aabbccddeeff",
+  "tenantId": "ten_abcdef0123456789",
+  "name": "collection-reader",
+  "isBuiltIn": false,
+  "active": true,
+  "isProtected": false,
+  "createdUtc": "2026-09-03T12:00:00.000Z",
+  "lastUpdateUtc": "2026-09-03T12:00:00.000Z",
+  "permissions": [
+    {
+      "permissionType": "permit",
+      "resourceTypes": ["collection", "document"],
+      "operationTypes": ["read"]
+    }
+  ]
+}
+```
+
+**Errors:**
+
+- `400 Bad Request` -- `name` is missing. Body: `{ "error": "name is required" }`.
+- `409 Conflict` -- A role with that name already exists. Body: `{ "error": "A role with that name already exists" }`.
+
+---
+
+#### GET /v1.0/roles/{roleId} -- Get Role
+
+Retrieves a role by id together with its grants. Built-in (global) roles are visible to every tenant; a custom role is visible only to its owning tenant (a system administrator may read any role).
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `roleId` | string | The unique identifier of the role. |
+
+**cURL:**
+
+```bash
+curl http://localhost:8000/v1.0/roles/rol_8899aabbccddeeff \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..."
+```
+
+**Response (200 OK):** The role with its `permissions` (see [RoleDetailResponse](#roledetailresponse)).
+
+**Errors:**
+
+- `404 Not Found` -- Role does not exist or is not visible. Body: `{ "error": "Role not found" }`.
+
+---
+
+#### PUT /v1.0/roles/{roleId} -- Update Role
+
+Updates a custom role. A supplied `name` renames the role; a supplied `permissions` array **replaces** the role's grants in full (the previous grants are cleared first). Omitting `permissions` leaves the existing grants untouched. Built-in (global) roles are read-only and cannot be modified.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `roleId` | string | The unique identifier of the role. |
+
+**cURL:**
+
+```bash
+curl -X PUT http://localhost:8000/v1.0/roles/rol_8899aabbccddeeff \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "collection-editor",
+    "permissions": [
+      {
+        "permissionType": "permit",
+        "resourceTypes": ["collection", "document"],
+        "operationTypes": ["read", "write"]
+      }
+    ]
+  }'
+```
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | No | New role name. Omit to leave unchanged. |
+| `permissions` | RolePermissionSpec[] | No | Replacement set of grants. When supplied, it **fully replaces** the role's existing grants. Omit to leave the grants unchanged. See [RolePermissionSpec](#rolepermissionspec). |
+
+**Response (200 OK):** The updated role with its `permissions` (see [RoleDetailResponse](#roledetailresponse)).
+
+**Errors:**
+
+- `404 Not Found` -- Role does not exist or is not visible. Body: `{ "error": "Role not found" }`.
+- `409 Conflict` -- The role is a built-in (global) role and cannot be modified. Body: `{ "error": "Built-in roles cannot be modified" }`.
+
+---
+
+#### DELETE /v1.0/roles/{roleId} -- Delete Role
+
+Deletes a custom role along with all of its grants. Built-in (global) roles cannot be deleted.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `roleId` | string | The unique identifier of the role. |
+
+**cURL:**
+
+```bash
+curl -X DELETE http://localhost:8000/v1.0/roles/rol_8899aabbccddeeff \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..."
+```
+
+**Response (200 OK):** Empty body (zero length).
+
+**Errors:**
+
+- `404 Not Found` -- Role does not exist or is not visible. Body: `{ "error": "Role not found" }`.
+- `409 Conflict` -- The role is a built-in (global) role and cannot be deleted. Body: `{ "error": "Built-in roles cannot be deleted" }`.
 
 ---
 
@@ -1487,6 +1777,44 @@ curl -I http://localhost:8000/v1.0/collections/d4e5f6a7-b8c9-0123-4567-89abcdef0
 ```
 
 **Response:** `200 OK` (no body) or `404 Not Found` (no body).
+
+---
+
+#### PUT /v1.0/collections/{collectionId} -- Update Collection
+
+Updates a collection's descriptive fields. **Only the fields supplied** in the body are changed; omitted fields are left untouched. (Schema constraints and indexing configuration are managed through the dedicated [constraints](#put-v10collectionscollectionidconstraints--update-constraints) and [indexing](#put-v10collectionscollectionidindexing--update-indexing-config) endpoints.)
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `collectionId` | string (UUID) | The unique identifier of the collection. |
+
+**cURL:**
+
+```bash
+curl -X PUT http://localhost:8000/v1.0/collections/d4e5f6a7-b8c9-0123-4567-89abcdef0123 \
+  -H "Authorization: Bearer sess_9f8e7d6c5b4a..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "customers-v2",
+    "description": "Updated customer records"
+  }'
+```
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | No | New collection name. Omit to leave unchanged. |
+| `description` | string | No | New description. Omit to leave unchanged. |
+
+**Response (200 OK):** The updated `Collection` object (see [Collection](#collection)).
+
+**Errors:**
+
+- `400 Bad Request` -- No request body was supplied. Body: `{ "error": "A collection body is required" }`.
+- `404 Not Found` -- Collection does not exist. Body: `{ "error": "Collection not found" }`.
 
 ---
 
@@ -2677,7 +3005,7 @@ Returned by all list/enumeration GET endpoints. See [Enumeration & Pagination](#
 | `tenantId` | string | Identifier of the owning tenant. |
 | `userId` | string | Identifier of the owning user. |
 | `name` | string or null | Human-readable credential name. |
-| `accessKey` | string | The raw access key (`access_...`). Present **only** in the creation response; omitted on every subsequent read. |
+| `accessKey` | string | The raw access key (`access_...`). Persisted server-side and returned on credential reads (create, list, and get). Stored in plaintext to allow retrieval; treat it as a secret. |
 | `accessKeySha256` | string | SHA-256 hash of the access key, stored server-side. **Never returned** in API responses. |
 | `accessKeyLast4` | string | Last four characters of the access key, retained for display. |
 | `expiresUtc` | string (ISO 8601) or null | Optional expiration; null means the credential does not expire. |
@@ -2699,6 +3027,32 @@ Returned by all list/enumeration GET endpoints. See [Enumeration & Pagination](#
 | `isProtected` | boolean | Whether the role is protected from modification and deletion. |
 | `createdUtc` | string (ISO 8601) | Creation timestamp. |
 | `lastUpdateUtc` | string (ISO 8601) | Last modification timestamp. |
+
+### RolePermissionSpec
+
+A single grant within a role: whether it permits or denies a set of operations on a set of resource types. A role's `permissions` is a list of these.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `permissionType` | string | `permit` or `deny`. A deny wins over any permit during evaluation. |
+| `resourceTypes` | string[] | Resource types the grant covers: `all`, `tenant`, `user`, `credential`, `session`, `role`, `permission`, `assignment`, `audit`, `collection`, `document`, `schema`, `index`, `requestHistory`. |
+| `operationTypes` | string[] | Operations the grant covers: `all`, `create`, `read`, `write` (expands to `create` + `update` + `delete`), `update`, `delete`, `execute`, `admin`. |
+
+### RoleDetailResponse
+
+A role together with the grants it confers. Returned by the role create, get, and update endpoints. Carries the same descriptive fields as [UserRole](#userrole) plus a `permissions` array.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique identifier (`rol_...`). |
+| `tenantId` | string or null | Owning tenant, or null for a global built-in role. |
+| `name` | string | Role name. |
+| `isBuiltIn` | boolean | Whether this is a global built-in role (read-only). |
+| `active` | boolean | Whether the role is active. |
+| `isProtected` | boolean | Whether the role is protected from modification and deletion. |
+| `createdUtc` | string (ISO 8601) | Creation timestamp. |
+| `lastUpdateUtc` | string (ISO 8601) | Last modification timestamp. |
+| `permissions` | RolePermissionSpec[] | The grants the role confers. See [RolePermissionSpec](#rolepermissionspec). |
 
 ### UserRoleAssignment
 

@@ -43,6 +43,54 @@
 			"value": "",
 			"type": "string",
 			"description": "ID of the current schema (set automatically after creating a document)"
+		},
+		{
+			"key": "token",
+			"value": "",
+			"type": "string",
+			"description": "Bearer session token (set automatically after a successful login via POST /v1.0/token)"
+		},
+		{
+			"key": "accessKey",
+			"value": "",
+			"type": "string",
+			"description": "Raw access key returned once when creating a credential (set automatically after Create Credential)"
+		},
+		{
+			"key": "tenantId",
+			"value": "",
+			"type": "string",
+			"description": "ID of the current tenant (set automatically after creating a tenant)"
+		},
+		{
+			"key": "userId",
+			"value": "",
+			"type": "string",
+			"description": "ID of the current user (set automatically after creating a user)"
+		},
+		{
+			"key": "credentialId",
+			"value": "",
+			"type": "string",
+			"description": "ID of the current credential (set automatically after creating a credential)"
+		},
+		{
+			"key": "roleId",
+			"value": "",
+			"type": "string",
+			"description": "ID of the current role (set automatically after creating a role)"
+		},
+		{
+			"key": "assignmentId",
+			"value": "",
+			"type": "string",
+			"description": "ID of the current role assignment (set automatically after creating an assignment)"
+		},
+		{
+			"key": "auditId",
+			"value": "",
+			"type": "string",
+			"description": "ID of an audit entry (populate from a List Audit response)"
 		}
 	],
 	"item": [
@@ -314,6 +362,39 @@
 							"path": ["v1.0", "collections"]
 						},
 						"description": "Create a new collection with schema constraints and selective indexing.\n\nThis example creates a collection that:\n- Enforces strict schema validation\n- Requires valid email format for the `email` field\n- Requires `name` to be 1-100 characters\n- Validates `age` is between 0-150 (optional field)\n- Only indexes `email`, `name`, and `status` fields\n\n**Schema Enforcement Modes:**\n- `none`: No validation\n- `strict`: All constraints must pass\n- `flexible`: Warns but accepts documents\n- `partial`: Only validates constrained fields\n\n**Indexing Modes:**\n- `all`: Index all fields\n- `selective`: Only index specified fields\n- `none`: No indexing"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Collection",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"renamed\",\n  \"description\": \"edited\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/collections/{{collectionId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"collections",
+								"{{collectionId}}"
+							]
+						},
+						"description": "Update a collection's name and/or description. Only supplied fields change.\n\n**Request Body:**\n```json\n{ \"name\": \"renamed\", \"description\": \"edited\" }\n```\n\n**Response:** `200 OK` with the updated collection. `404 Not Found` if the collection does not exist."
 					},
 					"response": []
 				}
@@ -786,6 +867,951 @@
 							]
 						},
 						"description": "Retrieve entries from a specific index table with pagination.\n\nReturns an EnumerationResult with the index entries under `objects`.\n\n**Path Parameters:**\n- `tableName`: The name of the index table (e.g., `idx_a1b2c3d4`, obtained from List Index Tables)\n\n**Query Parameters:**\n- `maxResults` (default 100, max 1000): page size\n- `skip` (default 0): number of entries to skip\n- `limit`: **legacy** alias for `maxResults`, still accepted for backward compatibility\n\n**Changed:** this endpoint previously returned `{ tableName, fieldKey, entries, totalCount, skip, limit }`. It now returns a plain EnumerationResult (entries are under `objects`, the count is in `totalRecords`, and `tableName`/`fieldKey` are no longer included).\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"maxResults\": 100,\n  \"skip\": 0,\n  \"endOfResults\": true,\n  \"totalRecords\": 2,\n  \"recordsRemaining\": 0,\n  \"objects\": [\n    {\n      \"id\": \"ite_001\",\n      \"documentId\": \"doc_xyz789\",\n      \"schemaId\": \"sch_def456\",\n      \"schemaElementId\": \"sel_001\",\n      \"position\": 0,\n      \"value\": \"Joel\"\n    },\n    {\n      \"id\": \"ite_002\",\n      \"documentId\": \"doc_abc123\",\n      \"schemaId\": \"sch_def456\",\n      \"schemaElementId\": \"sel_001\",\n      \"position\": 0,\n      \"value\": \"Alice\"\n    }\n  ]\n}\n```\n\n**Errors:** `404 Not Found` returns `{ \"error\": \"Index table not found\" }`."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Authentication",
+			"description": "Session authentication. Log in to exchange an email and password for a bearer token, inspect the current principal, and log out. All other authenticated requests send `Authorization: Bearer {{token}}`.",
+			"item": [
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData && jsonData.token) {",
+									"        pm.collectionVariables.set(\"token\", jsonData.token);",
+									"        console.log(\"Saved token\");",
+									"        if (jsonData.tenantId) { pm.collectionVariables.set(\"tenantId\", jsonData.tenantId); }",
+									"        if (jsonData.userId) { pm.collectionVariables.set(\"userId\", jsonData.userId); }",
+									"    } else if (jsonData && jsonData.tenantSelectionRequired) {",
+									"        console.log(\"Tenant selection required; re-send with a tenantId from jsonData.tenants\");",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"admin@lattice\",\n  \"password\": \"password\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/token",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"token"
+							]
+						},
+						"description": "Exchange an email and password for a session token. This route is **public** (no bearer required).\n\n**Request Body:**\n```json\n{\n  \"email\": \"admin@lattice\",\n  \"password\": \"password\"\n}\n```\n\nThe tenant is optional and inferred from the credentials. If the credentials match users in multiple tenants, the response is `{ \"tenantSelectionRequired\": true, \"tenants\": [ { \"tenantId\": \"...\", \"tenantName\": \"...\" } ] }` \u2014 re-send this request with a chosen `tenantId` added to the body to complete login.\n\n**Response (200):**\n```json\n{\n  \"token\": \"...\",\n  \"expiresUtc\": \"2026-01-15T12:00:00Z\",\n  \"tenantId\": \"...\",\n  \"userId\": \"...\",\n  \"email\": \"admin@lattice\",\n  \"isAdmin\": true,\n  \"isTenantAdmin\": false\n}\n```\n\n**Note:** On success the `token` is automatically saved to the `token` collection variable for use by all other requests."
+					},
+					"response": []
+				},
+				{
+					"name": "Who Am I",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/whoami",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"whoami"
+							]
+						},
+						"description": "Return the resolved principal for the presented bearer token.\n\n**Response:**\n```json\n{\n  \"isAuthenticated\": true,\n  \"principalType\": \"User\",\n  \"tenantId\": \"...\",\n  \"userId\": \"...\",\n  \"credentialId\": null,\n  \"email\": \"admin@lattice\",\n  \"isAdmin\": true,\n  \"isTenantAdmin\": false\n}\n```\n\n**Note:** `GET /v1.0/token` and `GET /v1.0/token/details` are aliases of this endpoint."
+					},
+					"response": []
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/token",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"token"
+							]
+						},
+						"description": "Revoke the current session token. After logout the token can no longer be used.\n\n**Response:** `200 OK` with an empty body."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Tenants",
+			"description": "Manage tenants. Listing and creating tenants is a system-administrator operation.",
+			"item": [
+				{
+					"name": "List Tenants",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/tenants",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"tenants"
+							]
+						},
+						"description": "Enumerate all tenants (system administrator). Returns an EnumerationResult with the tenants under `objects`."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Tenant",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData && jsonData.id) {",
+									"        pm.collectionVariables.set(\"tenantId\", jsonData.id);",
+									"        console.log(\"Set tenantId to: \" + jsonData.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Acme\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/tenants",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"tenants"
+							]
+						},
+						"description": "Create a new tenant.\n\n**Request Body:**\n```json\n{ \"name\": \"Acme\" }\n```\n\n**Response:** `201 Created` with the created tenant (including its generated `id`).\n\n**Note:** The tenant `id` is automatically saved to the `tenantId` variable."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Tenant",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/tenants/{{tenantId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"tenants",
+								"{{tenantId}}"
+							]
+						},
+						"description": "Retrieve a tenant by id.\n\n**Errors:** `404 Not Found` returns `{ \"error\": \"Tenant not found\" }`."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Tenant",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Acme 2\",\n  \"active\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/tenants/{{tenantId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"tenants",
+								"{{tenantId}}"
+							]
+						},
+						"description": "Update a tenant's name and/or active flag. Only supplied fields change.\n\n**Request Body:**\n```json\n{ \"name\": \"Acme 2\", \"active\": true }\n```"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Tenant",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/tenants/{{tenantId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"tenants",
+								"{{tenantId}}"
+							]
+						},
+						"description": "Delete a tenant.\n\n**Response:** `200 OK` with an empty body. Protected tenants return `409 Conflict`."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Users",
+			"description": "Manage users within a tenant. Callers operate on their own tenant; system administrators may target another tenant with a `tenantId` query parameter or body field.",
+			"item": [
+				{
+					"name": "List Users",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/users",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"users"
+							]
+						},
+						"description": "Enumerate users in the caller's tenant. Returns an EnumerationResult with the users under `objects` (password hashes are never returned).\n\n**Query Parameters:**\n- `tenantId` (system administrators only): tenant to list."
+					},
+					"response": []
+				},
+				{
+					"name": "Create User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData && jsonData.id) {",
+									"        pm.collectionVariables.set(\"userId\", jsonData.id);",
+									"        console.log(\"Set userId to: \" + jsonData.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"u@acme\",\n  \"password\": \"pw\",\n  \"firstName\": \"U\",\n  \"lastName\": \"One\",\n  \"isTenantAdmin\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/users",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"users"
+							]
+						},
+						"description": "Create a user in the caller's tenant.\n\n**Request Body:**\n```json\n{\n  \"email\": \"u@acme\",\n  \"password\": \"pw\",\n  \"firstName\": \"U\",\n  \"lastName\": \"One\",\n  \"isTenantAdmin\": false\n}\n```\n\n`email` and `password` are required. `isAdmin` is only honored for system-administrator callers.\n\n**Response:** `201 Created` with the created user. The user `id` is automatically saved to the `userId` variable."
+					},
+					"response": []
+				},
+				{
+					"name": "Get User",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/users/{{userId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"users",
+								"{{userId}}"
+							]
+						},
+						"description": "Retrieve a user by id.\n\n**Errors:** `404 Not Found` returns `{ \"error\": \"User not found\" }`."
+					},
+					"response": []
+				},
+				{
+					"name": "Update User",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"firstName\": \"Edited\",\n  \"active\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/users/{{userId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"users",
+								"{{userId}}"
+							]
+						},
+						"description": "Update a user's name, password, tenant-admin flag, or active state. Only supplied fields change.\n\n**Request Body:**\n```json\n{ \"firstName\": \"Edited\", \"active\": true }\n```"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete User",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/users/{{userId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"users",
+								"{{userId}}"
+							]
+						},
+						"description": "Delete a user.\n\n**Response:** `200 OK` with an empty body. Protected users return `409 Conflict`."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Credentials",
+			"description": "Manage access-key credentials. A credential's raw access key is returned only once, when it is created.",
+			"item": [
+				{
+					"name": "List Credentials",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/credentials",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"credentials"
+							]
+						},
+						"description": "Enumerate access-key credentials in the caller's tenant. Returns an EnumerationResult with the credentials under `objects` (the stored access-key hash is never returned).\n\n**Query Parameters:**\n- `tenantId` (system administrators only): tenant to list."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Credential",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData && jsonData.id) {",
+									"        pm.collectionVariables.set(\"credentialId\", jsonData.id);",
+									"        console.log(\"Set credentialId to: \" + jsonData.id);",
+									"    }",
+									"    if (jsonData && jsonData.accessKey) {",
+									"        pm.collectionVariables.set(\"accessKey\", jsonData.accessKey);",
+									"        console.log(\"Set accessKey to: \" + jsonData.accessKey);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"ci\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/credentials",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"credentials"
+							]
+						},
+						"description": "Create an access-key credential owned by the caller (or by `userId` if supplied).\n\n**Request Body:**\n```json\n{ \"name\": \"ci\" }\n```\n\n**Response:** `201 Created`. The raw `accessKey` is included **once** in this response and cannot be retrieved again \u2014 store it now.\n\n**Note:** The credential `id` is saved to `credentialId` and the raw `accessKey` is saved to `accessKey` automatically."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Credential",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/credentials/{{credentialId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"credentials",
+								"{{credentialId}}"
+							]
+						},
+						"description": "Retrieve a credential by id. The raw access key is not included (it is only shown once at creation).\n\n**Errors:** `404 Not Found` returns `{ \"error\": \"Credential not found\" }`."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Credential",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"ci-2\",\n  \"active\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/credentials/{{credentialId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"credentials",
+								"{{credentialId}}"
+							]
+						},
+						"description": "Update a credential's name and/or active flag. Only supplied fields change. Set `active` to `false` to disable the key without deleting it.\n\n**Request Body:**\n```json\n{ \"name\": \"ci-2\", \"active\": false }\n```"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Credential",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/credentials/{{credentialId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"credentials",
+								"{{credentialId}}"
+							]
+						},
+						"description": "Delete a credential.\n\n**Response:** `200 OK` with an empty body. Protected credentials return `409 Conflict`."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Roles",
+			"description": "Manage RBAC roles and the grants they confer. Built-in roles (e.g. Viewer) are global and read-only; tenant roles are created and edited here.",
+			"item": [
+				{
+					"name": "List Roles",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/roles",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"roles"
+							]
+						},
+						"description": "Enumerate the roles visible to the caller's tenant (its own roles plus the global built-ins). Returns an EnumerationResult with the roles under `objects`."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Role",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData && jsonData.id) {",
+									"        pm.collectionVariables.set(\"roleId\", jsonData.id);",
+									"        console.log(\"Set roleId to: \" + jsonData.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"DocsReader\",\n  \"permissions\": [\n    {\n      \"permissionType\": \"permit\",\n      \"resourceTypes\": [\n        \"collection\",\n        \"document\"\n      ],\n      \"operationTypes\": [\n        \"read\"\n      ]\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/roles",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"roles"
+							]
+						},
+						"description": "Create a tenant role and the grants it confers.\n\n**Request Body:**\n```json\n{\n  \"name\": \"DocsReader\",\n  \"permissions\": [\n    { \"permissionType\": \"permit\", \"resourceTypes\": [\"collection\", \"document\"], \"operationTypes\": [\"read\"] }\n  ]\n}\n```\n\nEach permission has a `permissionType` (`permit` or `deny`), a list of `resourceTypes`, and a list of `operationTypes`.\n\n**Response:** `201 Created` with the role and its grants. `409 Conflict` if the name already exists. The role `id` is saved to `roleId` automatically."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Role",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/roles/{{roleId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"roles",
+								"{{roleId}}"
+							]
+						},
+						"description": "Retrieve a role by id, including its grants.\n\n**Errors:** `404 Not Found` returns `{ \"error\": \"Role not found\" }`."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Role",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"DocsReader\",\n  \"permissions\": [\n    {\n      \"permissionType\": \"permit\",\n      \"resourceTypes\": [\n        \"collection\",\n        \"document\"\n      ],\n      \"operationTypes\": [\n        \"read\"\n      ]\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/roles/{{roleId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"roles",
+								"{{roleId}}"
+							]
+						},
+						"description": "Rename a tenant role and/or replace its grants. When `permissions` is supplied the role's grants are replaced wholesale. Built-in roles cannot be modified (`409 Conflict`).\n\n**Request Body:**\n```json\n{\n  \"name\": \"DocsReader\",\n  \"permissions\": [\n    { \"permissionType\": \"permit\", \"resourceTypes\": [\"collection\", \"document\"], \"operationTypes\": [\"read\"] }\n  ]\n}\n```"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Role",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/roles/{{roleId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"roles",
+								"{{roleId}}"
+							]
+						},
+						"description": "Delete a tenant role. Built-in roles cannot be deleted (`409 Conflict`).\n\n**Response:** `200 OK` with an empty body."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Assignments",
+			"description": "Assign roles to users. A role may be referenced by `roleId` or `roleName`, and optionally scoped to a specific resource.",
+			"item": [
+				{
+					"name": "List Assignments",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/assignments",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"assignments"
+							]
+						},
+						"description": "Enumerate the user/role assignments in the caller's tenant. Returns an EnumerationResult with the assignments under `objects`.\n\n**Query Parameters:**\n- `tenantId` (system administrators only): tenant to list."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Assignment",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData && jsonData.id) {",
+									"        pm.collectionVariables.set(\"assignmentId\", jsonData.id);",
+									"        console.log(\"Set assignmentId to: \" + jsonData.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"userId\": \"{{userId}}\",\n  \"roleName\": \"Viewer\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/assignments",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"assignments"
+							]
+						},
+						"description": "Assign a role (by id or name) to a user.\n\n**Request Body:**\n```json\n{ \"userId\": \"{{userId}}\", \"roleName\": \"Viewer\" }\n```\n\n`userId` is required, plus one of `roleId` or `roleName`. Optional `resourceScope` (`Tenant` or `Resource`) and `resourceId` narrow the grant to a single resource.\n\n**Response:** `201 Created` with the assignment. The assignment `id` is saved to `assignmentId` automatically."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Assignment",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/assignments/{{assignmentId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"assignments",
+								"{{assignmentId}}"
+							]
+						},
+						"description": "Remove a role assignment.\n\n**Response:** `200 OK` with an empty body.\n\n**Errors:** `404 Not Found` returns `{ \"error\": \"Assignment not found\" }`."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Audit",
+			"description": "Read and prune the security audit log. Entries record authentication, authorization, and RBAC-mutation events for the caller's tenant.",
+			"item": [
+				{
+					"name": "List Audit",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/audit?maxResults=100",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"audit"
+							],
+							"query": [
+								{
+									"key": "maxResults",
+									"value": "100"
+								}
+							]
+						},
+						"description": "Enumerate security audit entries for the caller's tenant. Returns an EnumerationResult with the entries under `objects`.\n\n**Query Parameters:**\n- `maxResults` (default 100, max 1000): page size\n- `skip` (default 0): records to skip\n- `eventType`: filter by event type (e.g. `AuthFailure`, `AuthzDenied`)\n- `tenantId` (system administrators only): tenant to scope to"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Audit Entry",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/audit/{{auditId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"audit",
+								"{{auditId}}"
+							]
+						},
+						"description": "Retrieve a single audit entry by id.\n\n**Errors:** `404 Not Found` returns `{ \"error\": \"Audit entry not found\" }`."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Audit Entry",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/v1.0/audit/{{auditId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1.0",
+								"audit",
+								"{{auditId}}"
+							]
+						},
+						"description": "Delete a single audit entry.\n\n**Response:** `200 OK` with an empty body."
 					},
 					"response": []
 				}
