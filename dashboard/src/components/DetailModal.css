@@ -110,3 +110,9 @@
     margin-bottom: 8px;
   }
 }
+
+.detail-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}

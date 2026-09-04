@@ -5,6 +5,7 @@ import ActionMenu from '../components/ActionMenu'
 import CopyableId from '../components/CopyableId'
 import JsonViewerModal from '../components/JsonViewerModal'
 import Modal from '../components/Modal'
+import DetailModal from '../components/DetailModal'
 import TablePagination from '../components/TablePagination'
 import TagInput from '../components/TagInput'
 import KeyValueEditor from '../components/KeyValueEditor'
@@ -268,60 +269,40 @@ export default function Search() {
         </div>
       )}
 
-      <Modal
+      <DetailModal
         isOpen={showMetadataModal}
         onClose={() => {
           setShowMetadataModal(false)
           setSelectedDocument(null)
         }}
         title="Document Metadata"
-        subtitle="This metadata explains why the document matched and how it is stored within the selected collection."
-        wide
-      >
-        {selectedDocument && (
-          <>
-            <div className="doc-detail">
-              <strong>ID:</strong> <CopyableId value={selectedDocument.id} />
-            </div>
-            <div className="doc-detail">
-              <strong>Name:</strong> {selectedDocument.name || '-'}
-            </div>
-            <div className="doc-detail">
-              <strong>Collection ID:</strong> <CopyableId value={selectedDocument.collectionId} />
-            </div>
-            <div className="doc-detail">
-              <strong>Schema ID:</strong> {selectedDocument.schemaId ? <CopyableId value={selectedDocument.schemaId} /> : '-'}
-            </div>
-            <div className="doc-detail">
-              <strong>Created:</strong> {formatDate(selectedDocument.createdUtc)}
-            </div>
-            {selectedDocument.labels?.length > 0 && (
-              <div className="doc-detail">
-                <strong>Labels:</strong>
-                <div className="doc-labels">
-                  {selectedDocument.labels.map((label, index) => (
-                    <span key={index} className="label-badge">{label}</span>
-                  ))}
-                </div>
+        subtitle="How this document matched and how it is stored within the selected collection."
+        fields={selectedDocument ? [
+          { label: 'ID', value: selectedDocument.id, copyable: true, title: 'Unique identifier of the document' },
+          { label: 'Name', value: selectedDocument.name || '—', title: 'Optional name of the document' },
+          { label: 'Collection ID', value: selectedDocument.collectionId, copyable: true, title: 'The collection this document belongs to' },
+          selectedDocument.schemaId ? { label: 'Schema ID', value: selectedDocument.schemaId, copyable: true, title: 'The schema inferred for this document' } : null,
+          selectedDocument.labels?.length > 0 ? {
+            label: 'Labels', inline: true, title: 'Labels attached to this document',
+            node: <div className="detail-chips">{selectedDocument.labels.map((label, i) => <span key={i} className="label-badge">{label}</span>)}</div>,
+          } : null,
+          selectedDocument.tags && Object.keys(selectedDocument.tags).length > 0 ? {
+            label: 'Tags', inline: true, title: 'Key/value metadata pairs on this document',
+            node: (
+              <div className="detail-chips">
+                {Object.entries(selectedDocument.tags).map(([key, value]) => (
+                  <span key={key} className="tag-item">
+                    <span className="tag-key">{key}</span>
+                    <span className="tag-sep">=</span>
+                    <span className="tag-val">{value}</span>
+                  </span>
+                ))}
               </div>
-            )}
-            {selectedDocument.tags && Object.keys(selectedDocument.tags).length > 0 && (
-              <div className="doc-detail">
-                <strong>Tags:</strong>
-                <div className="doc-tags">
-                  {Object.entries(selectedDocument.tags).map(([key, value]) => (
-                    <span key={key} className="tag-item">
-                      <span className="tag-key">{key}</span>
-                      <span className="tag-sep">=</span>
-                      <span className="tag-val">{value}</span>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </Modal>
+            ),
+          } : null,
+          { label: 'Created', value: formatDate(selectedDocument.createdUtc), title: 'When the document was created' },
+        ] : []}
+      />
 
       <JsonViewerModal
         isOpen={jsonViewer.open}

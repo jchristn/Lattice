@@ -6,6 +6,7 @@ import Modal from '../components/Modal'
 import ActionMenu from '../components/ActionMenu'
 import CopyableId from '../components/CopyableId'
 import JsonViewerModal from '../components/JsonViewerModal'
+import DetailModal from '../components/DetailModal'
 import TablePagination from '../components/TablePagination'
 import TagInput from '../components/TagInput'
 import KeyValueEditor from '../components/KeyValueEditor'
@@ -797,71 +798,40 @@ export default function Collections() {
         </div>
       </Modal>
 
-      <Modal
+      <DetailModal
         isOpen={showMetadataModal}
         onClose={() => {
           setShowMetadataModal(false)
           setSelectedCollection(null)
         }}
         title="Collection Metadata"
-        subtitle="Review identifiers and collection-level metadata before drilling further into constraints, indexing, or documents."
-        wide
-      >
-        {selectedCollection && (
-          <>
-            <div className="metadata-item">
-              <label className="metadata-label" title="System-generated unique identifier for this collection; use the copy control to reuse it in API calls">ID</label>
-              <div className="metadata-value">
-                <CopyableId value={selectedCollection.id} />
+        subtitle="Identifiers and collection-level metadata."
+        fields={selectedCollection ? [
+          { label: 'ID', value: selectedCollection.id, copyable: true, title: 'System-generated unique identifier for this collection' },
+          { label: 'Name', value: selectedCollection.name, title: 'The collection’s display name' },
+          selectedCollection.description ? { label: 'Description', value: selectedCollection.description, title: 'Optional description explaining the collection’s purpose' } : null,
+          { label: 'Documents Directory', value: selectedCollection.documentsDirectory || '—', mono: true, title: 'Server filesystem path where this collection’s documents are stored' },
+          selectedCollection.labels?.length > 0 ? {
+            label: 'Labels', inline: true, title: 'Labels attached to this collection for organization and filtering',
+            node: <div className="detail-chips">{selectedCollection.labels.map((label, i) => <span key={i} className="label-badge">{label}</span>)}</div>,
+          } : null,
+          selectedCollection.tags && Object.keys(selectedCollection.tags).length > 0 ? {
+            label: 'Tags', inline: true, title: 'Key/value metadata pairs stored on this collection',
+            node: (
+              <div className="detail-chips">
+                {Object.entries(selectedCollection.tags).map(([k, v]) => (
+                  <span key={k} className="tag-item">
+                    <span className="tag-key">{k}</span>
+                    <span className="tag-sep">=</span>
+                    <span className="tag-val">{v}</span>
+                  </span>
+                ))}
               </div>
-            </div>
-            <div className="metadata-item">
-              <label className="metadata-label" title="The collection's display name">Name</label>
-              <div className="metadata-value">{selectedCollection.name}</div>
-            </div>
-            <div className="metadata-item">
-              <label className="metadata-label" title="Optional description explaining the collection's purpose">Description</label>
-              <div className="metadata-value">{selectedCollection.description || '-'}</div>
-            </div>
-            <div className="metadata-item">
-              <label className="metadata-label" title="Server filesystem path where this collection's documents are stored">Documents Directory</label>
-              <div className="metadata-value monospace">{selectedCollection.documentsDirectory || '-'}</div>
-            </div>
-            <div className="metadata-item">
-              <label className="metadata-label" title="Timestamp (UTC) when this collection was created">Created</label>
-              <div className="metadata-value">{formatDate(selectedCollection.createdUtc)}</div>
-            </div>
-            {selectedCollection.labels?.length > 0 && (
-              <div className="metadata-item">
-                <label className="metadata-label" title="Free-form labels attached to this collection for organization and filtering">Labels</label>
-                <div className="metadata-value">
-                  <div className="metadata-labels">
-                    {selectedCollection.labels.map((label, i) => (
-                      <span key={i} className="label-badge">{label}</span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-            {selectedCollection.tags && Object.keys(selectedCollection.tags).length > 0 && (
-              <div className="metadata-item">
-                <label className="metadata-label" title="Key/value metadata pairs stored on this collection">Tags</label>
-                <div className="metadata-value">
-                  <div className="metadata-tags">
-                    {Object.entries(selectedCollection.tags).map(([k, v]) => (
-                      <span key={k} className="tag-item">
-                        <span className="tag-key">{k}</span>
-                        <span className="tag-sep">=</span>
-                        <span className="tag-val">{v}</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </Modal>
+            ),
+          } : null,
+          { label: 'Created', value: formatDate(selectedCollection.createdUtc), title: 'When this collection was created' },
+        ] : []}
+      />
 
       {/* Schema Constraints Modal */}
       <Modal

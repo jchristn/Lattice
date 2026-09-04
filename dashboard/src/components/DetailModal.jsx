@@ -8,13 +8,14 @@ import './DetailModal.css'
 // large/structured content (a `node`, or `code`/`multiline` text) renders in collapsible sections between
 // the main rows and the timestamps.
 //
-// Each field is `{ label, value, title?, copyable?, mono?, code?, node?, timestamp?, defaultOpen? }`.
-// Falsy field entries are skipped so callers can inline conditionals.
+// Each field is `{ label, value, title?, copyable?, mono?, code?, node?, inline?, timestamp?, defaultOpen? }`.
+// A `node` renders as a collapsible section unless `inline` is set, in which case it renders inline as the
+// value of a key/value row (good for a few small chips). Falsy field entries are skipped.
 
 const TIMESTAMP_LABEL = /^(created|updated|last\s|modified)/i
 
 function isSection(field) {
-  return !!field.node || !!field.code || !!field.multiline
+  return (!!field.node && !field.inline) || !!field.code || !!field.multiline
 }
 
 function isTimestamp(field) {
@@ -27,7 +28,8 @@ function KvRows({ fields }) {
       {fields.map((field, index) => {
         const value = field.value === null || field.value === undefined ? '' : String(field.value)
         let rendered
-        if (field.copyable && value) rendered = <CopyableId value={value} />
+        if (field.node) rendered = field.node
+        else if (field.copyable && value) rendered = <CopyableId value={value} />
         else if (field.mono) rendered = <span className="detail-mono">{value || '—'}</span>
         else rendered = value === '' ? <span className="detail-empty">—</span> : value
 
