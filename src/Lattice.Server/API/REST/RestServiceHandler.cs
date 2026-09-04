@@ -171,6 +171,13 @@ namespace Lattice.Server.API.REST
                 openApi.Tags.Add(new OpenApiTag { Name = "Schemas", Description = "Schema management operations" });
                 openApi.Tags.Add(new OpenApiTag { Name = "Index Tables", Description = "Index table operations" });
                 openApi.Tags.Add(new OpenApiTag { Name = "Request History", Description = "HTTP request history and diagnostics" });
+                openApi.Tags.Add(new OpenApiTag { Name = "Authentication", Description = "Login, logout, and principal identity" });
+                openApi.Tags.Add(new OpenApiTag { Name = "Tenants", Description = "Tenant management" });
+                openApi.Tags.Add(new OpenApiTag { Name = "Users", Description = "User management" });
+                openApi.Tags.Add(new OpenApiTag { Name = "Credentials", Description = "Access-key credential management" });
+                openApi.Tags.Add(new OpenApiTag { Name = "Roles", Description = "RBAC roles" });
+                openApi.Tags.Add(new OpenApiTag { Name = "Assignments", Description = "Role assignments (authorization scope)" });
+                openApi.Tags.Add(new OpenApiTag { Name = "Audit", Description = "Security audit log" });
             });
 
             InitializeRoutes();

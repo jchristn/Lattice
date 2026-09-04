@@ -6,6 +6,7 @@ namespace Lattice.Server.API.REST
     using System.Threading;
     using System.Threading.Tasks;
     using WatsonWebserver.Core;
+    using WatsonWebserver.Core.OpenApi;
     using WatsonWebserver.Core.Routing;
     using Lattice.Core.Helpers;
     using Lattice.Core.Models;
@@ -68,36 +69,186 @@ namespace Lattice.Server.API.REST
         {
             WebserverRoutes routes = _Webserver!.Routes;
 
-            routes.PreAuthentication.Static.Add(HttpMethod.POST, "/v1.0/token", PostTokenRoute, ExceptionRoute);
-            routes.PreAuthentication.Static.Add(HttpMethod.GET, "/v1.0/token", GetWhoAmIRoute, ExceptionRoute);
-            routes.PreAuthentication.Static.Add(HttpMethod.GET, "/v1.0/token/details", GetWhoAmIRoute, ExceptionRoute);
-            routes.PreAuthentication.Static.Add(HttpMethod.DELETE, "/v1.0/token", DeleteTokenRoute, ExceptionRoute);
-            routes.PreAuthentication.Static.Add(HttpMethod.GET, "/v1.0/whoami", GetWhoAmIRoute, ExceptionRoute);
+            // Authentication / session.
+            routes.PreAuthentication.Static.Add(HttpMethod.POST, "/v1.0/token", PostTokenRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Log in", "Authentication")
+                    .WithDescription("Exchange an email and password for a session token. The tenant is optional and inferred from the credentials; when they match multiple tenants the response lists them to choose from. This route is public.")
+                    .WithRequestBody(OpenApiRequestBodyMetadata.Json(new OpenApiSchemaMetadata
+                    {
+                        Type = "object",
+                        Required = new List<string> { "email", "password" },
+                        Properties = new Dictionary<string, OpenApiSchemaMetadata>
+                        {
+                            ["email"] = new OpenApiSchemaMetadata { Type = "string", Description = "User email." },
+                            ["password"] = new OpenApiSchemaMetadata { Type = "string", Description = "User password." },
+                            ["tenantId"] = new OpenApiSchemaMetadata { Type = "string", Description = "Tenant to authenticate against; omit to infer from the credentials." }
+                        }
+                    }, "Login credentials", true))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("A session token, or a tenant selection to complete."))
+                    .WithResponse(401, OpenApiResponseMetadata.Create("Invalid credentials.")));
+            routes.PreAuthentication.Static.Add(HttpMethod.GET, "/v1.0/token", GetWhoAmIRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Describe the current principal", "Authentication")
+                    .WithDescription("Return the resolved principal (tenant, user/credential, admin status) for the presented bearer.")
+                    .WithResponse(200, OpenApiResponseMetadata.Create("The resolved principal.")));
+            routes.PreAuthentication.Static.Add(HttpMethod.GET, "/v1.0/token/details", GetWhoAmIRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Describe the current principal (alias)", "Authentication")
+                    .WithDescription("Alias of GET /v1.0/whoami.")
+                    .WithResponse(200, OpenApiResponseMetadata.Create("The resolved principal.")));
+            routes.PreAuthentication.Static.Add(HttpMethod.DELETE, "/v1.0/token", DeleteTokenRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Log out", "Authentication")
+                    .WithDescription("Revoke the current session token.")
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Session revoked.")));
+            routes.PreAuthentication.Static.Add(HttpMethod.GET, "/v1.0/whoami", GetWhoAmIRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Describe the current principal", "Authentication")
+                    .WithDescription("Return the resolved principal for the presented bearer.")
+                    .WithResponse(200, OpenApiResponseMetadata.Create("The resolved principal.")));
 
-            routes.PreAuthentication.Static.Add(HttpMethod.GET, "/v1.0/tenants", GetTenantsRoute, ExceptionRoute);
-            routes.PreAuthentication.Static.Add(HttpMethod.PUT, "/v1.0/tenants", PutTenantRoute, ExceptionRoute);
-            routes.PreAuthentication.Parameter.Add(HttpMethod.GET, "/v1.0/tenants/{tenantId}", GetTenantRoute, ExceptionRoute);
-            routes.PreAuthentication.Parameter.Add(HttpMethod.DELETE, "/v1.0/tenants/{tenantId}", DeleteTenantRoute, ExceptionRoute);
+            // Tenants.
+            routes.PreAuthentication.Static.Add(HttpMethod.GET, "/v1.0/tenants", GetTenantsRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("List tenants", "Tenants")
+                    .WithDescription("Enumerate tenants (system administrator).")
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Tenants retrieved.")));
+            routes.PreAuthentication.Static.Add(HttpMethod.PUT, "/v1.0/tenants", PutTenantRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Create a tenant", "Tenants")
+                    .WithRequestBody(OpenApiRequestBodyMetadata.Json(new OpenApiSchemaMetadata
+                    {
+                        Type = "object",
+                        Required = new List<string> { "name" },
+                        Properties = new Dictionary<string, OpenApiSchemaMetadata> { ["name"] = new OpenApiSchemaMetadata { Type = "string", Description = "Tenant name." } }
+                    }, "Tenant to create", true))
+                    .WithResponse(201, OpenApiResponseMetadata.Create("Tenant created.")));
+            routes.PreAuthentication.Parameter.Add(HttpMethod.GET, "/v1.0/tenants/{tenantId}", GetTenantRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Get a tenant", "Tenants")
+                    .WithParameter(OpenApiParameterMetadata.Path("tenantId", "Tenant identifier", OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Tenant retrieved."))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
+            routes.PreAuthentication.Parameter.Add(HttpMethod.DELETE, "/v1.0/tenants/{tenantId}", DeleteTenantRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Delete a tenant", "Tenants")
+                    .WithParameter(OpenApiParameterMetadata.Path("tenantId", "Tenant identifier", OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Tenant deleted."))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
 
-            routes.PreAuthentication.Static.Add(HttpMethod.GET, "/v1.0/users", GetUsersRoute, ExceptionRoute);
-            routes.PreAuthentication.Static.Add(HttpMethod.PUT, "/v1.0/users", PutUserRoute, ExceptionRoute);
-            routes.PreAuthentication.Parameter.Add(HttpMethod.GET, "/v1.0/users/{userId}", GetUserRoute, ExceptionRoute);
-            routes.PreAuthentication.Parameter.Add(HttpMethod.DELETE, "/v1.0/users/{userId}", DeleteUserRoute, ExceptionRoute);
+            // Users.
+            routes.PreAuthentication.Static.Add(HttpMethod.GET, "/v1.0/users", GetUsersRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("List users", "Users")
+                    .WithDescription("Enumerate users in the caller's tenant. System administrators may pass tenantId to target another tenant.")
+                    .WithParameter(OpenApiParameterMetadata.Query("tenantId", "Tenant to list (system administrators only)", false, OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Users retrieved.")));
+            routes.PreAuthentication.Static.Add(HttpMethod.PUT, "/v1.0/users", PutUserRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Create a user", "Users")
+                    .WithRequestBody(OpenApiRequestBodyMetadata.Json(new OpenApiSchemaMetadata
+                    {
+                        Type = "object",
+                        Required = new List<string> { "email", "password" },
+                        Properties = new Dictionary<string, OpenApiSchemaMetadata>
+                        {
+                            ["email"] = new OpenApiSchemaMetadata { Type = "string", Description = "User email (unique within the tenant)." },
+                            ["password"] = new OpenApiSchemaMetadata { Type = "string", Description = "Initial password." },
+                            ["firstName"] = new OpenApiSchemaMetadata { Type = "string", Description = "Given name." },
+                            ["lastName"] = new OpenApiSchemaMetadata { Type = "string", Description = "Family name." },
+                            ["isAdmin"] = new OpenApiSchemaMetadata { Type = "boolean", Description = "System administrator (only honored for admin callers)." },
+                            ["isTenantAdmin"] = new OpenApiSchemaMetadata { Type = "boolean", Description = "Tenant administrator." },
+                            ["tenantId"] = new OpenApiSchemaMetadata { Type = "string", Description = "Target tenant (system administrators only)." }
+                        }
+                    }, "User to create", true))
+                    .WithResponse(201, OpenApiResponseMetadata.Create("User created.")));
+            routes.PreAuthentication.Parameter.Add(HttpMethod.GET, "/v1.0/users/{userId}", GetUserRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Get a user", "Users")
+                    .WithParameter(OpenApiParameterMetadata.Path("userId", "User identifier", OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("User retrieved."))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
+            routes.PreAuthentication.Parameter.Add(HttpMethod.DELETE, "/v1.0/users/{userId}", DeleteUserRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Delete a user", "Users")
+                    .WithParameter(OpenApiParameterMetadata.Path("userId", "User identifier", OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("User deleted."))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
 
-            routes.PreAuthentication.Static.Add(HttpMethod.GET, "/v1.0/credentials", GetCredentialsRoute, ExceptionRoute);
-            routes.PreAuthentication.Static.Add(HttpMethod.PUT, "/v1.0/credentials", PutCredentialRoute, ExceptionRoute);
-            routes.PreAuthentication.Parameter.Add(HttpMethod.GET, "/v1.0/credentials/{credentialId}", GetCredentialRoute, ExceptionRoute);
-            routes.PreAuthentication.Parameter.Add(HttpMethod.DELETE, "/v1.0/credentials/{credentialId}", DeleteCredentialRoute, ExceptionRoute);
+            // Credentials.
+            routes.PreAuthentication.Static.Add(HttpMethod.GET, "/v1.0/credentials", GetCredentialsRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("List credentials", "Credentials")
+                    .WithDescription("Enumerate access-key credentials in the caller's tenant.")
+                    .WithParameter(OpenApiParameterMetadata.Query("tenantId", "Tenant to list (system administrators only)", false, OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Credentials retrieved.")));
+            routes.PreAuthentication.Static.Add(HttpMethod.PUT, "/v1.0/credentials", PutCredentialRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Create a credential", "Credentials")
+                    .WithDescription("Create an access-key credential. The raw access key is returned once and cannot be retrieved again.")
+                    .WithRequestBody(OpenApiRequestBodyMetadata.Json(new OpenApiSchemaMetadata
+                    {
+                        Type = "object",
+                        Properties = new Dictionary<string, OpenApiSchemaMetadata>
+                        {
+                            ["name"] = new OpenApiSchemaMetadata { Type = "string", Description = "Credential name." },
+                            ["userId"] = new OpenApiSchemaMetadata { Type = "string", Description = "Owning user; defaults to the caller." },
+                            ["tenantId"] = new OpenApiSchemaMetadata { Type = "string", Description = "Target tenant (system administrators only)." }
+                        }
+                    }, "Credential to create", false))
+                    .WithResponse(201, OpenApiResponseMetadata.Create("Credential created (access key shown once).")));
+            routes.PreAuthentication.Parameter.Add(HttpMethod.GET, "/v1.0/credentials/{credentialId}", GetCredentialRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Get a credential", "Credentials")
+                    .WithParameter(OpenApiParameterMetadata.Path("credentialId", "Credential identifier", OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Credential retrieved."))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
+            routes.PreAuthentication.Parameter.Add(HttpMethod.DELETE, "/v1.0/credentials/{credentialId}", DeleteCredentialRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Delete a credential", "Credentials")
+                    .WithParameter(OpenApiParameterMetadata.Path("credentialId", "Credential identifier", OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Credential deleted."))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
 
-            routes.PreAuthentication.Static.Add(HttpMethod.GET, "/v1.0/roles", GetRolesRoute, ExceptionRoute);
+            // Roles.
+            routes.PreAuthentication.Static.Add(HttpMethod.GET, "/v1.0/roles", GetRolesRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("List roles", "Roles")
+                    .WithDescription("Enumerate the roles visible to the caller's tenant (its own plus global built-ins).")
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Roles retrieved.")));
 
-            routes.PreAuthentication.Static.Add(HttpMethod.GET, "/v1.0/assignments", GetAssignmentsRoute, ExceptionRoute);
-            routes.PreAuthentication.Static.Add(HttpMethod.PUT, "/v1.0/assignments", PutAssignmentRoute, ExceptionRoute);
-            routes.PreAuthentication.Parameter.Add(HttpMethod.DELETE, "/v1.0/assignments/{assignmentId}", DeleteAssignmentRoute, ExceptionRoute);
+            // Assignments (authorization scope).
+            routes.PreAuthentication.Static.Add(HttpMethod.GET, "/v1.0/assignments", GetAssignmentsRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("List role assignments", "Assignments")
+                    .WithDescription("Enumerate the user/role assignments in a tenant.")
+                    .WithParameter(OpenApiParameterMetadata.Query("tenantId", "Tenant to list (system administrators only)", false, OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Assignments retrieved.")));
+            routes.PreAuthentication.Static.Add(HttpMethod.PUT, "/v1.0/assignments", PutAssignmentRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Create a role assignment", "Assignments")
+                    .WithDescription("Assign a role (by id or name) to a user, optionally scoped to a specific resource.")
+                    .WithRequestBody(OpenApiRequestBodyMetadata.Json(new OpenApiSchemaMetadata
+                    {
+                        Type = "object",
+                        Required = new List<string> { "userId" },
+                        Properties = new Dictionary<string, OpenApiSchemaMetadata>
+                        {
+                            ["userId"] = new OpenApiSchemaMetadata { Type = "string", Description = "User to grant the role to." },
+                            ["roleId"] = new OpenApiSchemaMetadata { Type = "string", Description = "Role id (or supply roleName)." },
+                            ["roleName"] = new OpenApiSchemaMetadata { Type = "string", Description = "Role name (or supply roleId)." },
+                            ["resourceScope"] = new OpenApiSchemaMetadata { Type = "string", Description = "Scope: Tenant or Resource." },
+                            ["resourceId"] = new OpenApiSchemaMetadata { Type = "string", Description = "Specific resource id, for a Resource-scoped grant." },
+                            ["tenantId"] = new OpenApiSchemaMetadata { Type = "string", Description = "Target tenant (system administrators only)." }
+                        }
+                    }, "Assignment to create", true))
+                    .WithResponse(201, OpenApiResponseMetadata.Create("Assignment created.")));
+            routes.PreAuthentication.Parameter.Add(HttpMethod.DELETE, "/v1.0/assignments/{assignmentId}", DeleteAssignmentRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Delete a role assignment", "Assignments")
+                    .WithParameter(OpenApiParameterMetadata.Path("assignmentId", "Assignment identifier", OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Assignment deleted."))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
 
-            routes.PreAuthentication.Static.Add(HttpMethod.GET, "/v1.0/audit", GetAuditRoute, ExceptionRoute);
-            routes.PreAuthentication.Parameter.Add(HttpMethod.GET, "/v1.0/audit/{auditId}", GetAuditEntryRoute, ExceptionRoute);
-            routes.PreAuthentication.Parameter.Add(HttpMethod.DELETE, "/v1.0/audit/{auditId}", DeleteAuditEntryRoute, ExceptionRoute);
+            // Audit.
+            routes.PreAuthentication.Static.Add(HttpMethod.GET, "/v1.0/audit", GetAuditRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Search the audit log", "Audit")
+                    .WithDescription("Enumerate security audit entries for the caller's tenant, filtered optionally by event type.")
+                    .WithParameter(OpenApiParameterMetadata.Query("eventType", "Filter by event type (e.g. AuthFailure, AuthzDenied)", false, OpenApiSchemaMetadata.String()))
+                    .WithParameter(OpenApiParameterMetadata.Query("tenantId", "Tenant to scope to (system administrators only)", false, OpenApiSchemaMetadata.String()))
+                    .WithParameter(OpenApiParameterMetadata.Query("maxResults", "Page size (1-1000)", false, OpenApiSchemaMetadata.Integer()))
+                    .WithParameter(OpenApiParameterMetadata.Query("skip", "Records to skip", false, OpenApiSchemaMetadata.Integer()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Audit entries retrieved.")));
+            routes.PreAuthentication.Parameter.Add(HttpMethod.GET, "/v1.0/audit/{auditId}", GetAuditEntryRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Get an audit entry", "Audit")
+                    .WithParameter(OpenApiParameterMetadata.Path("auditId", "Audit entry identifier", OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Audit entry retrieved."))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
+            routes.PreAuthentication.Parameter.Add(HttpMethod.DELETE, "/v1.0/audit/{auditId}", DeleteAuditEntryRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Delete an audit entry", "Audit")
+                    .WithParameter(OpenApiParameterMetadata.Path("auditId", "Audit entry identifier", OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Audit entry deleted."))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
         }
 
         #endregion
