@@ -53,8 +53,15 @@
 - **Auth telemetry**: five new counters on the `Lattice.Server` meter — `lattice.auth.requests`,
   `lattice.auth.session.events`, `lattice.auth.rbac.mutations`, `lattice.authz.requests`, and
   `lattice.authz.denials`.
+- **`Lattice.LoadGenerator`**: a CLI tool that seeds a database with realistic synthetic collections,
+  documents, backdated request history, audit entries, and identity/RBAC data so the dashboard renders like
+  an in-use system for demos and screenshots. Everything is configurable via arguments (backend/connection,
+  tenant, density, time range, categories of activity); synthetic entities are marked so `--wipe` can remove
+  them, and an optional live-traffic burst lights up telemetry/Grafana.
 
 ### Changed
+- **README**: Docker Compose is now the documented default for getting started; added an MIT `LICENSE` file
+  and a "Load Generator" section; removed the database backend comparison table.
 - `lattice.json` gains `Auth` and `Mcp` configuration blocks. **Auth is enabled by default in both the
   server and factory Docker configs** so the dashboard login works out of the box (a prior factory config
   shipped `Auth.Enable=false`, which left the server with no login route); `Mcp` remains off in the factory

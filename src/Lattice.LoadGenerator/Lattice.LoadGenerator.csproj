@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <AssemblyName>latticeload</AssemblyName>
+    <RootNamespace>Lattice.LoadGenerator</RootNamespace>
+    <Version>0.3.0</Version>
+    <Description>Seeds a Lattice database with realistic synthetic collections, documents, request history, audit, and identity/RBAC activity so the dashboard renders a fully hydrated, believable system for demos and screenshots.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Lattice.Core\Lattice.Core.csproj" />
+  </ItemGroup>
+
+</Project>

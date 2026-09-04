@@ -38,6 +38,24 @@ Add JSON documents with optional names, labels, and key-value tags for metadata.
 
 Search documents by labels, tags, and SQL-like expressions on data properties.
 
+## Getting Started
+
+The fastest way to run Lattice is with Docker Compose — it starts the server and the dashboard together:
+
+```bash
+docker compose up -d
+```
+
+- **Dashboard:** http://localhost:3000
+- **API:** http://localhost:8000
+
+Sign in with the default administrator seeded on first run — `admin@lattice` / `password`. See
+[Default credentials](#default-credentials-first-run) to retrieve the generated tenant id and access key.
+Data persists in the `lattice-data` and `lattice-documents` Docker volumes.
+
+> Want to embed Lattice as a library or run the server from source instead? See [Installation](#installation)
+> and [Quick Start](#quick-start) below.
+
 ## Installation
 
 ```bash
@@ -174,6 +192,9 @@ using LatticeClient client = new LatticeClient(repo, new LatticeSettings());
 Lattice.Server loads configuration from the `lattice.json` settings file and exposes a REST API.
 
 #### Starting the Server
+
+For most users, [Docker Compose](#getting-started) is the recommended way to run the server. To run it
+directly from source during development:
 
 ```bash
 # Use default settings file (lattice.json)
@@ -506,6 +527,7 @@ src/
 │   ├── Schema/             # Schema detection
 │   └── Search/             # Query parsing
 ├── Lattice.Server/         # REST API server
+├── Lattice.LoadGenerator/  # Synthetic data seeder for demos/screenshots
 ├── Test.Automated/         # Integration tests
 └── Test.Throughput/        # Performance tests
 sdk/
@@ -529,11 +551,12 @@ dotnet run --project src/Test.Throughput
 
 ## Docker
 
-The fastest way to get started with Lattice is using Docker Compose, which runs both the server and dashboard:
+Docker Compose is the default way to run Lattice (see [Getting Started](#getting-started)); it runs both
+the server and dashboard together:
 
 ```bash
 # Start both server and dashboard
-docker-compose up -d
+docker compose up -d
 
 # Access the dashboard at http://localhost:3000
 # Access the API directly at http://localhost:8000
@@ -547,19 +570,48 @@ Data is persisted in Docker volumes (`lattice-data` and `lattice-documents`).
 
 For detailed Docker configuration including external database backends, environment variables, and production deployment, see [DOCKER.md](DOCKER.md).
 
-## Database Backend Comparison
+## Load Generator (Demo Data)
 
-| Feature | SQLite | SQL Server | PostgreSQL | MySQL |
-|---------|:------:|:----------:|:----------:|:-----:|
-| Embedded deployment | Yes | No | No | No |
-| Horizontal scaling | No | Yes | Yes | Yes |
-| Zero configuration | Yes | No | No | No |
-| Connection pooling | Limited | Yes | Yes | Yes |
-| In-memory mode | Yes | No | No | No |
+`Lattice.LoadGenerator` seeds a database with realistic synthetic activity — collections, documents,
+backdated request history, audit entries, and identity/RBAC data — so the dashboard and observability
+stack render like a real, in-use system for demos and screenshots. It writes directly to the database and
+backdates activity across a time window (using a diurnal, bursty distribution), which a series of live API
+calls could not reproduce.
+
+To populate a running Docker deployment, point it at the server's SQLite database and refresh the
+dashboard:
+
+```bash
+dotnet run --project src/Lattice.LoadGenerator -- \
+  --backend sqlite --sqlite-file docker/server/data/lattice.db --density medium --days 14 --wipe
+```
+
+Everything is configurable via CLI arguments — backend and connection, target tenant, information density,
+time range, and which categories of activity to generate (all by default). A few examples:
+
+```bash
+# A dense, month-long history
+dotnet run --project src/Lattice.LoadGenerator -- --backend sqlite --sqlite-file lattice.db --density high --days 30
+
+# Only collections, documents, and request history
+dotnet run --project src/Lattice.LoadGenerator -- --backend sqlite --sqlite-file lattice.db --operations collections,documents,requests
+
+# A PostgreSQL backend
+dotnet run --project src/Lattice.LoadGenerator -- --backend postgresql --host localhost --port 5432 \
+  --database lattice --username lattice --password lattice
+
+# Remove previously generated synthetic entities
+dotnet run --project src/Lattice.LoadGenerator -- --backend sqlite --sqlite-file lattice.db --wipe-only
+```
+
+Run with `--help` for the full option list. Synthetic entities are marked (collections labelled
+`synthetic`, users under `@loadgen.synthetic`, roles prefixed `LG-`) so `--wipe` can clean them up. Set
+`--server-url` and `--access-key` with `--live-requests` to also fire a burst of live requests so
+telemetry and Grafana light up.
 
 ## License
 
-See LICENSE file for details.
+MIT License. See the [LICENSE](LICENSE) file for details.
 
 ## Attribution
 

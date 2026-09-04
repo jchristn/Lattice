@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test.Xunit", "Test.Xunit\Te
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test.Nunit", "Test.Nunit\Test.Nunit.csproj", "{76298376-6A61-45CC-949E-C04C8D284643}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lattice.LoadGenerator", "Lattice.LoadGenerator\Lattice.LoadGenerator.csproj", "{A9260DCC-5F29-43B1-B521-7F07901F2BB0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -111,6 +113,18 @@ Global
 		{76298376-6A61-45CC-949E-C04C8D284643}.Release|x64.Build.0 = Release|Any CPU
 		{76298376-6A61-45CC-949E-C04C8D284643}.Release|x86.ActiveCfg = Release|Any CPU
 		{76298376-6A61-45CC-949E-C04C8D284643}.Release|x86.Build.0 = Release|Any CPU
+		{A9260DCC-5F29-43B1-B521-7F07901F2BB0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A9260DCC-5F29-43B1-B521-7F07901F2BB0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A9260DCC-5F29-43B1-B521-7F07901F2BB0}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A9260DCC-5F29-43B1-B521-7F07901F2BB0}.Debug|x64.Build.0 = Debug|Any CPU
+		{A9260DCC-5F29-43B1-B521-7F07901F2BB0}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A9260DCC-5F29-43B1-B521-7F07901F2BB0}.Debug|x86.Build.0 = Debug|Any CPU
+		{A9260DCC-5F29-43B1-B521-7F07901F2BB0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A9260DCC-5F29-43B1-B521-7F07901F2BB0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A9260DCC-5F29-43B1-B521-7F07901F2BB0}.Release|x64.ActiveCfg = Release|Any CPU
+		{A9260DCC-5F29-43B1-B521-7F07901F2BB0}.Release|x64.Build.0 = Release|Any CPU
+		{A9260DCC-5F29-43B1-B521-7F07901F2BB0}.Release|x86.ActiveCfg = Release|Any CPU
+		{A9260DCC-5F29-43B1-B521-7F07901F2BB0}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
