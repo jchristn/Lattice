@@ -191,6 +191,12 @@ input, textarea, select {
   border-bottom: 1px solid var(--border-color);
 }
 
+/* Proportional (non-monospace) table cell text is one step smaller than body.
+   Fixed-width cells (.monospace, code, .copyable-id) keep their own sizing. */
+.table td {
+  font-size: 13px;
+}
+
 .table th {
   font-weight: 600;
   color: var(--text-secondary);

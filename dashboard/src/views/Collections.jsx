@@ -65,9 +65,9 @@ export default function Collections() {
 
   // Per-column filters
   const [filters, setFilters] = useState({
+    id: '',
     name: '',
     description: '',
-    documentsDirectory: '',
     createdUtc: '',
   })
 
@@ -79,6 +79,10 @@ export default function Collections() {
     let result = [...collections]
 
     // Apply column filters
+    if (filters.id) {
+      const query = filters.id.toLowerCase()
+      result = result.filter(c => (c.id || '').toLowerCase().includes(query))
+    }
     if (filters.name) {
       const query = filters.name.toLowerCase()
       result = result.filter(c => c.name.toLowerCase().includes(query))
@@ -86,10 +90,6 @@ export default function Collections() {
     if (filters.description) {
       const query = filters.description.toLowerCase()
       result = result.filter(c => (c.description || '').toLowerCase().includes(query))
-    }
-    if (filters.documentsDirectory) {
-      const query = filters.documentsDirectory.toLowerCase()
-      result = result.filter(c => (c.documentsDirectory || '').toLowerCase().includes(query))
     }
     if (filters.createdUtc) {
       const query = filters.createdUtc.toLowerCase()
@@ -460,6 +460,16 @@ export default function Collections() {
             <thead>
               <tr>
                 <th
+                  className={`sortable ${sort.column === 'id' ? 'sorted' : ''}`}
+                  onClick={() => handleSort('id')}
+                  title="The collection's unique identifier; click to sort by ID"
+                >
+                  <span className="th-content">
+                    ID
+                    <span className="sort-icon">{getSortIcon('id')}</span>
+                  </span>
+                </th>
+                <th
                   className={`sortable ${sort.column === 'name' ? 'sorted' : ''}`}
                   onClick={() => handleSort('name')}
                   title="The collection's display name; click to sort collections alphabetically by name"
@@ -480,16 +490,6 @@ export default function Collections() {
                   </span>
                 </th>
                 <th
-                  className={`sortable ${sort.column === 'documentsDirectory' ? 'sorted' : ''}`}
-                  onClick={() => handleSort('documentsDirectory')}
-                  title="Filesystem path where this collection's documents are stored on the server; click to sort by directory"
-                >
-                  <span className="th-content">
-                    Documents Directory
-                    <span className="sort-icon">{getSortIcon('documentsDirectory')}</span>
-                  </span>
-                </th>
-                <th
                   className={`sortable ${sort.column === 'createdUtc' ? 'sorted' : ''}`}
                   onClick={() => handleSort('createdUtc')}
                   title="When the collection was created (UTC); click to sort by creation time"
@@ -502,6 +502,16 @@ export default function Collections() {
                 <th title="Per-row actions such as viewing documents, editing constraints, rebuilding indexes, or deleting the collection">Actions</th>
               </tr>
               <tr className="filter-row">
+                <td>
+                  <input
+                    type="text"
+                    className="column-filter"
+                    placeholder="Filter..."
+                    value={filters.id}
+                    onChange={(e) => handleFilterChange('id', e.target.value)}
+                    title="Type to filter the list to collections whose ID contains this text"
+                  />
+                </td>
                 <td>
                   <input
                     type="text"
@@ -527,16 +537,6 @@ export default function Collections() {
                     type="text"
                     className="column-filter"
                     placeholder="Filter..."
-                    value={filters.documentsDirectory}
-                    onChange={(e) => handleFilterChange('documentsDirectory', e.target.value)}
-                    title="Type to filter the list to collections whose documents directory contains this text"
-                  />
-                </td>
-                <td>
-                  <input
-                    type="text"
-                    className="column-filter"
-                    placeholder="Filter..."
                     value={filters.createdUtc}
                     onChange={(e) => handleFilterChange('createdUtc', e.target.value)}
                     title="Type to filter the list to collections whose formatted creation date contains this text"
@@ -553,14 +553,9 @@ export default function Collections() {
               ) : (
                 pagedCollections.map((collection) => (
                   <tr key={collection.id} className="clickable-row" title="Click to edit this collection" onClick={(event) => onRowClick(event, collection)}>
-                    <td>
-                      {collection.name}
-                      <div className="collection-id">
-                        <CopyableId value={collection.id} />
-                      </div>
-                    </td>
+                    <td><CopyableId value={collection.id} /></td>
+                    <td>{collection.name}</td>
                     <td>{collection.description || '-'}</td>
-                    <td className="monospace">{collection.documentsDirectory || '-'}</td>
                     <td>{formatDate(collection.createdUtc)}</td>
                     <td>
                       <ActionMenu

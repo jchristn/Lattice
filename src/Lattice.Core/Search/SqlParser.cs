@@ -27,6 +27,9 @@ namespace Lattice.Core.Search
             // Normalize whitespace
             sql = Regex.Replace(sql.Trim(), @"\s+", " ");
 
+            // Strip a trailing statement terminator so "... = 'bar';" parses the same as "... = 'bar'".
+            sql = Regex.Replace(sql, @"\s*;+\s*$", "");
+
             // Parse the WHERE clause
             int whereIndex = sql.IndexOf(" WHERE ", StringComparison.OrdinalIgnoreCase);
             if (whereIndex >= 0)
