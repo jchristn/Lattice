@@ -43,7 +43,7 @@ namespace Test.Shared.Suites
             {
                 string k1 = AccessKeyGenerator.NewAccessKey();
                 string k2 = AccessKeyGenerator.NewAccessKey();
-                TestAssert.StartsWith("access_", k1, "Access keys carry the access_ prefix.");
+                TestAssert.StartsWith("key_", k1, "Access keys carry the key_ prefix.");
                 TestAssert.True(k1.Length >= 39, "Access keys carry high entropy.");
                 TestAssert.NotEqual(k1, k2, "Access keys must be unique.");
                 return System.Threading.Tasks.Task.CompletedTask;
@@ -220,7 +220,7 @@ namespace Test.Shared.Suites
                 TestAssert.Equal(PrincipalType.Credential, caller.PrincipalType);
                 TestAssert.Equal(credential.Id, caller.CredentialId);
                 TestAssert.Equal(tenant.Id, caller.TenantId);
-                TestAssert.Null(await authn.AuthenticateBearerAsync("access_wrongkeywrongkeywrongkeywrongkey00"), "An unknown access key must not authenticate.");
+                TestAssert.Null(await authn.AuthenticateBearerAsync("key_wrongkeywrongkeywrongkeywrongkey00"), "An unknown access key must not authenticate.");
             });
 
             builder.Add("Authorization: admins bypass; a plain user is denied by default", async client =>

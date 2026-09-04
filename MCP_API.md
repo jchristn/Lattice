@@ -38,7 +38,7 @@ Present credentials with the `Authorization: Bearer <value>` header (the `x-toke
 accepted), exactly as with the REST API. The bearer value is either:
 
 1. A **session token** obtained from `POST /v1.0/token` (email + password + tenant), or
-2. A **credential access key** (`access_...`) presented directly.
+2. A **credential access key** (`key_...`) presented directly.
 
 `initialize`, `ping`, and `notifications/initialized` are accepted without credentials (they carry no data),
 but `tools/list` and `tools/call` require authentication. An unauthenticated `tools/call` returns:
@@ -194,7 +194,7 @@ system and tenant admins bypass evaluation):
 Obtain credentials (session token via login, or use a credential access key), then call tools:
 
 ```bash
-# 1) Log in for a session token (or skip this and use an access_... key directly).
+# 1) Log in for a session token (or skip this and use an key_... key directly).
 TOKEN=$(curl -s http://localhost:8000/v1.0/token \
   -H 'Content-Type: application/json' \
   -d '{"email":"admin@lattice","password":"password","tenantId":"ten_..."}' \

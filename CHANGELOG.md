@@ -10,7 +10,7 @@
   - **Two authentication methods**, both via `Authorization: Bearer <value>` (with an `x-token` alias):
     (1) a **session token** from `POST /v1.0/token` (email + password; the tenant is inferred from the
     credentials when omitted, and the response asks the caller to choose when they match multiple tenants),
-    and (2) a **credential access key** (`access_...`) presented directly. No `x-api-key`, no secret key,
+    and (2) a **credential access key** (`key_...`) presented directly. No `x-api-key`, no secret key,
     no request signing.
   - **Single-tier multi-tenancy**: the tenant is resolved from the principal; there is no tenant id in
     URLs. A system administrator may target another tenant via an explicit `tenantId` in the request body

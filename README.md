@@ -315,10 +315,10 @@ requires a bearer token. There are two ways to authenticate, both presented with
    curl http://localhost:8000/v1.0/collections -H "Authorization: Bearer <token>"
    ```
 
-2. **Access key** — present a credential's access key (`access_...`) directly as the bearer value:
+2. **Access key** — present a credential's access key (`key_...`) directly as the bearer value:
 
    ```bash
-   curl http://localhost:8000/v1.0/collections -H "Authorization: Bearer access_..."
+   curl http://localhost:8000/v1.0/collections -H "Authorization: Bearer key_..."
    ```
 
 Access is governed by role-based access control (deny-over-permit) with built-in roles. Collections and
@@ -338,7 +338,7 @@ id and access key are generated per install.
 | Admin email | `admin@lattice` (configurable) |
 | Admin password | `password` (configurable) |
 | Tenant id | generated (`ten_...`) — shown in the log |
-| Access key | generated (`access_...`) — shown in the log, once |
+| Access key | generated (`key_...`) — shown in the log, once |
 
 The email and password default to the `Auth` block in `lattice.json` (`DefaultAdminEmail`,
 `DefaultAdminPassword`); the tenant id and access key are printed only on the run that creates them.
@@ -353,13 +353,13 @@ docker logs lattice-server | grep -iE "First run|Tenant id|Admin|Access key"
    Tenant id:    ten_...
    Admin email:  admin@lattice
    Admin passwd: password
-   Access key:   access_...
+   Access key:   key_...
 ```
 
 To sign in:
 
-- **Access key (quickest):** paste the `access_...` value into the dashboard's "Access key" login tab, or
-  send it as `Authorization: Bearer access_...`. No tenant id required.
+- **Access key (quickest):** paste the `key_...` value into the dashboard's "Access key" login tab, or
+  send it as `Authorization: Bearer key_...`. No tenant id required.
 - **Email + password:** use `admin@lattice` / `password`. On first run there is only one tenant, so the
   tenant is inferred automatically — you only need to supply a tenant id once the same email exists in more
   than one tenant.

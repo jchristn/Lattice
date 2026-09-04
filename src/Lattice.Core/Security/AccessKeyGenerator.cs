@@ -12,14 +12,14 @@ namespace Lattice.Core.Security
         private const string Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
         /// <summary>
-        /// Generate a new access key of the form <c>access_</c> followed by high-entropy characters.
+        /// Generate a new access key of the form <c>key_</c> followed by high-entropy characters.
         /// </summary>
         /// <param name="length">The number of random characters after the prefix. Default 40, minimum 32.</param>
         /// <returns>A new access key.</returns>
         public static string NewAccessKey(int length = 40)
         {
             if (length < 32) length = 32;
-            return "access_" + RandomString(length);
+            return "key_" + RandomString(length);
         }
 
         /// <summary>

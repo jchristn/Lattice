@@ -132,7 +132,7 @@ The `<ResourceType>:<Operation>` in the 403 message names the permission that wa
 There are exactly **two** ways to authenticate, both presented as the `Authorization: Bearer <value>` header:
 
 1. **Session token.** Obtain a session token by posting an email and password (and, optionally, a tenant id) to [`POST /v1.0/token`](#post-v10token--login). The tenant is inferred from the credentials when omitted; if they match more than one tenant the response asks you to choose one. The `token` returned in the response is used as the bearer value. Session tokens expire (default **60 minutes**); after expiry, log in again. A session may be ended early with [`DELETE /v1.0/token`](#delete-v10token--logout).
-2. **Access key.** A credential's access key (format `access_...`) is presented **directly** as the bearer value. Access keys are long-lived and intended for machine-to-machine use. Create one with [`PUT /v1.0/credentials`](#put-v10credentials--create-credential); the raw access key is returned at creation and, because it is persisted, can also be retrieved later by reading the credential.
+2. **Access key.** A credential's access key (format `key_...`) is presented **directly** as the bearer value. Access keys are long-lived and intended for machine-to-machine use. Create one with [`PUT /v1.0/credentials`](#put-v10credentials--create-credential); the raw access key is returned at creation and, because it is persisted, can also be retrieved later by reading the credential.
 
 > There is **no** `x-api-key` header, no separate secret key, and no request signing. A bearer value is either a session token or an access key; the server resolves which one it is.
 
@@ -234,14 +234,14 @@ curl http://localhost:8000/v1.0/collections \
 
 ```bash
 curl http://localhost:8000/v1.0/collections \
-  -H "Authorization: Bearer access_1a2b3c4d5e6f..."
+  -H "Authorization: Bearer key_1a2b3c4d5e6f..."
 ```
 
 The `x-token` header may be used in place of `Authorization: Bearer` with either value:
 
 ```bash
 curl http://localhost:8000/v1.0/collections \
-  -H "x-token: access_1a2b3c4d5e6f..."
+  -H "x-token: key_1a2b3c4d5e6f..."
 ```
 
 > **MCP:** The MCP JSON-RPC endpoint at `POST /v1.0/mcp` uses the same bearer authentication described here and is documented separately in [`MCP_API.md`](MCP_API.md).
@@ -1007,7 +1007,7 @@ curl "http://localhost:8000/v1.0/credentials?maxResults=100&skip=0" \
       "tenantId": "ten_abcdef0123456789",
       "userId": "usr_0123456789abcdef",
       "name": "default",
-      "accessKey": "access_1a2b3c4d5e6f7a8b9cd12",
+      "accessKey": "key_1a2b3c4d5e6f7a8b9cd12",
       "accessKeyLast4": "cd12",
       "active": true,
       "isProtected": true,
@@ -1022,7 +1022,7 @@ curl "http://localhost:8000/v1.0/credentials?maxResults=100&skip=0" \
 
 #### PUT /v1.0/credentials -- Create Credential
 
-Creates a credential and generates its access key. The raw `accessKey` (format `access_...`) is included in the response and is also persisted, so it can be retrieved again on subsequent credential reads (see the security note in [Credentials](#credentials)). When `userId` is omitted, the credential is owned by the calling user.
+Creates a credential and generates its access key. The raw `accessKey` (format `key_...`) is included in the response and is also persisted, so it can be retrieved again on subsequent credential reads (see the security note in [Credentials](#credentials)). When `userId` is omitted, the credential is owned by the calling user.
 
 **cURL:**
 
@@ -1051,7 +1051,7 @@ curl -X PUT http://localhost:8000/v1.0/credentials \
   "tenantId": "ten_abcdef0123456789",
   "userId": "usr_0123456789abcdef",
   "name": "ci-pipeline",
-  "accessKey": "access_1a2b3c4d5e6f7a8b9c0d",
+  "accessKey": "key_1a2b3c4d5e6f7a8b9c0d",
   "accessKeyLast4": "0c0d",
   "active": true,
   "isProtected": false,
@@ -3005,7 +3005,7 @@ Returned by all list/enumeration GET endpoints. See [Enumeration & Pagination](#
 | `tenantId` | string | Identifier of the owning tenant. |
 | `userId` | string | Identifier of the owning user. |
 | `name` | string or null | Human-readable credential name. |
-| `accessKey` | string | The raw access key (`access_...`). Persisted server-side and returned on credential reads (create, list, and get). Stored in plaintext to allow retrieval; treat it as a secret. |
+| `accessKey` | string | The raw access key (`key_...`). Persisted server-side and returned on credential reads (create, list, and get). Stored in plaintext to allow retrieval; treat it as a secret. |
 | `accessKeySha256` | string | SHA-256 hash of the access key, stored server-side. **Never returned** in API responses. |
 | `accessKeyLast4` | string | Last four characters of the access key, retained for display. |
 | `expiresUtc` | string (ISO 8601) or null | Optional expiration; null means the credential does not expire. |

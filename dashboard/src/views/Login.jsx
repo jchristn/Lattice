@@ -197,7 +197,7 @@ export default function Login() {
             className="input"
             value={accessKey}
             onChange={(e) => setAccessKey(e.target.value)}
-            placeholder="access_..."
+            placeholder="key_..."
             required
             title="Paste the access key issued for your account to sign in"
           />
