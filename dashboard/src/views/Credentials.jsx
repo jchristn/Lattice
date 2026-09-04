@@ -6,6 +6,7 @@ import ActionMenu from '../components/ActionMenu'
 import CopyableId from '../components/CopyableId'
 import CopyButton from '../components/CopyButton'
 import TablePagination from '../components/TablePagination'
+import JsonViewerModal from '../components/JsonViewerModal'
 import './Credentials.css'
 
 export default function Credentials() {
@@ -21,8 +22,14 @@ export default function Credentials() {
   const [saving, setSaving] = useState(false)
   // Holds the freshly created access key, shown exactly once after creation.
   const [createdKey, setCreatedKey] = useState(null)
+  const [jsonRow, setJsonRow] = useState(null)
 
   const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize))
+
+  const onRowClick = (event, row) => {
+    if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
+    setJsonRow(row)
+  }
 
   const load = async () => {
     try {
@@ -149,7 +156,7 @@ export default function Credentials() {
             </thead>
             <tbody>
               {credentials.map((c) => (
-                <tr key={c.id}>
+                <tr key={c.id} className="clickable-row" title="Click to view the full record as JSON" onClick={(e) => onRowClick(e, c)}>
                   <td><CopyableId value={c.id} /></td>
                   <td><strong>{c.name || '-'}</strong></td>
                   <td>{c.userId ? <CopyableId value={c.userId} /> : '-'}</td>
@@ -233,6 +240,14 @@ export default function Credentials() {
           </>
         )}
       </Modal>
+
+      <JsonViewerModal
+        isOpen={!!jsonRow}
+        onClose={() => setJsonRow(null)}
+        title={jsonRow ? `Credential: ${jsonRow.name || jsonRow.id}` : ''}
+        identifier={jsonRow?.id}
+        value={jsonRow}
+      />
     </div>
   )
 }

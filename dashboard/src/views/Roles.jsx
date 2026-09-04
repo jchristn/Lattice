@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
 import CopyableId from '../components/CopyableId'
 import TablePagination from '../components/TablePagination'
+import JsonViewerModal from '../components/JsonViewerModal'
 import './Roles.css'
 
 export default function Roles() {
@@ -12,8 +13,14 @@ export default function Roles() {
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(25)
   const [totalRecords, setTotalRecords] = useState(0)
+  const [jsonRow, setJsonRow] = useState(null)
 
   const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize))
+
+  const onRowClick = (event, row) => {
+    if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
+    setJsonRow(row)
+  }
 
   const load = async () => {
     try {
@@ -85,7 +92,7 @@ export default function Roles() {
             </thead>
             <tbody>
               {roles.map((r) => (
-                <tr key={r.id}>
+                <tr key={r.id} className="clickable-row" title="Click to view the full record as JSON" onClick={(e) => onRowClick(e, r)}>
                   <td><CopyableId value={r.id} /></td>
                   <td><strong>{r.name}</strong></td>
                   <td title={r.isBuiltIn ? 'Predefined system role' : 'Custom role'}>{r.isBuiltIn ? 'Yes' : 'No'}</td>
@@ -99,6 +106,14 @@ export default function Roles() {
           </table>
         </div>
       )}
+
+      <JsonViewerModal
+        isOpen={!!jsonRow}
+        onClose={() => setJsonRow(null)}
+        title={jsonRow ? `Role: ${jsonRow.name}` : ''}
+        identifier={jsonRow?.id}
+        value={jsonRow}
+      />
     </div>
   )
 }

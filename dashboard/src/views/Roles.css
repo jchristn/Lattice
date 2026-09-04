@@ -22,3 +22,11 @@
   border: 1px solid var(--border-color);
   border-radius: 8px;
 }
+
+.clickable-row {
+  cursor: pointer;
+}
+
+.clickable-row:hover {
+  background-color: var(--bg-secondary);
+}

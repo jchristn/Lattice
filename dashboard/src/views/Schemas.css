@@ -7,3 +7,12 @@
   font-size: 14px;
   margin-top: 4px;
 }
+
+/* Clickable result rows open this view's record modal */
+.clickable-row {
+  cursor: pointer;
+}
+
+.clickable-row:hover {
+  background-color: var(--bg-secondary);
+}

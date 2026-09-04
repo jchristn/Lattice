@@ -125,6 +125,12 @@ export default function Search() {
     })
   }
 
+  // Row body click opens the document content view; interactive controls inside the row are ignored.
+  const onRowClick = (event, document) => {
+    if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
+    handleViewData(document)
+  }
+
   return (
     <div className="search">
       <div className="page-header">
@@ -231,7 +237,7 @@ export default function Search() {
                 </thead>
                 <tbody>
                   {pagedDocuments.map((document) => (
-                    <tr key={document.id}>
+                    <tr key={document.id} className="clickable-row" title="Click to view content" onClick={(event) => onRowClick(event, document)}>
                       <td><CopyableId value={document.id} /></td>
                       <td>{document.name || '-'}</td>
                       <td>{formatDate(document.createdUtc)}</td>

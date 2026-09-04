@@ -104,6 +104,12 @@ export default function Schemas() {
     })
   }
 
+  // Row body click opens the full-row JSON viewer; interactive controls inside the row are ignored.
+  const onRowClick = (event, schema) => {
+    if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
+    handleViewJson(schema)
+  }
+
   if (loading) {
     return <div className="loading">Loading...</div>
   }
@@ -167,7 +173,7 @@ export default function Schemas() {
                 </tr>
               ) : (
                 pagedSchemas.map((schema) => (
-                  <tr key={schema.id}>
+                  <tr key={schema.id} className="clickable-row" title="Click to view this record's details" onClick={(event) => onRowClick(event, schema)}>
                     <td><CopyableId value={schema.id} /></td>
                     <td><CopyableId value={schema.hash} /></td>
                     <td>{formatDate(schema.createdUtc)}</td>

@@ -77,3 +77,12 @@
 .schema-selector-select {
   height: 38px;
 }
+
+/* Clickable result rows open this view's record modal */
+.clickable-row {
+  cursor: pointer;
+}
+
+.clickable-row:hover {
+  background-color: var(--bg-secondary);
+}

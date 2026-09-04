@@ -159,6 +159,12 @@ export default function SchemaElements() {
     })
   }
 
+  // Row body click opens the full-row JSON viewer; interactive controls inside the row are ignored.
+  const onRowClick = (event, element) => {
+    if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
+    handleViewJson(element)
+  }
+
   if (loading) {
     return <div className="loading">Loading...</div>
   }
@@ -253,7 +259,7 @@ export default function SchemaElements() {
                 </tr>
               ) : (
                 pagedElements.map((element) => (
-                  <tr key={element.id}>
+                  <tr key={element.id} className="clickable-row" title="Click to view this record's details" onClick={(event) => onRowClick(event, element)}>
                     <td className="monospace">{element.key}</td>
                     <td>{element.dataType}</td>
                     <td>{element.nullable ? 'Yes' : 'No'}</td>

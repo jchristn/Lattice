@@ -118,6 +118,12 @@ export default function Tables() {
     })
   }
 
+  // Row body click opens the full-row JSON viewer; interactive controls inside the row are ignored.
+  const onRowClick = (event, table) => {
+    if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
+    handleViewJson(table)
+  }
+
   if (loading) {
     return <div className="loading">Loading...</div>
   }
@@ -177,7 +183,7 @@ export default function Tables() {
                 </tr>
               ) : (
                 pagedTables.map((mapping) => (
-                  <tr key={mapping.id}>
+                  <tr key={mapping.id} className="clickable-row" title="Click to view this record's details" onClick={(event) => onRowClick(event, mapping)}>
                     <td className="monospace">{mapping.key}</td>
                     <td><CopyableId value={mapping.tableName} /></td>
                     <td>

@@ -171,6 +171,12 @@ export default function IndexEntries() {
     })
   }
 
+  // Row body click opens the full-row JSON viewer; interactive controls inside the row are ignored.
+  const onRowClick = (event, entry) => {
+    if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
+    handleViewJson(entry)
+  }
+
   const handleCopyDocumentId = async (entry) => {
     try {
       await copyToClipboard(entry.documentId)
@@ -279,7 +285,7 @@ export default function IndexEntries() {
                 </tr>
               ) : (
                 filteredEntries.map((entry) => (
-                  <tr key={entry.id}>
+                  <tr key={entry.id} className="clickable-row" title="Click to view this record's details" onClick={(event) => onRowClick(event, entry)}>
                     <td><CopyableId value={entry.documentId} /></td>
                     <td className="entry-value-cell">{entry.value ?? <em className="null-value">null</em>}</td>
                     <td>{entry.position ?? '-'}</td>

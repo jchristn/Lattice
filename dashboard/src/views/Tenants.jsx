@@ -5,6 +5,7 @@ import Modal from '../components/Modal'
 import ActionMenu from '../components/ActionMenu'
 import CopyableId from '../components/CopyableId'
 import TablePagination from '../components/TablePagination'
+import JsonViewerModal from '../components/JsonViewerModal'
 import './Tenants.css'
 
 export default function Tenants() {
@@ -18,8 +19,14 @@ export default function Tenants() {
   const [showCreate, setShowCreate] = useState(false)
   const [name, setName] = useState('')
   const [saving, setSaving] = useState(false)
+  const [jsonRow, setJsonRow] = useState(null)
 
   const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize))
+
+  const onRowClick = (event, row) => {
+    if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
+    setJsonRow(row)
+  }
 
   const load = async () => {
     try {
@@ -134,7 +141,7 @@ export default function Tenants() {
             </thead>
             <tbody>
               {tenants.map((t) => (
-                <tr key={t.id}>
+                <tr key={t.id} className="clickable-row" title="Click to view the full record as JSON" onClick={(e) => onRowClick(e, t)}>
                   <td><CopyableId value={t.id} /></td>
                   <td><strong>{t.name}</strong></td>
                   <td title={t.active ? 'This tenant is active' : 'This tenant is inactive'}>{t.active ? 'Yes' : 'No'}</td>
@@ -184,6 +191,14 @@ export default function Tenants() {
           </button>
         </div>
       </Modal>
+
+      <JsonViewerModal
+        isOpen={!!jsonRow}
+        onClose={() => setJsonRow(null)}
+        title={jsonRow ? `Tenant: ${jsonRow.name}` : ''}
+        identifier={jsonRow?.id}
+        value={jsonRow}
+      />
     </div>
   )
 }

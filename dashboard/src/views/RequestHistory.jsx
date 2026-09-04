@@ -425,6 +425,12 @@ export default function RequestHistory() {
     }))
   }
 
+  // Row body click opens the detail modal; interactive controls inside the row are ignored.
+  const onRowClick = (event, entry) => {
+    if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
+    loadDetail(entry)
+  }
+
   const loadDetail = async (entry, openJson = false) => {
     try {
       setSelectedEntry(entry)
@@ -677,8 +683,9 @@ export default function RequestHistory() {
               entries.map((entry) => (
                 <tr
                   key={entry.id}
-                  className="request-history-row"
-                  onClick={() => loadDetail(entry)}
+                  className="request-history-row clickable-row"
+                  title="Click to view this request's detail"
+                  onClick={(event) => onRowClick(event, entry)}
                 >
                   <td className="request-history-time-cell">{formatDate(entry.createdUtc)}</td>
                   <td><span className={`request-history-method request-history-method-${entry.method.toLowerCase()}`}>{entry.method}</span></td>

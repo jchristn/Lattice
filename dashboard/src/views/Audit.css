@@ -58,3 +58,11 @@
   color: var(--danger-color);
   font-size: 12px;
 }
+
+.clickable-row {
+  cursor: pointer;
+}
+
+.clickable-row:hover {
+  background-color: var(--bg-secondary);
+}

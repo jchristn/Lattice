@@ -340,3 +340,12 @@
 .btn-danger:hover {
   background: #dc2626;
 }
+
+/* Clickable result rows open this view's record modal */
+.clickable-row {
+  cursor: pointer;
+}
+
+.clickable-row:hover {
+  background-color: var(--bg-secondary);
+}

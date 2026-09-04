@@ -190,6 +190,12 @@ export default function Collections() {
     setShowMetadataModal(true)
   }
 
+  // Row body click opens the collection metadata modal; interactive controls inside the row are ignored.
+  const onRowClick = (event, collection) => {
+    if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
+    handleViewMetadata(collection)
+  }
+
   const handleViewConstraints = async (collection) => {
     setSelectedCollection(collection)
     // Set defaults first, then try to load
@@ -517,7 +523,7 @@ export default function Collections() {
                 </tr>
               ) : (
                 pagedCollections.map((collection) => (
-                  <tr key={collection.id}>
+                  <tr key={collection.id} className="clickable-row" title="Click to view metadata" onClick={(event) => onRowClick(event, collection)}>
                     <td>
                       <strong>{collection.name}</strong>
                       <div className="collection-id">

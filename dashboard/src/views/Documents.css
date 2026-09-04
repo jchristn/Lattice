@@ -167,3 +167,12 @@
 .btn-icon svg {
   display: block;
 }
+
+/* Clickable result rows open this view's record modal */
+.clickable-row {
+  cursor: pointer;
+}
+
+.clickable-row:hover {
+  background-color: var(--bg-secondary);
+}

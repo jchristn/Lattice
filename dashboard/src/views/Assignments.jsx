@@ -5,6 +5,7 @@ import Modal from '../components/Modal'
 import ActionMenu from '../components/ActionMenu'
 import CopyableId from '../components/CopyableId'
 import TablePagination from '../components/TablePagination'
+import JsonViewerModal from '../components/JsonViewerModal'
 import './Assignments.css'
 
 const EMPTY_FORM = { userId: '', roleName: '', roleId: '', resourceScope: '', resourceId: '' }
@@ -20,8 +21,14 @@ export default function Assignments() {
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
+  const [jsonRow, setJsonRow] = useState(null)
 
   const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize))
+
+  const onRowClick = (event, row) => {
+    if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
+    setJsonRow(row)
+  }
 
   const load = async () => {
     try {
@@ -145,7 +152,7 @@ export default function Assignments() {
             </thead>
             <tbody>
               {assignments.map((a) => (
-                <tr key={a.id}>
+                <tr key={a.id} className="clickable-row" title="Click to view the full record as JSON" onClick={(e) => onRowClick(e, a)}>
                   <td><CopyableId value={a.id} /></td>
                   <td>{a.userId ? <CopyableId value={a.userId} /> : '-'}</td>
                   <td title="The role granted to the user">{a.roleName || a.roleId || '-'}</td>
@@ -240,6 +247,14 @@ export default function Assignments() {
           </button>
         </div>
       </Modal>
+
+      <JsonViewerModal
+        isOpen={!!jsonRow}
+        onClose={() => setJsonRow(null)}
+        title={jsonRow ? `Assignment: ${jsonRow.id}` : ''}
+        identifier={jsonRow?.id}
+        value={jsonRow}
+      />
     </div>
   )
 }

@@ -44,3 +44,11 @@
   height: 16px;
   cursor: pointer;
 }
+
+.clickable-row {
+  cursor: pointer;
+}
+
+.clickable-row:hover {
+  background-color: var(--bg-secondary);
+}

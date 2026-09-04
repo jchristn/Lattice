@@ -4,6 +4,7 @@ import { formatDate } from '../utils/api'
 import ActionMenu from '../components/ActionMenu'
 import CopyableId from '../components/CopyableId'
 import TablePagination from '../components/TablePagination'
+import JsonViewerModal from '../components/JsonViewerModal'
 import './Audit.css'
 
 export default function Audit() {
@@ -17,8 +18,14 @@ export default function Audit() {
   // Draft filter inputs vs. the applied event-type filter used in the query.
   const [eventTypeDraft, setEventTypeDraft] = useState('')
   const [eventType, setEventType] = useState('')
+  const [jsonRow, setJsonRow] = useState(null)
 
   const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize))
+
+  const onRowClick = (event, row) => {
+    if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
+    setJsonRow(row)
+  }
 
   const load = async () => {
     try {
@@ -147,7 +154,7 @@ export default function Audit() {
             </thead>
             <tbody>
               {entries.map((e) => (
-                <tr key={e.id}>
+                <tr key={e.id} className="clickable-row" title="Click to view the full record as JSON" onClick={(ev) => onRowClick(ev, e)}>
                   <td>{formatDate(e.createdUtc)}</td>
                   <td>{e.eventType || '-'}</td>
                   <td className="monospace" title="HTTP method">{e.method || '-'}</td>
@@ -177,6 +184,14 @@ export default function Audit() {
           </table>
         </div>
       )}
+
+      <JsonViewerModal
+        isOpen={!!jsonRow}
+        onClose={() => setJsonRow(null)}
+        title={jsonRow ? `Audit entry: ${jsonRow.eventType}` : ''}
+        identifier={jsonRow?.id}
+        value={jsonRow}
+      />
     </div>
   )
 }
