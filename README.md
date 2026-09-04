@@ -338,11 +338,13 @@ id and access key are generated per install.
 | Admin email | `admin@lattice` (configurable) |
 | Admin password | `password` (configurable) |
 | Tenant id | generated (`ten_...`) — shown in the log |
-| Access key | generated (`key_...`) — shown in the log, once |
+| Access key | generated (`key_...`) — shown in the log; also viewable later on the dashboard's Credentials page |
 
 The email and password default to the `Auth` block in `lattice.json` (`DefaultAdminEmail`,
-`DefaultAdminPassword`); the tenant id and access key are printed only on the run that creates them.
-Retrieve them from the server log — for the Docker deployment:
+`DefaultAdminPassword`); the tenant id and access key are printed on the run that creates them. The raw
+access key is also persisted, so you can view (and edit) it afterward on the dashboard's **Credentials**
+page or by reading the credential via the API. Retrieve the first-run values from the server log — for the
+Docker deployment:
 
 ```bash
 docker logs lattice-server | grep -iE "First run|Tenant id|Admin|Access key"

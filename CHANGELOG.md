@@ -1,8 +1,8 @@
 # Changelog
 
-## Unreleased
+## Current release
 
-**v0.3.0**
+**v0.3.0** (2026-09-04)
 
 ### Added
 - **Authentication, authorization, RBAC, and multi-tenancy.** When enabled (default), every route except
@@ -21,21 +21,33 @@
     Create/Update/Delete), built-in roles (TenantAdmin, SecurityAdmin, Auditor, CollectionAdmin, Editor,
     Viewer, TenantMember), and per-user/credential assignments. Passwords are hashed with SHA-256.
   - **First-run seeding** of a default tenant, administrator (`admin@lattice` / `password`), and access
-    key, printed to the console once.
+    key, printed to the console once. A factory reset clears the database so the next start re-seeds a
+    fresh admin.
+  - **Credential access keys** carry a `key_` prefix and are persisted, so the raw key can be viewed and
+    edited later (dashboard **Credentials** page or by reading the credential) rather than only at creation;
+    the stored SHA-256 hash is never returned. Editing a key recomputes its hash so the new value
+    authenticates immediately.
   - New management endpoints (flat, principal-scoped): `POST/GET/DELETE /v1.0/token`, `GET /v1.0/whoami`,
-    and CRUD for `/v1.0/tenants`, `/v1.0/users`, `/v1.0/credentials`, `/v1.0/roles`, `/v1.0/assignments`,
-    and `/v1.0/audit`. Data layer implemented across SQLite, MySQL, PostgreSQL, and SQL Server.
+    full CRUD (create/read/update/delete) for `/v1.0/tenants`, `/v1.0/users`, `/v1.0/credentials`,
+    `/v1.0/roles`, and `/v1.0/assignments`, plus `/v1.0/audit`. Data layer implemented across SQLite, MySQL,
+    PostgreSQL, and SQL Server. Documented in `REST_API.md` and the Postman collection.
 - **In-process MCP server** (`POST /v1.0/mcp`): a hand-rolled JSON-RPC 2.0 [Model Context
   Protocol](https://modelcontextprotocol.io) endpoint behind the same auth and RBAC as the REST API, with
   a 22-tool catalog mirroring the data plane plus identity/RBAC read surfaces. Configured under a new
   `Mcp` block in `lattice.json`. Documented in `MCP_API.md`.
 - **Dashboard admin console**: the sidebar is reorganized into labeled groups (Data, Structure, Search,
   Manage, Configure), and a new admin-gated Configure section adds Tenants, Users, Credentials, Roles,
-  Role Assignments, and Audit Log views (create/list/delete against the new endpoints; the one-time access
-  key is revealed on credential creation). Login infers the tenant and prompts to choose only when
-  ambiguous; the top bar has a single icon-only sign-out with uniformly sized buttons; and every label,
+  Role Assignments, and Audit Log views with full create/read/update/delete against the new endpoints.
+  Login infers the tenant and prompts to choose only when ambiguous; the top bar has a single icon-only
+  sign-out with uniformly sized buttons; the login page links to the project on GitHub; and every label,
   input, dropdown, column header, button, and link across the console carries a descriptive hover tooltip.
   The auth/identity/RBAC/audit endpoints now appear in the API Explorer (OpenAPI-documented).
+- **Dashboard interaction polish**: any table row opens its edit modal (or a formatted read-only detail
+  view when it can't be edited), backed by a reusable key/value `DetailModal`; every admin table has
+  per-column filter boxes; the row **Actions** menu renders in a viewport-clamped portal so it is never
+  clipped; each table's "Per page" selection is remembered across visits; table rows are denser (reduced
+  padding and font); the Request History filters collapse; and IDs sit in their own column rather than
+  being stacked under names. A structured editor replaces raw JSON for role permissions.
 - **Security audit trail**: authentication failures (401) and authorization denials (403) are persisted to
   an append-only audit store with principal, required permission, verdict, path, and response code.
 - **Auth telemetry**: five new counters on the `Lattice.Server` meter — `lattice.auth.requests`,
@@ -43,10 +55,20 @@
   `lattice.authz.denials`.
 
 ### Changed
-- `lattice.json` gains `Auth` and `Mcp` configuration blocks (both enabled by default in the server image;
-  disabled in the factory image).
+- `lattice.json` gains `Auth` and `Mcp` configuration blocks. **Auth is enabled by default in both the
+  server and factory Docker configs** so the dashboard login works out of the box (a prior factory config
+  shipped `Auth.Enable=false`, which left the server with no login route); `Mcp` remains off in the factory
+  config.
+- The SQL-style document search tolerates a trailing `;` (e.g. `... WHERE foo = 'bar';` now parses the same
+  as without it).
 
-## Current release
+### Version bumps
+- `Lattice.Core`: 0.2.1 -> 0.3.0
+- `Lattice.Sdk` (C#): 0.3.0
+- `lattice-sdk` (npm): 0.3.0
+- `lattice-sdk` (pip): 0.3.0
+
+## Previous versions
 
 **v0.2.1** (2026-09-02)
 
@@ -102,8 +124,6 @@
 - `lattice-sdk` (npm): 0.1.3 -> 0.3.0 (breaking: raw responses)
 - `lattice-sdk` (pip): 0.1.3 -> 0.3.0 (breaking: raw responses)
 
-## Previous versions
-
 **v0.2.0** (2026-03-26)
 - Dependency refresh (Microsoft.Data.SqlClient 7.0.2, Npgsql 10.0.3, MySqlConnector 2.6.2,
   Microsoft.Data.Sqlite 10.0.11, PrettyId 2.0.1); API explorer and database-backed request history;
@@ -135,8 +155,6 @@
 - `Lattice.Sdk` (C#): 1.0.0 -> 0.1.3
 - `lattice-sdk` (npm): 1.0.0 -> 0.1.3
 - `lattice-sdk` (pip): 1.0.0 -> 0.1.3
-
-## Previous versions
 
 **v0.1.2**
 - Dashboard UX improvements, setup wizard, factory reset, Docker build improvements
