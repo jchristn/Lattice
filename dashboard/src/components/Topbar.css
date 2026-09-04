@@ -64,13 +64,17 @@
   gap: 12px;
 }
 
+/* All top-bar action buttons share one square footprint so GitHub, the theme
+   toggle, and sign-out line up with identical height and width. */
 .topbar-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
   background: none;
   border: 1px solid var(--border-color);
-  padding: 8px 10px;
   font-size: 14px;
   color: var(--text-primary);
   cursor: pointer;
@@ -81,11 +85,11 @@
 
 .topbar-btn:hover {
   background-color: var(--bg-secondary);
+  text-decoration: none;
 }
 
-.topbar-btn-disconnect {
+.topbar-signout-btn {
   color: var(--danger-color);
-  padding: 8px 12px;
 }
 
 .topbar-principal {
@@ -95,8 +99,4 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.topbar-logout-btn {
-  gap: 6px;
 }

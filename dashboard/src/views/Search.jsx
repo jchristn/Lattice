@@ -138,8 +138,8 @@ export default function Search() {
         <form onSubmit={handleSearch}>
           <div className="search-row">
             <div className="form-group search-collection">
-              <label className="form-label">Collection</label>
-              <select className="input" value={selectedCollection} onChange={(event) => setSelectedCollection(event.target.value)}>
+              <label className="form-label" title="The collection whose documents this search will run against">Collection</label>
+              <select className="input" value={selectedCollection} onChange={(event) => setSelectedCollection(event.target.value)} title="Choose which collection to search">
                 {collections.map((collection) => (
                   <option key={collection.id} value={collection.id}>
                     {collection.name}
@@ -155,34 +155,35 @@ export default function Search() {
 
             <div className="filter-row">
               <div className="form-group filter-labels">
-                <label className="form-label">Filter by Labels</label>
+                <label className="form-label" title="Only documents carrying all of these labels are considered before the SQL expression runs">Filter by Labels</label>
                 <TagInput value={filterLabels} onChange={setFilterLabels} placeholder="Add labels to filter by..." />
               </div>
             </div>
 
             <div className="filter-row">
               <div className="form-group filter-tags">
-                <label className="form-label">Filter by Tags</label>
+                <label className="form-label" title="Only documents whose tags match all of these key/value pairs are considered before the SQL expression runs">Filter by Tags</label>
                 <KeyValueEditor value={filterTags} onChange={setFilterTags} keyPlaceholder="Tag name" valuePlaceholder="Tag value" />
               </div>
             </div>
           </div>
 
           <div className="form-group">
-            <label className="form-label">SQL Expression (optional)</label>
+            <label className="form-label" title="Optional SQL-style expression applied to the label/tag-filtered documents to further narrow results">SQL Expression (optional)</label>
             <textarea
               className="textarea sql-input"
               value={sqlExpression}
               onChange={(event) => setSqlExpression(event.target.value)}
               placeholder="SELECT * FROM documents WHERE Person.First = 'Joel'"
               rows={3}
+              title="Write an optional SQL-style query over document fields; leave empty to return all documents"
             />
             <p className="form-hint">
               Leave empty to return all documents. Supports `=`, `!=`, `&gt;`, `&lt;`, `&gt;=`, `&lt;=`, `LIKE`, `IS NULL`, `IS NOT NULL`, `ORDER BY`, `LIMIT`, and `OFFSET`.
             </p>
           </div>
 
-          <button type="submit" className="btn btn-primary" disabled={loading}>
+          <button type="submit" className="btn btn-primary" disabled={loading} title="Run this query against the selected collection and list the matching documents">
             {loading ? 'Searching...' : 'Search'}
           </button>
         </form>
@@ -222,10 +223,10 @@ export default function Search() {
               <table className="table">
                 <thead>
                   <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Created</th>
-                    <th>Actions</th>
+                    <th title="Unique identifier of the matching document">ID</th>
+                    <th title="Optional name of the matching document">Name</th>
+                    <th title="When the matching document was ingested (UTC)">Created</th>
+                    <th title="Per-row actions such as viewing the document's metadata, data, or raw JSON">Actions</th>
                   </tr>
                 </thead>
                 <tbody>

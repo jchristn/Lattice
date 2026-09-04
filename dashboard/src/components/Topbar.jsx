@@ -4,13 +4,12 @@ import { GithubIcon, LogoutIcon, MoonIcon, SunIcon } from './Icons'
 import './Topbar.css'
 
 export default function Topbar() {
-  const { serverUrl, theme, toggleTheme, disconnect, logout, principal } = useApp()
+  const { serverUrl, theme, toggleTheme, logout, principal } = useApp()
 
   const principalLabel = principal?.email || (principal ? 'Credential' : '')
 
-  const handleLogout = async () => {
-    // Revoke the session but keep the server connection so the user lands on the
-    // credentials screen rather than the server-URL screen.
+  const handleSignOut = async () => {
+    // Revoke the session and return the user to the login screen.
     await logout()
   }
 
@@ -32,7 +31,7 @@ export default function Topbar() {
 
       <div className="topbar-actions">
         {principalLabel ? (
-          <span className="topbar-principal" title={principalLabel}>
+          <span className="topbar-principal" title={`Signed in as ${principalLabel}`}>
             {principalLabel}
           </span>
         ) : null}
@@ -41,35 +40,25 @@ export default function Topbar() {
           href="https://github.com/jchristn/lattice"
           target="_blank"
           rel="noopener noreferrer"
-          title="GitHub"
-          aria-label="GitHub"
+          title="Open the Lattice project on GitHub in a new tab"
+          aria-label="Open the Lattice project on GitHub"
         >
           <GithubIcon size={16} />
         </a>
         <button
           className="topbar-btn"
           onClick={toggleTheme}
-          title="Toggle theme"
+          title={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
+          aria-label="Toggle color theme"
           type="button"
         >
           {theme === 'light' ? <MoonIcon size={16} /> : <SunIcon size={16} />}
         </button>
-        {principal ? (
-          <button
-            className="topbar-btn topbar-logout-btn"
-            onClick={handleLogout}
-            title="Log out"
-            type="button"
-          >
-            <LogoutIcon size={16} />
-            <span>Logout</span>
-          </button>
-        ) : null}
         <button
-          className="topbar-btn topbar-btn-disconnect"
-          onClick={disconnect}
-          title="Disconnect from server"
-          aria-label="Disconnect from server"
+          className="topbar-btn topbar-signout-btn"
+          onClick={handleSignOut}
+          title="Sign out and return to the login screen"
+          aria-label="Sign out"
           type="button"
         >
           <LogoutIcon size={16} />

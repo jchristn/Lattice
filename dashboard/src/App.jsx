@@ -12,6 +12,12 @@ import IndexEntries from './views/IndexEntries'
 import ApiExplorer from './views/ApiExplorer'
 import RequestHistory from './views/RequestHistory'
 import Observability from './views/Observability'
+import Tenants from './views/Tenants'
+import Users from './views/Users'
+import Credentials from './views/Credentials'
+import Roles from './views/Roles'
+import Assignments from './views/Assignments'
+import Audit from './views/Audit'
 
 function App() {
   const { serverUrl, isAuthenticated } = useApp()
@@ -38,6 +44,12 @@ function App() {
         <Route path="api-explorer" element={<ApiExplorer />} />
         <Route path="request-history" element={<RequestHistory />} />
         <Route path="observability" element={<Observability />} />
+        <Route path="tenants" element={<Tenants />} />
+        <Route path="users" element={<Users />} />
+        <Route path="credentials" element={<Credentials />} />
+        <Route path="roles" element={<Roles />} />
+        <Route path="assignments" element={<Assignments />} />
+        <Route path="audit" element={<Audit />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

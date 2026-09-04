@@ -141,7 +141,7 @@ function CollapsibleBlock({ title, value, defaultExpanded = false }) {
 
   return (
     <div className="request-history-collapsible">
-      <button type="button" className="request-history-collapsible-header" onClick={() => setExpanded((current) => !current)}>
+      <button type="button" className="request-history-collapsible-header" onClick={() => setExpanded((current) => !current)} title={expanded ? `Collapse the ${title} section` : `Expand to view the ${title} content`}>
         <span>{title}</span>
         <span>{expanded ? 'Hide' : 'Show'}</span>
       </button>
@@ -492,10 +492,10 @@ export default function RequestHistory() {
           <p className="page-subtitle">Inspect captured request metadata, timings, headers, and bodies from the Lattice server with a dashboard flow aligned to Conductor's history and chart experience.</p>
         </div>
         <div className="page-actions">
-          <button className="btn btn-secondary" onClick={() => setRefreshToken((current) => current + 1)}>
+          <button className="btn btn-secondary" onClick={() => setRefreshToken((current) => current + 1)} title="Reload the request history table and traffic summary with the latest captured data">
             Refresh
           </button>
-          <button className="btn btn-danger" onClick={bulkDelete} disabled={totalCount === 0}>
+          <button className="btn btn-danger" onClick={bulkDelete} disabled={totalCount === 0} title="Permanently delete every request history entry matching the currently applied filters">
             Delete Matching
           </button>
         </div>
@@ -514,6 +514,7 @@ export default function RequestHistory() {
                 type="button"
                 className={`request-history-time-tab ${timeRange === range.value ? 'active' : ''}`}
                 onClick={() => applyQuickRange(range.value)}
+                title={`Show request traffic for the ${range.label.toLowerCase()} and set the chart's time buckets accordingly`}
               >
                 {range.label}
               </button>
@@ -553,8 +554,8 @@ export default function RequestHistory() {
 
         <div className="request-history-filters-grid">
           <div className="form-group">
-            <label className="form-label">Request Type</label>
-            <select className="input" value={filters.requestType} onChange={(event) => setFilters((current) => ({ ...current, requestType: event.target.value }))}>
+            <label className="form-label" title="Restrict results to a category of API request such as collection, document, or search">Request Type</label>
+            <select className="input" value={filters.requestType} onChange={(event) => setFilters((current) => ({ ...current, requestType: event.target.value }))} title="Filter captured requests by their high-level request type">
               <option value="">All</option>
               {REQUEST_TYPES.map((value) => (
                 <option key={value} value={value}>{formatRequestType(value)}</option>
@@ -563,8 +564,8 @@ export default function RequestHistory() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Method</label>
-            <select className="input" value={filters.method} onChange={(event) => setFilters((current) => ({ ...current, method: event.target.value }))}>
+            <label className="form-label" title="Restrict results to a single HTTP method such as GET, POST, or DELETE">Method</label>
+            <select className="input" value={filters.method} onChange={(event) => setFilters((current) => ({ ...current, method: event.target.value }))} title="Filter captured requests by HTTP method">
               <option value="">All</option>
               {HTTP_METHODS.map((value) => (
                 <option key={value} value={value}>{value}</option>
@@ -573,13 +574,13 @@ export default function RequestHistory() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Status Code</label>
-            <input className="input" value={filters.statusCode} onChange={(event) => setFilters((current) => ({ ...current, statusCode: event.target.value.replace(/[^\d]/g, '') }))} placeholder="200" />
+            <label className="form-label" title="Restrict results to responses that returned a specific HTTP status code">Status Code</label>
+            <input className="input" value={filters.statusCode} onChange={(event) => setFilters((current) => ({ ...current, statusCode: event.target.value.replace(/[^\d]/g, '') }))} placeholder="200" title="Enter an exact HTTP status code to match, e.g. 200 or 404" />
           </div>
 
           <div className="form-group">
-            <label className="form-label">Success</label>
-            <select className="input" value={filters.success} onChange={(event) => setFilters((current) => ({ ...current, success: event.target.value }))}>
+            <label className="form-label" title="Restrict results to only successful or only failed requests">Success</label>
+            <select className="input" value={filters.success} onChange={(event) => setFilters((current) => ({ ...current, success: event.target.value }))} title="Filter by outcome: successful responses, failed responses, or all">
               <option value="">All</option>
               <option value="true">Success</option>
               <option value="false">Failed</option>
@@ -587,49 +588,49 @@ export default function RequestHistory() {
           </div>
 
           <div className="form-group request-history-filter-wide">
-            <label className="form-label">Path Contains</label>
-            <input className="input" value={filters.pathContains} onChange={(event) => setFilters((current) => ({ ...current, pathContains: event.target.value }))} placeholder="/v1.0/collections" />
+            <label className="form-label" title="Restrict results to requests whose URL path contains the entered substring">Path Contains</label>
+            <input className="input" value={filters.pathContains} onChange={(event) => setFilters((current) => ({ ...current, pathContains: event.target.value }))} placeholder="/v1.0/collections" title="Enter a substring of the request path to match, e.g. /v1.0/collections" />
           </div>
 
           <div className="form-group">
-            <label className="form-label">Collection ID</label>
-            <input className="input" value={filters.collectionId} onChange={(event) => setFilters((current) => ({ ...current, collectionId: event.target.value }))} placeholder="Collection ID" />
+            <label className="form-label" title="Restrict results to requests that targeted a specific collection">Collection ID</label>
+            <input className="input" value={filters.collectionId} onChange={(event) => setFilters((current) => ({ ...current, collectionId: event.target.value }))} placeholder="Collection ID" title="Enter a collection ID to show only requests that acted on that collection" />
           </div>
 
           <div className="form-group">
-            <label className="form-label">Document ID</label>
-            <input className="input" value={filters.documentId} onChange={(event) => setFilters((current) => ({ ...current, documentId: event.target.value }))} placeholder="Document ID" />
+            <label className="form-label" title="Restrict results to requests that targeted a specific document">Document ID</label>
+            <input className="input" value={filters.documentId} onChange={(event) => setFilters((current) => ({ ...current, documentId: event.target.value }))} placeholder="Document ID" title="Enter a document ID to show only requests that acted on that document" />
           </div>
 
           <div className="form-group">
-            <label className="form-label">Schema ID</label>
-            <input className="input" value={filters.schemaId} onChange={(event) => setFilters((current) => ({ ...current, schemaId: event.target.value }))} placeholder="Schema ID" />
+            <label className="form-label" title="Restrict results to requests associated with a specific schema">Schema ID</label>
+            <input className="input" value={filters.schemaId} onChange={(event) => setFilters((current) => ({ ...current, schemaId: event.target.value }))} placeholder="Schema ID" title="Enter a schema ID to show only requests related to that schema" />
           </div>
 
           <div className="form-group">
-            <label className="form-label">Table Name</label>
-            <input className="input" value={filters.tableName} onChange={(event) => setFilters((current) => ({ ...current, tableName: event.target.value }))} placeholder="Index table" />
+            <label className="form-label" title="Restrict results to requests that touched a specific index table">Table Name</label>
+            <input className="input" value={filters.tableName} onChange={(event) => setFilters((current) => ({ ...current, tableName: event.target.value }))} placeholder="Index table" title="Enter an index table name to show only requests that referenced that table" />
           </div>
 
           <div className="form-group">
-            <label className="form-label">Source IP</label>
-            <input className="input" value={filters.sourceIp} onChange={(event) => setFilters((current) => ({ ...current, sourceIp: event.target.value }))} placeholder="127.0.0.1" />
+            <label className="form-label" title="Restrict results to requests originating from a specific client IP address">Source IP</label>
+            <input className="input" value={filters.sourceIp} onChange={(event) => setFilters((current) => ({ ...current, sourceIp: event.target.value }))} placeholder="127.0.0.1" title="Enter a client IP address to show only requests that came from it" />
           </div>
 
           <div className="form-group">
-            <label className="form-label">Start UTC</label>
-            <input className="input" type="datetime-local" value={filters.startUtc} onChange={(event) => setFilters((current) => ({ ...current, startUtc: event.target.value }))} />
+            <label className="form-label" title="Only include requests captured at or after this date and time">Start UTC</label>
+            <input className="input" type="datetime-local" value={filters.startUtc} onChange={(event) => setFilters((current) => ({ ...current, startUtc: event.target.value }))} title="Pick the earliest date and time to include in the results" />
           </div>
 
           <div className="form-group">
-            <label className="form-label">End UTC</label>
-            <input className="input" type="datetime-local" value={filters.endUtc} onChange={(event) => setFilters((current) => ({ ...current, endUtc: event.target.value }))} />
+            <label className="form-label" title="Only include requests captured at or before this date and time">End UTC</label>
+            <input className="input" type="datetime-local" value={filters.endUtc} onChange={(event) => setFilters((current) => ({ ...current, endUtc: event.target.value }))} title="Pick the latest date and time to include in the results" />
           </div>
         </div>
 
         <div className="request-history-filter-actions">
-          <button className="btn btn-secondary" onClick={clearFilters}>Clear</button>
-          <button className="btn btn-primary" onClick={applyFilters}>Apply Filters</button>
+          <button className="btn btn-secondary" onClick={clearFilters} title="Reset all filter fields and reload the unfiltered request history">Clear</button>
+          <button className="btn btn-primary" onClick={applyFilters} title="Apply the filter fields above to the request history table and traffic chart">Apply Filters</button>
         </div>
       </div>
 
@@ -654,13 +655,13 @@ export default function RequestHistory() {
         <table className="table request-history-table">
           <thead>
             <tr>
-              <th>Time</th>
-              <th>Method</th>
-              <th>Path</th>
-              <th>Status</th>
-              <th>Collection</th>
-              <th>Duration</th>
-              <th>Actions</th>
+              <th title="When the request was received by the server (UTC); newest first">Time</th>
+              <th title="HTTP method used for the request, such as GET or POST">Method</th>
+              <th title="URL path that was requested; click a row to see full detail">Path</th>
+              <th title="HTTP status code returned; codes 400 and above are shown as errors">Status</th>
+              <th title="Collection the request acted on, if any">Collection</th>
+              <th title="Server-side processing time for the request in milliseconds">Duration</th>
+              <th title="Per-row actions such as viewing detail, viewing JSON, or deleting the entry">Actions</th>
             </tr>
           </thead>
           <tbody>

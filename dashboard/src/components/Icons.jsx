@@ -192,6 +192,72 @@ export function GithubIcon({ size = 18 }) {
   )
 }
 
+export function BuildingIcon({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="4" y="3" width="16" height="18" rx="2"></rect>
+      <path d="M8 7h.01"></path>
+      <path d="M12 7h.01"></path>
+      <path d="M16 7h.01"></path>
+      <path d="M8 11h.01"></path>
+      <path d="M12 11h.01"></path>
+      <path d="M16 11h.01"></path>
+      <path d="M10 21v-4h4v4"></path>
+    </svg>
+  )
+}
+
+export function UserIcon({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="8" r="4"></circle>
+      <path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"></path>
+    </svg>
+  )
+}
+
+export function KeyIcon({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="7.5" cy="15.5" r="4.5"></circle>
+      <path d="m10.7 12.3 8.3-8.3"></path>
+      <path d="m16 5 3 3"></path>
+      <path d="m19 8 2-2-3-3"></path>
+    </svg>
+  )
+}
+
+export function ShieldIcon({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"></path>
+    </svg>
+  )
+}
+
+export function UserCheckIcon({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="9" cy="8" r="4"></circle>
+      <path d="M3 21v-1a6 6 0 0 1 6-6h1"></path>
+      <path d="m16 11 2 2 4-4"></path>
+    </svg>
+  )
+}
+
+export function ScrollIcon({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M8 3H5a2 2 0 0 0-2 2v3"></path>
+      <path d="M19 8V5a2 2 0 0 0-2-2H8"></path>
+      <path d="M4 8h16v11a2 2 0 0 1-2 2H8"></path>
+      <path d="M4 8v9a2 2 0 0 0 2 2"></path>
+      <path d="M9 13h7"></path>
+      <path d="M9 17h5"></path>
+    </svg>
+  )
+}
+
 export function LogoutIcon({ size = 18 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

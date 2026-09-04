@@ -102,7 +102,7 @@ export default function Login() {
   const renderServerStep = () => (
     <form onSubmit={handleConnect}>
       <div className="form-group">
-        <label className="form-label" htmlFor="server-url">
+        <label className="form-label" htmlFor="server-url" title="Base URL of the Lattice server this dashboard should connect to">
           Server URL
         </label>
         <input
@@ -113,12 +113,13 @@ export default function Login() {
           onChange={(e) => setUrl(e.target.value)}
           placeholder="http://localhost:8000"
           required
+          title="Enter the full base URL of the Lattice server, including protocol and port"
         />
       </div>
 
       {localError && <div className="error-message">{localError}</div>}
 
-      <button type="submit" className="btn btn-primary login-btn" disabled={loading}>
+      <button type="submit" className="btn btn-primary login-btn" disabled={loading} title="Connect to the entered server URL and continue to sign-in">
         {loading ? 'Connecting...' : 'Connect'}
       </button>
     </form>
@@ -134,6 +135,7 @@ export default function Login() {
             setMode('credentials')
             setLocalError('')
           }}
+          title="Sign in using your email address and password"
         >
           Email &amp; password
         </button>
@@ -144,6 +146,7 @@ export default function Login() {
             setMode('accessKey')
             setLocalError('')
           }}
+          title="Sign in using a pre-issued access key instead of a password"
         >
           Access key
         </button>
@@ -152,7 +155,7 @@ export default function Login() {
       {mode === 'credentials' ? (
         <>
           <div className="form-group">
-            <label className="form-label" htmlFor="login-email">
+            <label className="form-label" htmlFor="login-email" title="Email address of the account you are signing in with">
               Email
             </label>
             <input
@@ -164,11 +167,12 @@ export default function Login() {
               placeholder="you@example.com"
               autoComplete="username"
               required
+              title="Enter the email address associated with your Lattice account"
             />
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="login-password">
+            <label className="form-label" htmlFor="login-password" title="Password for the account you are signing in with">
               Password
             </label>
             <input
@@ -179,11 +183,12 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
               required
+              title="Enter your account password"
             />
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="login-tenant">
+            <label className="form-label" htmlFor="login-tenant" title="Optional tenant to sign in to; leave blank to let the server detect it from your credentials">
               Tenant{' '}
               <span className="form-optional">
                 (optional — leave blank to detect automatically)
@@ -196,12 +201,13 @@ export default function Login() {
               value={tenantId}
               onChange={(e) => setTenantId(e.target.value)}
               placeholder="Detected from your credentials"
+              title="Enter a specific tenant ID, or leave blank to sign in to your default tenant"
             />
           </div>
         </>
       ) : (
         <div className="form-group">
-          <label className="form-label" htmlFor="login-access-key">
+          <label className="form-label" htmlFor="login-access-key" title="Pre-issued access key used to authenticate without a password">
             Access key
           </label>
           <input
@@ -212,17 +218,18 @@ export default function Login() {
             onChange={(e) => setAccessKey(e.target.value)}
             placeholder="access_..."
             required
+            title="Paste the access key issued for your account to sign in"
           />
         </div>
       )}
 
       {localError && <div className="error-message">{localError}</div>}
 
-      <button type="submit" className="btn btn-primary login-btn" disabled={loading}>
+      <button type="submit" className="btn btn-primary login-btn" disabled={loading} title="Submit your credentials and sign in to the Lattice server">
         {loading ? 'Signing in...' : 'Sign in'}
       </button>
 
-      <button type="button" className="login-back-btn" onClick={disconnect} disabled={loading}>
+      <button type="button" className="login-back-btn" onClick={disconnect} disabled={loading} title="Disconnect from this server and return to the server URL entry step">
         Change server
       </button>
     </form>
@@ -242,6 +249,7 @@ export default function Login() {
             className="tenant-option"
             onClick={() => handleSelectTenant(tenant.tenantId)}
             disabled={loading}
+            title={`Sign in to the ${tenant.tenantName || tenant.tenantId} tenant`}
           >
             <span className="tenant-option-name">
               {tenant.tenantName || tenant.tenantId}
@@ -258,6 +266,7 @@ export default function Login() {
         className="login-back-btn"
         onClick={handleCancelTenantSelection}
         disabled={loading}
+        title="Return to the sign-in form without choosing a tenant"
       >
         Back
       </button>
@@ -286,7 +295,7 @@ export default function Login() {
 
         {renderBody()}
 
-        <button className="theme-toggle" onClick={toggleTheme} title="Toggle theme">
+        <button className="theme-toggle" onClick={toggleTheme} title="Switch between light and dark color themes">
           {theme === 'light' ? '🌙' : '☀️'}
         </button>
       </div>

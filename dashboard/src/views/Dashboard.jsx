@@ -25,7 +25,7 @@ export default function Dashboard() {
       {error && (
         <div className="error-banner">
           <span className="error-banner-message">{error}</span>
-          <button className="error-banner-close" onClick={() => setError(null)}>
+          <button className="error-banner-close" onClick={() => setError(null)} title="Dismiss this error message">
             &times;
           </button>
         </div>

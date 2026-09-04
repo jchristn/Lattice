@@ -269,8 +269,8 @@ export default function Documents() {
           <h1 className="page-title">Documents</h1>
           <p className="page-subtitle">Open a collection to inspect its stored documents, validate schema assignment, and create new documents with labels and tags.</p>
           <div className="collection-selector">
-            <label className="collection-selector-label">Collection:</label>
-            <select className="collection-selector-select" value={collectionId || ''} onChange={handleCollectionChange}>
+            <label className="collection-selector-label" title="Select which collection's documents are shown in the table below">Collection:</label>
+            <select className="collection-selector-select" value={collectionId || ''} onChange={handleCollectionChange} title="Switch to a different collection to browse its documents">
               <option value="">Select a collection...</option>
               {collections.map((item) => (
                 <option key={item.id} value={item.id}>
@@ -282,7 +282,7 @@ export default function Documents() {
         </div>
         {collectionId ? (
           <div className="page-actions">
-            <button className="btn btn-primary" type="button" onClick={() => setShowCreateModal(true)}>
+            <button className="btn btn-primary" type="button" onClick={() => setShowCreateModal(true)} title="Open a form to add a new JSON document to this collection">
               + New Document
             </button>
           </div>
@@ -319,29 +319,29 @@ export default function Documents() {
           <table className="table">
             <thead>
               <tr>
-                <th className={`sortable ${sort.column === 'id' ? 'sorted' : ''}`} onClick={() => handleSort('id')}>
+                <th className={`sortable ${sort.column === 'id' ? 'sorted' : ''}`} onClick={() => handleSort('id')} title="Unique document identifier; click to sort by ID">
                   <span className="th-content">ID <span className="sort-icon">{getSortIcon('id')}</span></span>
                 </th>
-                <th className={`sortable ${sort.column === 'name' ? 'sorted' : ''}`} onClick={() => handleSort('name')}>
+                <th className={`sortable ${sort.column === 'name' ? 'sorted' : ''}`} onClick={() => handleSort('name')} title="Optional document name; click to sort documents alphabetically by name">
                   <span className="th-content">Name <span className="sort-icon">{getSortIcon('name')}</span></span>
                 </th>
-                <th className={`sortable ${sort.column === 'contentLength' ? 'sorted' : ''}`} onClick={() => handleSort('contentLength')}>
+                <th className={`sortable ${sort.column === 'contentLength' ? 'sorted' : ''}`} onClick={() => handleSort('contentLength')} title="Size of the stored document content; click to sort by size">
                   <span className="th-content">Size <span className="sort-icon">{getSortIcon('contentLength')}</span></span>
                 </th>
-                <th className={`sortable ${sort.column === 'schemaId' ? 'sorted' : ''}`} onClick={() => handleSort('schemaId')}>
+                <th className={`sortable ${sort.column === 'schemaId' ? 'sorted' : ''}`} onClick={() => handleSort('schemaId')} title="Identifier of the schema inferred for this document; click to sort by schema">
                   <span className="th-content">Schema ID <span className="sort-icon">{getSortIcon('schemaId')}</span></span>
                 </th>
-                <th className={`sortable ${sort.column === 'createdUtc' ? 'sorted' : ''}`} onClick={() => handleSort('createdUtc')}>
+                <th className={`sortable ${sort.column === 'createdUtc' ? 'sorted' : ''}`} onClick={() => handleSort('createdUtc')} title="When the document was ingested (UTC); click to sort by creation time">
                   <span className="th-content">Created <span className="sort-icon">{getSortIcon('createdUtc')}</span></span>
                 </th>
-                <th>Actions</th>
+                <th title="Per-row actions such as viewing metadata, viewing data, or deleting the document">Actions</th>
               </tr>
               <tr className="filter-row">
-                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.id} onChange={(event) => handleFilterChange('id', event.target.value)} /></td>
-                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.name} onChange={(event) => handleFilterChange('name', event.target.value)} /></td>
-                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.contentLength} onChange={(event) => handleFilterChange('contentLength', event.target.value)} /></td>
-                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.schemaId} onChange={(event) => handleFilterChange('schemaId', event.target.value)} /></td>
-                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.createdUtc} onChange={(event) => handleFilterChange('createdUtc', event.target.value)} /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.id} onChange={(event) => handleFilterChange('id', event.target.value)} title="Filter the current page to documents whose ID contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.name} onChange={(event) => handleFilterChange('name', event.target.value)} title="Filter the current page to documents whose name contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.contentLength} onChange={(event) => handleFilterChange('contentLength', event.target.value)} title="Filter the current page to documents whose formatted size contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.schemaId} onChange={(event) => handleFilterChange('schemaId', event.target.value)} title="Filter the current page to documents whose schema ID contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.createdUtc} onChange={(event) => handleFilterChange('createdUtc', event.target.value)} title="Filter the current page to documents whose formatted creation date contains this text" /></td>
                 <td className="no-filter"></td>
               </tr>
             </thead>
@@ -383,26 +383,26 @@ export default function Documents() {
         subtitle="Create a JSON document in the selected collection so it can be indexed, searched, and analyzed."
       >
         <div className="form-group">
-          <label className="form-label">Name (optional)</label>
-          <input type="text" className="input" value={newDocument.name} onChange={(event) => setNewDocument({ ...newDocument, name: event.target.value })} placeholder="Enter document name" />
+          <label className="form-label" title="Optional friendly name to identify the document in listings">Name (optional)</label>
+          <input type="text" className="input" value={newDocument.name} onChange={(event) => setNewDocument({ ...newDocument, name: event.target.value })} placeholder="Enter document name" title="Enter an optional name for this document" />
         </div>
         <div className="form-group">
-          <label className="form-label">Content (JSON) *</label>
-          <textarea className="textarea json-editor" value={newDocument.content} onChange={(event) => setNewDocument({ ...newDocument, content: event.target.value })} placeholder='{"key": "value"}' rows={10} />
+          <label className="form-label" title="Required JSON body that will be stored, indexed, and made searchable for this document">Content (JSON) *</label>
+          <textarea className="textarea json-editor" value={newDocument.content} onChange={(event) => setNewDocument({ ...newDocument, content: event.target.value })} placeholder='{"key": "value"}' rows={10} title="Enter the document body as valid JSON; it must parse before it can be saved" />
         </div>
         <div className="form-group">
-          <label className="form-label">Labels</label>
+          <label className="form-label" title="Free-form labels attached to the document that can be used to filter searches">Labels</label>
           <TagInput value={newLabels} onChange={setNewLabels} placeholder="Add labels..." />
         </div>
         <div className="form-group">
-          <label className="form-label">Tags</label>
+          <label className="form-label" title="Key/value metadata pairs stored on the document for organization and filtering">Tags</label>
           <KeyValueEditor value={newTags} onChange={setNewTags} keyPlaceholder="Tag name" valuePlaceholder="Tag value" />
         </div>
         <div className="modal-actions">
-          <button className="btn btn-secondary" type="button" onClick={() => setShowCreateModal(false)}>
+          <button className="btn btn-secondary" type="button" onClick={() => setShowCreateModal(false)} title="Discard this new document and close the dialog without saving">
             Cancel
           </button>
-          <button className="btn btn-primary" type="button" onClick={handleCreate}>
+          <button className="btn btn-primary" type="button" onClick={handleCreate} title="Parse the JSON content and save it as a new document in this collection">
             Create
           </button>
         </div>

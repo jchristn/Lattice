@@ -142,21 +142,21 @@ export default function Schemas() {
           <table className="table">
             <thead>
               <tr>
-                <th className={`sortable ${sort.column === 'id' ? 'sorted' : ''}`} onClick={() => handleSort('id')}>
+                <th className={`sortable ${sort.column === 'id' ? 'sorted' : ''}`} onClick={() => handleSort('id')} title="Unique schema identifier; click to sort schemas by ID">
                   <span className="th-content">ID <span className="sort-icon">{getSortIcon('id')}</span></span>
                 </th>
-                <th className={`sortable ${sort.column === 'hash' ? 'sorted' : ''}`} onClick={() => handleSort('hash')}>
+                <th className={`sortable ${sort.column === 'hash' ? 'sorted' : ''}`} onClick={() => handleSort('hash')} title="Content hash that uniquely fingerprints the schema's structure; click to sort by hash">
                   <span className="th-content">Hash <span className="sort-icon">{getSortIcon('hash')}</span></span>
                 </th>
-                <th className={`sortable ${sort.column === 'createdUtc' ? 'sorted' : ''}`} onClick={() => handleSort('createdUtc')}>
+                <th className={`sortable ${sort.column === 'createdUtc' ? 'sorted' : ''}`} onClick={() => handleSort('createdUtc')} title="When this schema was first inferred (UTC); click to sort by creation time">
                   <span className="th-content">Created <span className="sort-icon">{getSortIcon('createdUtc')}</span></span>
                 </th>
-                <th>Actions</th>
+                <th title="Per-row actions such as viewing the schema's elements or its raw JSON">Actions</th>
               </tr>
               <tr className="filter-row">
-                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.id} onChange={(event) => handleFilterChange('id', event.target.value)} /></td>
-                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.hash} onChange={(event) => handleFilterChange('hash', event.target.value)} /></td>
-                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.createdUtc} onChange={(event) => handleFilterChange('createdUtc', event.target.value)} /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.id} onChange={(event) => handleFilterChange('id', event.target.value)} title="Filter the list to schemas whose ID contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.hash} onChange={(event) => handleFilterChange('hash', event.target.value)} title="Filter the list to schemas whose hash contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.createdUtc} onChange={(event) => handleFilterChange('createdUtc', event.target.value)} title="Filter the list to schemas whose formatted creation date contains this text" /></td>
                 <td className="no-filter"></td>
               </tr>
             </thead>

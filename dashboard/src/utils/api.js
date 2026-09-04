@@ -317,6 +317,97 @@ export class LatticeApi {
   async bulkDeleteRequestHistory(filter = {}) {
     return this.request('DELETE', '/v1.0/requesthistory/bulk', filter)
   }
+
+  // Tenants
+  // Returns an EnumerationResult<Tenant>: { ...pagination, objects: Tenant[] }.
+  async getTenants({ maxResults, skip } = {}) {
+    return this.request('GET', '/v1.0/tenants', null, { query: { maxResults, skip } })
+  }
+
+  async createTenant(data) {
+    return this.request('PUT', '/v1.0/tenants', data)
+  }
+
+  async getTenant(id) {
+    return this.request('GET', `/v1.0/tenants/${id}`)
+  }
+
+  async deleteTenant(id) {
+    return this.request('DELETE', `/v1.0/tenants/${id}`)
+  }
+
+  // Users
+  // Returns an EnumerationResult<User>: { ...pagination, objects: User[] }.
+  async getUsers({ tenantId, maxResults, skip } = {}) {
+    return this.request('GET', '/v1.0/users', null, { query: { tenantId, maxResults, skip } })
+  }
+
+  async createUser(data) {
+    return this.request('PUT', '/v1.0/users', data)
+  }
+
+  async getUser(id) {
+    return this.request('GET', `/v1.0/users/${id}`)
+  }
+
+  async deleteUser(id) {
+    return this.request('DELETE', `/v1.0/users/${id}`)
+  }
+
+  // Credentials
+  // Returns an EnumerationResult<Credential>: { ...pagination, objects: Credential[] }.
+  async getCredentials({ tenantId, maxResults, skip } = {}) {
+    return this.request('GET', '/v1.0/credentials', null, { query: { tenantId, maxResults, skip } })
+  }
+
+  // The create response returns the full access key exactly once (accessKey).
+  async createCredential(data) {
+    return this.request('PUT', '/v1.0/credentials', data)
+  }
+
+  async getCredential(id) {
+    return this.request('GET', `/v1.0/credentials/${id}`)
+  }
+
+  async deleteCredential(id) {
+    return this.request('DELETE', `/v1.0/credentials/${id}`)
+  }
+
+  // Roles
+  // Returns an EnumerationResult<Role>: { ...pagination, objects: Role[] }. List-only.
+  async getRoles({ maxResults, skip } = {}) {
+    return this.request('GET', '/v1.0/roles', null, { query: { maxResults, skip } })
+  }
+
+  // Role Assignments
+  // Returns an EnumerationResult<Assignment>: { ...pagination, objects: Assignment[] }.
+  async getAssignments({ tenantId, maxResults, skip } = {}) {
+    return this.request('GET', '/v1.0/assignments', null, { query: { tenantId, maxResults, skip } })
+  }
+
+  async createAssignment(data) {
+    return this.request('PUT', '/v1.0/assignments', data)
+  }
+
+  async deleteAssignment(id) {
+    return this.request('DELETE', `/v1.0/assignments/${id}`)
+  }
+
+  // Audit Log
+  // Returns an EnumerationResult<AuditEntry>: { ...pagination, objects: AuditEntry[] }.
+  async getAudit({ eventType, tenantId, maxResults, skip } = {}) {
+    return this.request('GET', '/v1.0/audit', null, {
+      query: { eventType, tenantId, maxResults, skip },
+    })
+  }
+
+  async getAuditEntry(id) {
+    return this.request('GET', `/v1.0/audit/${id}`)
+  }
+
+  async deleteAuditEntry(id) {
+    return this.request('DELETE', `/v1.0/audit/${id}`)
+  }
 }
 
 /**

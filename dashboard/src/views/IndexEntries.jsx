@@ -191,8 +191,8 @@ export default function IndexEntries() {
           <p className="page-subtitle">Review the raw index rows stored for a field key so you can validate document-to-value mappings and troubleshoot search behavior.</p>
           <div className="table-selector-row">
             <div className="table-selector">
-              <label className="table-selector-label">Index Table:</label>
-              <select className="table-selector-select" value={selectedTableKey} onChange={handleTableChange}>
+              <label className="table-selector-label" title="Select which index table's stored value rows are shown below">Index Table:</label>
+              <select className="table-selector-select" value={selectedTableKey} onChange={handleTableChange} title="Switch to a different index table (field key) to view its entries">
                 <option value="">Select an index table...</option>
                 {tables.map((table) => (
                   <option key={table.id} value={table.key}>
@@ -209,8 +209,9 @@ export default function IndexEntries() {
                 value={manualTableKey}
                 onChange={(event) => setManualTableKey(event.target.value)}
                 placeholder="Enter field key..."
+                title="Type a specific field key to load its index entries without using the dropdown"
               />
-              <button type="submit" className="btn btn-secondary btn-sm" disabled={!manualTableKey.trim()}>
+              <button type="submit" className="btn btn-secondary btn-sm" disabled={!manualTableKey.trim()} title="Load the index entries for the field key entered on the left">
                 Go
               </button>
             </form>
@@ -253,20 +254,20 @@ export default function IndexEntries() {
           <table className="table">
             <thead>
               <tr>
-                <th className={`sortable ${sort.column === 'documentId' ? 'sorted' : ''}`} onClick={() => handleSort('documentId')}>
+                <th className={`sortable ${sort.column === 'documentId' ? 'sorted' : ''}`} onClick={() => handleSort('documentId')} title="Identifier of the document this indexed value belongs to; click to sort by document ID">
                   <span className="th-content">Document ID <span className="sort-icon">{getSortIcon('documentId')}</span></span>
                 </th>
-                <th className={`sortable ${sort.column === 'value' ? 'sorted' : ''}`} onClick={() => handleSort('value')}>
+                <th className={`sortable ${sort.column === 'value' ? 'sorted' : ''}`} onClick={() => handleSort('value')} title="The indexed field value stored for this document; click to sort by value">
                   <span className="th-content">Value <span className="sort-icon">{getSortIcon('value')}</span></span>
                 </th>
-                <th className={`sortable ${sort.column === 'position' ? 'sorted' : ''}`} onClick={() => handleSort('position')}>
+                <th className={`sortable ${sort.column === 'position' ? 'sorted' : ''}`} onClick={() => handleSort('position')} title="Array position of the value when the field holds multiple values; click to sort by position">
                   <span className="th-content">Position <span className="sort-icon">{getSortIcon('position')}</span></span>
                 </th>
-                <th>Actions</th>
+                <th title="Per-row actions such as copying the document ID or viewing the entry's raw JSON">Actions</th>
               </tr>
               <tr className="filter-row">
-                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.documentId} onChange={(event) => handleFilterChange('documentId', event.target.value)} /></td>
-                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.value} onChange={(event) => handleFilterChange('value', event.target.value)} /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.documentId} onChange={(event) => handleFilterChange('documentId', event.target.value)} title="Filter the current page to entries whose document ID contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.value} onChange={(event) => handleFilterChange('value', event.target.value)} title="Filter the current page to entries whose indexed value contains this text" /></td>
                 <td className="no-filter"></td>
                 <td className="no-filter"></td>
               </tr>

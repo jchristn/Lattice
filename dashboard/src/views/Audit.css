@@ -1,0 +1,60 @@
+.audit {
+  max-width: 100%;
+}
+
+.loading {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary);
+}
+
+.inline-notice {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.monospace {
+  font-family: monospace;
+  font-size: 13px;
+}
+
+.audit-filters {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.audit-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.audit-filter .form-label {
+  margin-bottom: 0;
+}
+
+.audit-filter .input {
+  min-width: 200px;
+}
+
+.audit-apply {
+  height: 40px;
+}
+
+.audit-denial {
+  color: var(--danger-color);
+  font-size: 12px;
+}

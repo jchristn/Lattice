@@ -64,6 +64,7 @@ export default function Observability() {
             href={service.url}
             target="_blank"
             rel="noopener noreferrer"
+            title={`Open ${service.name} (${service.purpose}) at ${service.url} in a new browser tab`}
           >
             <div className="observability-card-header">
               <h2>{service.name}</h2>

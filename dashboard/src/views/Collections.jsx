@@ -393,7 +393,7 @@ export default function Collections() {
           <p className="page-subtitle">Manage document collections, review storage/indexing settings, and jump into the documents contained within each collection.</p>
         </div>
         <div className="page-actions">
-          <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+          <button className="btn btn-primary" onClick={() => setShowCreateModal(true)} title="Open a form to define and create a new document collection">
             + New Collection
           </button>
         </div>
@@ -427,6 +427,7 @@ export default function Collections() {
                 <th
                   className={`sortable ${sort.column === 'name' ? 'sorted' : ''}`}
                   onClick={() => handleSort('name')}
+                  title="The collection's display name; click to sort collections alphabetically by name"
                 >
                   <span className="th-content">
                     Name
@@ -436,6 +437,7 @@ export default function Collections() {
                 <th
                   className={`sortable ${sort.column === 'description' ? 'sorted' : ''}`}
                   onClick={() => handleSort('description')}
+                  title="Optional human-readable description of the collection; click to sort by description"
                 >
                   <span className="th-content">
                     Description
@@ -445,6 +447,7 @@ export default function Collections() {
                 <th
                   className={`sortable ${sort.column === 'documentsDirectory' ? 'sorted' : ''}`}
                   onClick={() => handleSort('documentsDirectory')}
+                  title="Filesystem path where this collection's documents are stored on the server; click to sort by directory"
                 >
                   <span className="th-content">
                     Documents Directory
@@ -454,13 +457,14 @@ export default function Collections() {
                 <th
                   className={`sortable ${sort.column === 'createdUtc' ? 'sorted' : ''}`}
                   onClick={() => handleSort('createdUtc')}
+                  title="When the collection was created (UTC); click to sort by creation time"
                 >
                   <span className="th-content">
                     Created
                     <span className="sort-icon">{getSortIcon('createdUtc')}</span>
                   </span>
                 </th>
-                <th>Actions</th>
+                <th title="Per-row actions such as viewing documents, editing constraints, rebuilding indexes, or deleting the collection">Actions</th>
               </tr>
               <tr className="filter-row">
                 <td>
@@ -470,6 +474,7 @@ export default function Collections() {
                     placeholder="Filter..."
                     value={filters.name}
                     onChange={(e) => handleFilterChange('name', e.target.value)}
+                    title="Type to filter the list to collections whose name contains this text"
                   />
                 </td>
                 <td>
@@ -479,6 +484,7 @@ export default function Collections() {
                     placeholder="Filter..."
                     value={filters.description}
                     onChange={(e) => handleFilterChange('description', e.target.value)}
+                    title="Type to filter the list to collections whose description contains this text"
                   />
                 </td>
                 <td>
@@ -488,6 +494,7 @@ export default function Collections() {
                     placeholder="Filter..."
                     value={filters.documentsDirectory}
                     onChange={(e) => handleFilterChange('documentsDirectory', e.target.value)}
+                    title="Type to filter the list to collections whose documents directory contains this text"
                   />
                 </td>
                 <td>
@@ -497,6 +504,7 @@ export default function Collections() {
                     placeholder="Filter..."
                     value={filters.createdUtc}
                     onChange={(e) => handleFilterChange('createdUtc', e.target.value)}
+                    title="Type to filter the list to collections whose formatted creation date contains this text"
                   />
                 </td>
                 <td className="no-filter"></td>
@@ -548,37 +556,40 @@ export default function Collections() {
         subtitle="Create a collection to define where documents live and how schema enforcement and indexing should behave."
       >
         <div className="form-group">
-          <label className="form-label">Name *</label>
+          <label className="form-label" title="Required unique name used to identify this collection throughout the dashboard">Name *</label>
           <input
             type="text"
             className="input"
             value={newCollection.name}
             onChange={(e) => setNewCollection({ ...newCollection, name: e.target.value })}
             placeholder="Enter collection name"
+            title="Enter a required unique name for the new collection"
           />
         </div>
         <div className="form-group">
-          <label className="form-label">Description</label>
+          <label className="form-label" title="Optional description shown alongside the collection to explain its purpose">Description</label>
           <input
             type="text"
             className="input"
             value={newCollection.description}
             onChange={(e) => setNewCollection({ ...newCollection, description: e.target.value })}
             placeholder="Optional description"
+            title="Enter an optional description explaining what this collection holds"
           />
         </div>
         <div className="form-group">
-          <label className="form-label">Documents Directory</label>
+          <label className="form-label" title="Optional server filesystem path where this collection's documents will be stored">Documents Directory</label>
           <input
             type="text"
             className="input"
             value={newCollection.documentsDirectory}
             onChange={(e) => setNewCollection({ ...newCollection, documentsDirectory: e.target.value })}
             placeholder="e.g., ./documents/my-collection"
+            title="Enter the server directory path where documents for this collection should be persisted"
           />
         </div>
         <div className="form-group">
-          <label className="form-label">Labels</label>
+          <label className="form-label" title="Free-form labels attached to the collection that can later be used to filter and search">Labels</label>
           <TagInput
             value={newLabels}
             onChange={setNewLabels}
@@ -586,7 +597,7 @@ export default function Collections() {
           />
         </div>
         <div className="form-group">
-          <label className="form-label">Tags</label>
+          <label className="form-label" title="Key/value metadata pairs stored on the collection for organization and filtering">Tags</label>
           <KeyValueEditor
             value={newTags}
             onChange={setNewTags}
@@ -598,11 +609,12 @@ export default function Collections() {
         <div className="form-section-divider">Schema & Indexing</div>
 
         <div className="form-group">
-          <label className="form-label">Schema Enforcement Mode</label>
+          <label className="form-label" title="Controls how strictly documents are validated against field constraints when ingested">Schema Enforcement Mode</label>
           <select
             className="input"
             value={newCollection.schemaEnforcementMode}
             onChange={(e) => setNewCollection({ ...newCollection, schemaEnforcementMode: e.target.value })}
+            title="Choose how strictly incoming documents are validated against the field constraints"
           >
             {Object.entries(ENFORCEMENT_MODES).map(([val, { label, description }]) => (
               <option key={val} value={val}>{label} - {description}</option>
@@ -613,7 +625,7 @@ export default function Collections() {
         {newCollection.schemaEnforcementMode !== 'none' && (
           <div className="form-group">
             <div className="form-label-row">
-              <label className="form-label">Field Constraints</label>
+              <label className="form-label" title="Per-field type and validation rules enforced on documents added to this collection">Field Constraints</label>
               <button
                 className="btn btn-sm btn-secondary"
                 onClick={() => setNewConstraints([...newConstraints, {
@@ -622,6 +634,7 @@ export default function Collections() {
                   required: false,
                   nullable: true,
                 }])}
+                title="Add another field constraint row to validate a specific document field"
               >
                 + Add Field
               </button>
@@ -644,6 +657,7 @@ export default function Collections() {
                           updated[idx] = { ...constraint, fieldPath: e.target.value }
                           setNewConstraints(updated)
                         }}
+                        title="Dot-notation path to the document field this constraint applies to (e.g., user.email)"
                       />
                       <select
                         className="input constraint-type"
@@ -653,6 +667,7 @@ export default function Collections() {
                           updated[idx] = { ...constraint, dataType: e.target.value }
                           setNewConstraints(updated)
                         }}
+                        title="Expected data type that values at this field path must match"
                       >
                         {DATA_TYPES.map(t => (
                           <option key={t} value={t}>{t}</option>
@@ -661,12 +676,13 @@ export default function Collections() {
                       <button
                         className="btn btn-sm btn-danger"
                         onClick={() => setNewConstraints(newConstraints.filter((_, i) => i !== idx))}
+                        title="Remove this field constraint from the collection"
                       >
                         Remove
                       </button>
                     </div>
                     <div className="constraint-options">
-                      <label className="checkbox-label">
+                      <label className="checkbox-label" title="When checked, documents must include a value at this field path">
                         <input
                           type="checkbox"
                           checked={constraint.required || false}
@@ -675,10 +691,11 @@ export default function Collections() {
                             updated[idx] = { ...constraint, required: e.target.checked }
                             setNewConstraints(updated)
                           }}
+                          title="Require this field to be present in every document"
                         />
                         Required
                       </label>
-                      <label className="checkbox-label">
+                      <label className="checkbox-label" title="When checked, this field is allowed to hold a null value">
                         <input
                           type="checkbox"
                           checked={constraint.nullable ?? true}
@@ -687,6 +704,7 @@ export default function Collections() {
                             updated[idx] = { ...constraint, nullable: e.target.checked }
                             setNewConstraints(updated)
                           }}
+                          title="Allow this field to contain a null value"
                         />
                         Nullable
                       </label>
@@ -699,11 +717,12 @@ export default function Collections() {
         )}
 
         <div className="form-group">
-          <label className="form-label">Indexing Mode</label>
+          <label className="form-label" title="Determines which document fields get indexed for search: all fields, only selected fields, or none">Indexing Mode</label>
           <select
             className="input"
             value={newCollection.indexingMode}
             onChange={(e) => setNewCollection({ ...newCollection, indexingMode: e.target.value })}
+            title="Choose whether all fields, only specified fields, or no fields are indexed for search"
           >
             {Object.entries(INDEXING_MODES).map(([val, { label, description }]) => (
               <option key={val} value={val}>{label} - {description}</option>
@@ -714,10 +733,11 @@ export default function Collections() {
         {newCollection.indexingMode === 'selective' && (
           <div className="form-group">
             <div className="form-label-row">
-              <label className="form-label">Indexed Fields</label>
+              <label className="form-label" title="Explicit list of field paths to index when indexing mode is set to selective">Indexed Fields</label>
               <button
                 className="btn btn-sm btn-secondary"
                 onClick={() => setNewIndexedFields([...newIndexedFields, ''])}
+                title="Add another field path to the list of fields that will be indexed"
               >
                 + Add Field
               </button>
@@ -739,10 +759,12 @@ export default function Collections() {
                         updated[idx] = e.target.value
                         setNewIndexedFields(updated)
                       }}
+                      title="Dot-notation path of a document field to include in the search index (e.g., user.name)"
                     />
                     <button
                       className="btn btn-sm btn-danger"
                       onClick={() => setNewIndexedFields(newIndexedFields.filter((_, i) => i !== idx))}
+                      title="Remove this field from the list of indexed fields"
                     >
                       Remove
                     </button>
@@ -754,13 +776,14 @@ export default function Collections() {
         )}
 
         <div className="modal-actions">
-          <button className="btn btn-secondary" onClick={() => setShowCreateModal(false)}>
+          <button className="btn btn-secondary" onClick={() => setShowCreateModal(false)} title="Discard this new collection and close the dialog without saving">
             Cancel
           </button>
           <button
             className="btn btn-primary"
             onClick={handleCreate}
             disabled={!newCollection.name}
+            title="Create the collection with the settings entered above"
           >
             Create
           </button>
@@ -779,30 +802,30 @@ export default function Collections() {
         {selectedCollection && (
           <>
             <div className="metadata-item">
-              <label className="metadata-label">ID</label>
+              <label className="metadata-label" title="System-generated unique identifier for this collection; use the copy control to reuse it in API calls">ID</label>
               <div className="metadata-value">
                 <CopyableId value={selectedCollection.id} />
               </div>
             </div>
             <div className="metadata-item">
-              <label className="metadata-label">Name</label>
+              <label className="metadata-label" title="The collection's display name">Name</label>
               <div className="metadata-value">{selectedCollection.name}</div>
             </div>
             <div className="metadata-item">
-              <label className="metadata-label">Description</label>
+              <label className="metadata-label" title="Optional description explaining the collection's purpose">Description</label>
               <div className="metadata-value">{selectedCollection.description || '-'}</div>
             </div>
             <div className="metadata-item">
-              <label className="metadata-label">Documents Directory</label>
+              <label className="metadata-label" title="Server filesystem path where this collection's documents are stored">Documents Directory</label>
               <div className="metadata-value monospace">{selectedCollection.documentsDirectory || '-'}</div>
             </div>
             <div className="metadata-item">
-              <label className="metadata-label">Created</label>
+              <label className="metadata-label" title="Timestamp (UTC) when this collection was created">Created</label>
               <div className="metadata-value">{formatDate(selectedCollection.createdUtc)}</div>
             </div>
             {selectedCollection.labels?.length > 0 && (
               <div className="metadata-item">
-                <label className="metadata-label">Labels</label>
+                <label className="metadata-label" title="Free-form labels attached to this collection for organization and filtering">Labels</label>
                 <div className="metadata-value">
                   <div className="metadata-labels">
                     {selectedCollection.labels.map((label, i) => (
@@ -814,7 +837,7 @@ export default function Collections() {
             )}
             {selectedCollection.tags && Object.keys(selectedCollection.tags).length > 0 && (
               <div className="metadata-item">
-                <label className="metadata-label">Tags</label>
+                <label className="metadata-label" title="Key/value metadata pairs stored on this collection">Tags</label>
                 <div className="metadata-value">
                   <div className="metadata-tags">
                     {Object.entries(selectedCollection.tags).map(([k, v]) => (
@@ -844,11 +867,12 @@ export default function Collections() {
         {selectedCollection && (
           <>
             <div className="form-group">
-              <label className="form-label">Enforcement Mode</label>
+              <label className="form-label" title="Controls how strictly documents are validated against the field constraints below">Enforcement Mode</label>
               <select
                 className="input"
                 value={constraints.mode}
                 onChange={(e) => setConstraints(prev => ({ ...prev, mode: e.target.value }))}
+                title="Choose how strictly documents in this collection are validated against the field constraints"
               >
                 {Object.entries(ENFORCEMENT_MODES).map(([val, { label, description }]) => (
                   <option key={val} value={val}>{label} - {description}</option>
@@ -858,8 +882,8 @@ export default function Collections() {
 
             <div className="form-group">
               <div className="form-label-row">
-                <label className="form-label">Field Constraints</label>
-                <button className="btn btn-sm btn-secondary" onClick={handleAddConstraint}>
+                <label className="form-label" title="Per-field type and validation rules enforced on documents in this collection">Field Constraints</label>
+                <button className="btn btn-sm btn-secondary" onClick={handleAddConstraint} title="Add another field constraint row to validate a specific document field">
                   + Add Field
                 </button>
               </div>
@@ -877,11 +901,13 @@ export default function Collections() {
                           placeholder="Field path (e.g., user.email)"
                           value={constraint.fieldPath || ''}
                           onChange={(e) => handleUpdateConstraint(idx, 'fieldPath', e.target.value)}
+                          title="Dot-notation path to the document field this constraint applies to (e.g., user.email)"
                         />
                         <select
                           className="input constraint-type"
                           value={constraint.dataType || 'string'}
                           onChange={(e) => handleUpdateConstraint(idx, 'dataType', e.target.value)}
+                          title="Expected data type that values at this field path must match"
                         >
                           {DATA_TYPES.map(t => (
                             <option key={t} value={t}>{t}</option>
@@ -890,24 +916,27 @@ export default function Collections() {
                         <button
                           className="btn btn-sm btn-danger"
                           onClick={() => handleRemoveConstraint(idx)}
+                          title="Remove this field constraint"
                         >
                           Remove
                         </button>
                       </div>
                       <div className="constraint-options">
-                        <label className="checkbox-label">
+                        <label className="checkbox-label" title="When checked, documents must include a value at this field path">
                           <input
                             type="checkbox"
                             checked={constraint.required || false}
                             onChange={(e) => handleUpdateConstraint(idx, 'required', e.target.checked)}
+                            title="Require this field to be present in every document"
                           />
                           Required
                         </label>
-                        <label className="checkbox-label">
+                        <label className="checkbox-label" title="When checked, this field is allowed to hold a null value">
                           <input
                             type="checkbox"
                             checked={constraint.nullable ?? true}
                             onChange={(e) => handleUpdateConstraint(idx, 'nullable', e.target.checked)}
+                            title="Allow this field to contain a null value"
                           />
                           Nullable
                         </label>
@@ -920,6 +949,7 @@ export default function Collections() {
                             placeholder="Regex pattern (optional)"
                             value={constraint.regexPattern || ''}
                             onChange={(e) => handleUpdateConstraint(idx, 'regexPattern', e.target.value)}
+                            title="Optional regular expression that string values at this field must match"
                           />
                         </div>
                       )}
@@ -931,6 +961,7 @@ export default function Collections() {
                             placeholder="Min value"
                             value={constraint.minValue ?? ''}
                             onChange={(e) => handleUpdateConstraint(idx, 'minValue', e.target.value ? parseFloat(e.target.value) : null)}
+                            title="Smallest numeric value allowed for this field (inclusive)"
                           />
                           <input
                             type="number"
@@ -938,6 +969,7 @@ export default function Collections() {
                             placeholder="Max value"
                             value={constraint.maxValue ?? ''}
                             onChange={(e) => handleUpdateConstraint(idx, 'maxValue', e.target.value ? parseFloat(e.target.value) : null)}
+                            title="Largest numeric value allowed for this field (inclusive)"
                           />
                         </div>
                       )}
@@ -949,6 +981,7 @@ export default function Collections() {
                             placeholder="Min length"
                             value={constraint.minLength ?? ''}
                             onChange={(e) => handleUpdateConstraint(idx, 'minLength', e.target.value ? parseInt(e.target.value) : null)}
+                            title="Minimum number of characters (string) or items (array) allowed for this field"
                           />
                           <input
                             type="number"
@@ -956,6 +989,7 @@ export default function Collections() {
                             placeholder="Max length"
                             value={constraint.maxLength ?? ''}
                             onChange={(e) => handleUpdateConstraint(idx, 'maxLength', e.target.value ? parseInt(e.target.value) : null)}
+                            title="Maximum number of characters (string) or items (array) allowed for this field"
                           />
                         </div>
                       )}
@@ -966,13 +1000,14 @@ export default function Collections() {
             </div>
 
             <div className="modal-actions">
-              <button className="btn btn-secondary" onClick={() => setShowConstraintsModal(false)}>
+              <button className="btn btn-secondary" onClick={() => setShowConstraintsModal(false)} title="Close without saving changes to the schema constraints">
                 Cancel
               </button>
               <button
                 className="btn btn-primary"
                 onClick={handleSaveConstraints}
                 disabled={saving}
+                title="Save the enforcement mode and field constraints for this collection"
               >
                 {saving ? 'Saving...' : 'Save'}
               </button>
@@ -993,11 +1028,12 @@ export default function Collections() {
         {selectedCollection && (
           <>
             <div className="form-group">
-              <label className="form-label">Indexing Mode</label>
+              <label className="form-label" title="Determines which document fields are indexed for search: all, only selected, or none">Indexing Mode</label>
               <select
                 className="input"
                 value={indexing.mode}
                 onChange={(e) => setIndexing(prev => ({ ...prev, mode: e.target.value }))}
+                title="Choose whether all fields, only specified fields, or no fields are indexed for search"
               >
                 {Object.entries(INDEXING_MODES).map(([val, { label, description }]) => (
                   <option key={val} value={val}>{label} - {description}</option>
@@ -1008,8 +1044,8 @@ export default function Collections() {
             {indexing.mode === 'selective' && (
               <div className="form-group">
                 <div className="form-label-row">
-                  <label className="form-label">Indexed Fields</label>
-                  <button className="btn btn-sm btn-secondary" onClick={handleAddIndexedField}>
+                  <label className="form-label" title="Explicit list of field paths to index when indexing mode is selective">Indexed Fields</label>
+                  <button className="btn btn-sm btn-secondary" onClick={handleAddIndexedField} title="Add another field path to the list of fields that will be indexed">
                     + Add Field
                   </button>
                 </div>
@@ -1026,10 +1062,12 @@ export default function Collections() {
                           placeholder="Field path (e.g., user.name)"
                           value={field}
                           onChange={(e) => handleUpdateIndexedField(idx, e.target.value)}
+                          title="Dot-notation path of a document field to include in the search index (e.g., user.name)"
                         />
                         <button
                           className="btn btn-sm btn-danger"
                           onClick={() => handleRemoveIndexedField(idx)}
+                          title="Remove this field from the list of indexed fields"
                         >
                           Remove
                         </button>
@@ -1041,13 +1079,14 @@ export default function Collections() {
             )}
 
             <div className="modal-actions">
-              <button className="btn btn-secondary" onClick={() => setShowIndexingModal(false)}>
+              <button className="btn btn-secondary" onClick={() => setShowIndexingModal(false)} title="Close without saving changes to the indexing configuration">
                 Cancel
               </button>
               <button
                 className="btn btn-primary"
                 onClick={() => handleSaveIndexing(false)}
                 disabled={saving}
+                title="Save the indexing configuration without rebuilding existing indexes"
               >
                 {saving ? 'Saving...' : 'Save'}
               </button>
@@ -1055,6 +1094,7 @@ export default function Collections() {
                 className="btn btn-primary"
                 onClick={() => handleSaveIndexing(true)}
                 disabled={saving}
+                title="Save the indexing configuration and immediately rebuild all indexes for existing documents"
               >
                 {saving ? 'Saving...' : 'Save & Rebuild'}
               </button>
@@ -1084,13 +1124,13 @@ export default function Collections() {
                   Existing documents will be re-indexed according to the current indexing configuration.
                 </p>
                 <div className="modal-actions">
-                  <button className="btn btn-secondary" onClick={() => setShowRebuildModal(false)}>
+                  <button className="btn btn-secondary" onClick={() => setShowRebuildModal(false)} title="Close this dialog without rebuilding any indexes">
                     Cancel
                   </button>
-                  <button className="btn btn-primary" onClick={() => handleStartRebuild(false)}>
+                  <button className="btn btn-primary" onClick={() => handleStartRebuild(false)} title="Re-index all documents while keeping every existing index, even unused ones">
                     Rebuild (Keep All)
                   </button>
-                  <button className="btn btn-warning" onClick={() => handleStartRebuild(true)}>
+                  <button className="btn btn-warning" onClick={() => handleStartRebuild(true)} title="Re-index all documents and drop indexes no longer referenced by the current configuration">
                     Rebuild (Drop Unused)
                   </button>
                 </div>
@@ -1153,6 +1193,7 @@ export default function Collections() {
                       setSelectedCollection(null)
                       setRebuildResult(null)
                     }}
+                    title="Dismiss the rebuild results and close this dialog"
                   >
                     Close
                   </button>

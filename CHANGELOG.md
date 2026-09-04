@@ -29,6 +29,13 @@
   Protocol](https://modelcontextprotocol.io) endpoint behind the same auth and RBAC as the REST API, with
   a 22-tool catalog mirroring the data plane plus identity/RBAC read surfaces. Configured under a new
   `Mcp` block in `lattice.json`. Documented in `MCP_API.md`.
+- **Dashboard admin console**: the sidebar is reorganized into labeled groups (Data, Structure, Search,
+  Manage, Configure), and a new admin-gated Configure section adds Tenants, Users, Credentials, Roles,
+  Role Assignments, and Audit Log views (create/list/delete against the new endpoints; the one-time access
+  key is revealed on credential creation). Login infers the tenant and prompts to choose only when
+  ambiguous; the top bar has a single icon-only sign-out with uniformly sized buttons; and every label,
+  input, dropdown, column header, button, and link across the console carries a descriptive hover tooltip.
+  The auth/identity/RBAC/audit endpoints now appear in the API Explorer (OpenAPI-documented).
 - **Security audit trail**: authentication failures (401) and authorization denials (403) are persisted to
   an append-only audit store with principal, required permission, verdict, path, and response code.
 - **Auth telemetry**: five new counters on the `Lattice.Server` meter — `lattice.auth.requests`,

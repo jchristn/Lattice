@@ -156,17 +156,17 @@ export default function Tables() {
           <table className="table">
             <thead>
               <tr>
-                <th className={`sortable ${sort.column === 'key' ? 'sorted' : ''}`} onClick={() => handleSort('key')}>
+                <th className={`sortable ${sort.column === 'key' ? 'sorted' : ''}`} onClick={() => handleSort('key')} title="Flattened field path that this index table stores values for; click to sort by field key">
                   <span className="th-content">Field Key <span className="sort-icon">{getSortIcon('key')}</span></span>
                 </th>
-                <th className={`sortable ${sort.column === 'tableName' ? 'sorted' : ''}`} onClick={() => handleSort('tableName')}>
+                <th className={`sortable ${sort.column === 'tableName' ? 'sorted' : ''}`} onClick={() => handleSort('tableName')} title="Name of the physical database table backing this field key; click to sort by table name">
                   <span className="th-content">Table Name <span className="sort-icon">{getSortIcon('tableName')}</span></span>
                 </th>
-                <th>Actions</th>
+                <th title="Per-row actions such as viewing the table's index entries, details, or raw JSON">Actions</th>
               </tr>
               <tr className="filter-row">
-                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.key} onChange={(event) => handleFilterChange('key', event.target.value)} /></td>
-                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.tableName} onChange={(event) => handleFilterChange('tableName', event.target.value)} /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.key} onChange={(event) => handleFilterChange('key', event.target.value)} title="Filter the list to index tables whose field key contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.tableName} onChange={(event) => handleFilterChange('tableName', event.target.value)} title="Filter the list to index tables whose table name contains this text" /></td>
                 <td className="no-filter"></td>
               </tr>
             </thead>

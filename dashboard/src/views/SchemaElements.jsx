@@ -171,8 +171,8 @@ export default function SchemaElements() {
           <p className="page-subtitle">Inspect the individual flattened fields within a schema so you can verify inferred types, nullability, and downstream index-table mappings.</p>
           <div className="schema-selector-row">
             <div className="schema-selector">
-              <label className="schema-selector-label">Schema:</label>
-              <select className="schema-selector-select" value={schemaId || ''} onChange={handleSchemaChange}>
+              <label className="schema-selector-label" title="Select which schema's flattened elements are shown in the table below">Schema:</label>
+              <select className="schema-selector-select" value={schemaId || ''} onChange={handleSchemaChange} title="Switch to a different schema to inspect its elements">
                 <option value="">Select a schema...</option>
                 {schemas.map((schema) => (
                   <option key={schema.id} value={schema.id}>
@@ -189,8 +189,9 @@ export default function SchemaElements() {
                 value={manualSchemaId}
                 onChange={(event) => setManualSchemaId(event.target.value)}
                 placeholder="Paste schema ID..."
+                title="Paste a specific schema ID to jump directly to its elements without using the dropdown"
               />
-              <button type="submit" className="btn btn-secondary btn-sm" disabled={!manualSchemaId.trim()}>
+              <button type="submit" className="btn btn-secondary btn-sm" disabled={!manualSchemaId.trim()} title="Load the elements for the schema ID entered on the left">
                 Go
               </button>
             </form>
@@ -227,21 +228,21 @@ export default function SchemaElements() {
           <table className="table">
             <thead>
               <tr>
-                <th className={`sortable ${sort.column === 'key' ? 'sorted' : ''}`} onClick={() => handleSort('key')}>
+                <th className={`sortable ${sort.column === 'key' ? 'sorted' : ''}`} onClick={() => handleSort('key')} title="Flattened dot-notation field path within the schema; click to sort by key">
                   <span className="th-content">Key <span className="sort-icon">{getSortIcon('key')}</span></span>
                 </th>
-                <th className={`sortable ${sort.column === 'dataType' ? 'sorted' : ''}`} onClick={() => handleSort('dataType')}>
+                <th className={`sortable ${sort.column === 'dataType' ? 'sorted' : ''}`} onClick={() => handleSort('dataType')} title="Inferred data type for values at this field; click to sort by data type">
                   <span className="th-content">Data Type <span className="sort-icon">{getSortIcon('dataType')}</span></span>
                 </th>
-                <th className={`sortable ${sort.column === 'nullable' ? 'sorted' : ''}`} onClick={() => handleSort('nullable')}>
+                <th className={`sortable ${sort.column === 'nullable' ? 'sorted' : ''}`} onClick={() => handleSort('nullable')} title="Whether this field was observed holding null values; click to sort by nullability">
                   <span className="th-content">Nullable <span className="sort-icon">{getSortIcon('nullable')}</span></span>
                 </th>
-                <th>Actions</th>
+                <th title="Per-row actions such as viewing the index tables or raw JSON for this element">Actions</th>
               </tr>
               <tr className="filter-row">
-                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.key} onChange={(event) => handleFilterChange('key', event.target.value)} /></td>
-                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.dataType} onChange={(event) => handleFilterChange('dataType', event.target.value)} /></td>
-                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.nullable} onChange={(event) => handleFilterChange('nullable', event.target.value)} /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.key} onChange={(event) => handleFilterChange('key', event.target.value)} title="Filter the list to elements whose field key contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.dataType} onChange={(event) => handleFilterChange('dataType', event.target.value)} title="Filter the list to elements whose data type contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.nullable} onChange={(event) => handleFilterChange('nullable', event.target.value)} title="Filter by nullability; type yes or no to match nullable or non-nullable fields" /></td>
                 <td className="no-filter"></td>
               </tr>
             </thead>
