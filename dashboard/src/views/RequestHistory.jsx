@@ -324,6 +324,7 @@ export default function RequestHistory() {
   const [filters, setFilters] = useState(() => createEmptyFilters())
   const [appliedFilters, setAppliedFilters] = useState(() => normalizeFilters(createEmptyFilters()))
   const [timeRange, setTimeRange] = useState('day')
+  const [filtersOpen, setFiltersOpen] = useState(true)
   const [entries, setEntries] = useState([])
   const [summary, setSummary] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -551,13 +552,22 @@ export default function RequestHistory() {
       </div>
 
       <div className="card request-history-filters-card">
-        <div className="request-history-filters-header">
-          <div>
+        <button
+          type="button"
+          className="request-history-filters-toggle"
+          onClick={() => setFiltersOpen((current) => !current)}
+          aria-expanded={filtersOpen}
+          title={filtersOpen ? 'Collapse the filters section to hide the filter controls' : 'Expand the filters section to show the filter controls'}
+        >
+          <span className={`request-history-filters-chevron ${filtersOpen ? 'open' : ''}`} aria-hidden="true">▶</span>
+          <span className="request-history-filters-header">
             <h2>Filters</h2>
             <p>Narrow the table and chart to a route, collection, document, status, or time window.</p>
-          </div>
-        </div>
+          </span>
+        </button>
 
+        {filtersOpen ? (
+        <>
         <div className="request-history-filters-grid">
           <div className="form-group">
             <label className="form-label" title="Restrict results to a category of API request such as collection, document, or search">Request Type</label>
@@ -638,6 +648,8 @@ export default function RequestHistory() {
           <button className="btn btn-secondary" onClick={clearFilters} title="Reset all filter fields and reload the unfiltered request history">Clear</button>
           <button className="btn btn-primary" onClick={applyFilters} title="Apply the filter fields above to the request history table and traffic chart">Apply Filters</button>
         </div>
+        </>
+        ) : null}
       </div>
 
       <div className="card">

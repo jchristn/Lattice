@@ -25,12 +25,19 @@ export default function Credentials() {
   const [createdKey, setCreatedKey] = useState(null)
   const [jsonRow, setJsonRow] = useState(null)
   const [viewRow, setViewRow] = useState(null)
+  const [editing, setEditing] = useState(null)
+  const [editForm, setEditForm] = useState({ name: '', active: true })
 
   const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize))
 
+  const openEdit = (row) => {
+    setEditForm({ name: row.name || '', active: !!row.active })
+    setEditing(row)
+  }
+
   const onRowClick = (event, row) => {
     if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
-    setViewRow(row)
+    openEdit(row)
   }
 
   const buildFields = (c) => c ? [
@@ -38,6 +45,7 @@ export default function Credentials() {
     c.name ? { label: 'Name', value: c.name, title: 'The human-readable label describing this credential’s purpose' } : null,
     { label: 'User ID', value: c.userId, copyable: true, title: 'The user this credential authenticates as and inherits permissions from' },
     { label: 'Tenant ID', value: c.tenantId, copyable: true, title: 'The tenant this credential belongs to' },
+    c.accessKey ? { label: 'Access Key', value: c.accessKey, copyable: true, title: 'The full access key used as a bearer token; treat it as a secret' } : null,
     c.accessKeyLast4 ? { label: 'Access key (last 4)', value: c.accessKeyLast4, title: 'The last four characters of the access key, for identifying it without exposing the secret' } : null,
     { label: 'Active', value: c.active ? 'Yes' : 'No', title: 'Whether the credential is active and accepted for authentication' },
     { label: 'Protected', value: c.isProtected ? 'Yes' : 'No', title: 'Protected credentials are system-managed and cannot be deleted' },
@@ -93,6 +101,20 @@ export default function Credentials() {
     setShowCreate(false)
     setCreatedKey(null)
     setForm({ name: '', userId: '' })
+  }
+
+  const handleUpdate = async () => {
+    if (!editing) return
+    try {
+      setSaving(true)
+      await api.updateCredential(editing.id, { name: editForm.name || null, active: editForm.active })
+      setEditing(null)
+      await load()
+    } catch (err) {
+      setError('Failed to update credential: ' + err.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleDelete = async (credential) => {
@@ -170,7 +192,7 @@ export default function Credentials() {
             </thead>
             <tbody>
               {credentials.map((c) => (
-                <tr key={c.id} className="clickable-row" title="Click to view details" onClick={(e) => onRowClick(e, c)}>
+                <tr key={c.id} className="clickable-row" title="Click to edit" onClick={(e) => onRowClick(e, c)}>
                   <td><CopyableId value={c.id} /></td>
                   <td>{c.name || '-'}</td>
                   <td>{c.userId ? <CopyableId value={c.userId} /> : '-'}</td>
@@ -180,6 +202,11 @@ export default function Credentials() {
                   <td>
                     <ActionMenu
                       items={[
+                        {
+                          label: 'Edit',
+                          onClick: () => openEdit(c),
+                          title: 'Edit this credential’s name and active status',
+                        },
                         {
                           label: 'View',
                           onClick: () => setViewRow(c),
@@ -265,6 +292,54 @@ export default function Credentials() {
             </div>
           </>
         )}
+      </Modal>
+
+      <Modal
+        isOpen={!!editing}
+        onClose={() => setEditing(null)}
+        title="Edit Credential"
+        subtitle="Update the credential’s name and whether it is active."
+        wide
+      >
+        <div className="form-group">
+          <label className="form-label" title="An optional label describing what this credential is for; shown in the credentials list">Name</label>
+          <input
+            type="text"
+            className="input"
+            value={editForm.name}
+            onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+            placeholder="e.g., CI pipeline key"
+            title="Edit the optional descriptive name for this credential"
+          />
+        </div>
+        {editing?.accessKey ? (
+          <div className="form-group">
+            <label className="form-label" title="The full access key used as a bearer token; treat it as a secret. This value is read-only and cannot be changed.">Access Key</label>
+            <div className="key-reveal">
+              <code className="key-value" title="The full secret access key; read-only">{editing.accessKey}</code>
+              <CopyButton value={editing.accessKey} title="Copy the access key to your clipboard" />
+            </div>
+          </div>
+        ) : null}
+        <div className="form-group">
+          <label className="checkbox-label" title="Whether the credential is active and accepted for authentication; inactive credentials are rejected">
+            <input
+              type="checkbox"
+              checked={editForm.active}
+              onChange={(e) => setEditForm({ ...editForm, active: e.target.checked })}
+              title="Toggle whether this credential is currently active"
+            />
+            Active
+          </label>
+        </div>
+        <div className="modal-actions">
+          <button className="btn btn-secondary" onClick={() => setEditing(null)} title="Discard your changes and close the dialog">
+            Cancel
+          </button>
+          <button className="btn btn-primary" onClick={handleUpdate} disabled={saving} title="Save the changes to this credential">
+            {saving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
       </Modal>
 
       <JsonViewerModal

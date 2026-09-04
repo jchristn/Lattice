@@ -6,6 +6,7 @@ import ActionMenu from '../components/ActionMenu'
 import CopyableId from '../components/CopyableId'
 import JsonViewerModal from '../components/JsonViewerModal'
 import Modal from '../components/Modal'
+import DetailModal from '../components/DetailModal'
 import TablePagination from '../components/TablePagination'
 import TagInput from '../components/TagInput'
 import KeyValueEditor from '../components/KeyValueEditor'
@@ -29,8 +30,7 @@ export default function Documents() {
   const [totalRecords, setTotalRecords] = useState(0)
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [showMetadataModal, setShowMetadataModal] = useState(false)
-  const [selectedDocument, setSelectedDocument] = useState(null)
+  const [metaRow, setMetaRow] = useState(null)
   const [jsonViewer, setJsonViewer] = useState({ open: false, title: '', subtitle: '', identifier: '', value: null })
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(25)
@@ -210,11 +210,44 @@ export default function Documents() {
   const handleViewMetadata = async (id) => {
     try {
       const document = await api.getDocument(collectionId, id)
-      setSelectedDocument(document)
-      setShowMetadataModal(true)
+      setMetaRow(document)
     } catch (err) {
       setError('Failed to load document: ' + err.message)
     }
+  }
+
+  // Build the formatted Document Metadata fields for the DetailModal (mirrors Search.jsx). Null/empty
+  // entries return null so the DetailModal skips them.
+  const buildDocFields = (doc) => {
+    if (!doc) return []
+    const contentLength = doc.contentLength || 0
+    return [
+      { label: 'ID', value: doc.id, copyable: true, title: 'Unique identifier of the document' },
+      doc.name ? { label: 'Name', value: doc.name, title: 'Optional name of the document' } : null,
+      { label: 'Collection ID', value: doc.collectionId || collectionId, copyable: true, title: 'The collection this document belongs to' },
+      doc.schemaId ? { label: 'Schema ID', value: doc.schemaId, copyable: true, title: 'The schema inferred for this document' } : null,
+      { label: 'Content Length', value: `${formatBytes(contentLength)} (${contentLength.toLocaleString()} bytes)`, title: 'Size of the stored document content in bytes' },
+      doc.sha256Hash ? { label: 'SHA-256', value: doc.sha256Hash, copyable: true, title: 'SHA-256 hash of the stored document content' } : null,
+      doc.labels?.length > 0 ? {
+        label: 'Labels', inline: true, title: 'Labels attached to this document',
+        node: <div className="detail-chips">{doc.labels.map((label, i) => <span key={i} className="label-badge">{label}</span>)}</div>,
+      } : null,
+      doc.tags && Object.keys(doc.tags).length > 0 ? {
+        label: 'Tags', inline: true, title: 'Key/value metadata pairs on this document',
+        node: (
+          <div className="detail-chips">
+            {Object.entries(doc.tags).map(([key, value]) => (
+              <span key={key} className="tag-item">
+                <span className="tag-key">{key}</span>
+                <span className="tag-sep">=</span>
+                <span className="tag-val">{value}</span>
+              </span>
+            ))}
+          </div>
+        ),
+      } : null,
+      { label: 'Created', value: formatDate(doc.createdUtc), title: 'When the document was created' },
+    ]
   }
 
   const handleViewData = async (id, name) => {
@@ -232,10 +265,10 @@ export default function Documents() {
     }
   }
 
-  // Row body click opens the document content view; interactive controls inside the row are ignored.
+  // Row body click opens the formatted document metadata view; interactive controls inside the row are ignored.
   const onRowClick = (event, document) => {
     if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
-    handleViewData(document.id, document.name)
+    setMetaRow(document)
   }
 
   const handleViewDocumentJson = (document) => {
@@ -358,7 +391,7 @@ export default function Documents() {
                 </tr>
               ) : (
                 filteredDocuments.map((document) => (
-                  <tr key={document.id} className="clickable-row" title="Click to view content" onClick={(event) => onRowClick(event, document)}>
+                  <tr key={document.id} className="clickable-row" title="Click to view metadata" onClick={(event) => onRowClick(event, document)}>
                     <td><CopyableId value={document.id} /></td>
                     <td>{document.name || '-'}</td>
                     <td>{formatBytes(document.contentLength || 0)}</td>
@@ -368,7 +401,7 @@ export default function Documents() {
                       <ActionMenu
                         items={[
                           { label: 'View Metadata', onClick: () => handleViewMetadata(document.id) },
-                          { label: 'View Data', onClick: () => handleViewData(document.id, document.name) },
+                          { label: 'View Content', onClick: () => handleViewData(document.id, document.name) },
                           { label: 'View JSON', onClick: () => handleViewDocumentJson(document) },
                           { label: 'Delete Document', onClick: () => handleDelete(document.id), variant: 'danger' },
                         ]}
@@ -414,63 +447,13 @@ export default function Documents() {
         </div>
       </Modal>
 
-      <Modal
-        isOpen={showMetadataModal}
-        onClose={() => {
-          setShowMetadataModal(false)
-          setSelectedDocument(null)
-        }}
+      <DetailModal
+        isOpen={!!metaRow}
+        onClose={() => setMetaRow(null)}
         title="Document Metadata"
-        subtitle="Review identifiers, schema assignment, and stored document attributes for the selected record."
-        wide
-      >
-        {selectedDocument && (
-          <>
-            <div className="doc-detail">
-              <strong>ID:</strong> <CopyableId value={selectedDocument.id} />
-            </div>
-            <div className="doc-detail">
-              <strong>Name:</strong> {selectedDocument.name || '-'}
-            </div>
-            <div className="doc-detail">
-              <strong>Schema ID:</strong> {selectedDocument.schemaId ? <CopyableId value={selectedDocument.schemaId} /> : '-'}
-            </div>
-            <div className="doc-detail">
-              <strong>Content Length:</strong> {formatBytes(selectedDocument.contentLength || 0)} ({(selectedDocument.contentLength || 0).toLocaleString()} bytes)
-            </div>
-            <div className="doc-detail">
-              <strong>SHA256 Hash:</strong> {selectedDocument.sha256Hash ? <CopyableId value={selectedDocument.sha256Hash} /> : '-'}
-            </div>
-            <div className="doc-detail">
-              <strong>Created:</strong> {formatDate(selectedDocument.createdUtc)}
-            </div>
-            {selectedDocument.labels?.length > 0 && (
-              <div className="doc-detail">
-                <strong>Labels:</strong>
-                <div className="doc-labels">
-                  {selectedDocument.labels.map((label, index) => (
-                    <span key={index} className="label-badge">{label}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {selectedDocument.tags && Object.keys(selectedDocument.tags).length > 0 && (
-              <div className="doc-detail">
-                <strong>Tags:</strong>
-                <div className="doc-tags">
-                  {Object.entries(selectedDocument.tags).map(([key, value]) => (
-                    <span key={key} className="tag-item">
-                      <span className="tag-key">{key}</span>
-                      <span className="tag-sep">=</span>
-                      <span className="tag-val">{value}</span>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </Modal>
+        subtitle="Identifiers and metadata for this document."
+        fields={buildDocFields(metaRow)}
+      />
 
       <JsonViewerModal
         isOpen={jsonViewer.open}

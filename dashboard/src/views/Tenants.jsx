@@ -22,12 +22,19 @@ export default function Tenants() {
   const [saving, setSaving] = useState(false)
   const [jsonRow, setJsonRow] = useState(null)
   const [viewRow, setViewRow] = useState(null)
+  const [editing, setEditing] = useState(null)
+  const [editForm, setEditForm] = useState({ name: '', active: true })
 
   const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize))
 
+  const openEdit = (row) => {
+    setEditForm({ name: row.name || '', active: !!row.active })
+    setEditing(row)
+  }
+
   const onRowClick = (event, row) => {
     if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
-    setViewRow(row)
+    openEdit(row)
   }
 
   const buildFields = (t) => t ? [
@@ -73,6 +80,20 @@ export default function Tenants() {
       await load()
     } catch (err) {
       setError('Failed to create tenant: ' + err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleUpdate = async () => {
+    if (!editing) return
+    try {
+      setSaving(true)
+      await api.updateTenant(editing.id, { name: editForm.name, active: editForm.active })
+      setEditing(null)
+      await load()
+    } catch (err) {
+      setError('Failed to update tenant: ' + err.message)
     } finally {
       setSaving(false)
     }
@@ -152,7 +173,7 @@ export default function Tenants() {
             </thead>
             <tbody>
               {tenants.map((t) => (
-                <tr key={t.id} className="clickable-row" title="Click to view details" onClick={(e) => onRowClick(e, t)}>
+                <tr key={t.id} className="clickable-row" title="Click to edit" onClick={(e) => onRowClick(e, t)}>
                   <td><CopyableId value={t.id} /></td>
                   <td>{t.name}</td>
                   <td title={t.active ? 'This tenant is active' : 'This tenant is inactive'}>{t.active ? 'Yes' : 'No'}</td>
@@ -161,6 +182,11 @@ export default function Tenants() {
                   <td>
                     <ActionMenu
                       items={[
+                        {
+                          label: 'Edit',
+                          onClick: () => openEdit(t),
+                          title: 'Edit this tenant’s name and active status',
+                        },
                         {
                           label: 'View',
                           onClick: () => setViewRow(t),
@@ -212,6 +238,44 @@ export default function Tenants() {
           </button>
           <button className="btn btn-primary" onClick={handleCreate} disabled={!name.trim() || saving} title="Create the tenant with the name entered above">
             {saving ? 'Creating...' : 'Create'}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={!!editing}
+        onClose={() => setEditing(null)}
+        title="Edit Tenant"
+        subtitle="Update the tenant’s display name and whether it is active."
+      >
+        <div className="form-group">
+          <label className="form-label" title="A human-readable name for this tenant; shown throughout the console">Name *</label>
+          <input
+            type="text"
+            className="input"
+            value={editForm.name}
+            onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+            placeholder="e.g., Acme Corporation"
+            title="Edit the descriptive name identifying this tenant"
+          />
+        </div>
+        <div className="form-group">
+          <label className="checkbox-label" title="Whether this tenant is active and able to accept requests; inactive tenants reject traffic">
+            <input
+              type="checkbox"
+              checked={editForm.active}
+              onChange={(e) => setEditForm({ ...editForm, active: e.target.checked })}
+              title="Toggle whether this tenant is currently active"
+            />
+            Active
+          </label>
+        </div>
+        <div className="modal-actions">
+          <button className="btn btn-secondary" onClick={() => setEditing(null)} title="Discard your changes and close the dialog">
+            Cancel
+          </button>
+          <button className="btn btn-primary" onClick={handleUpdate} disabled={!editForm.name.trim() || saving} title="Save the changes to this tenant">
+            {saving ? 'Saving...' : 'Save'}
           </button>
         </div>
       </Modal>

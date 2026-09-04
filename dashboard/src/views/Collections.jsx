@@ -35,6 +35,8 @@ export default function Collections() {
   const [collections, setCollections] = useState([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editForm, setEditForm] = useState({ id: '', name: '', description: '' })
   const [showMetadataModal, setShowMetadataModal] = useState(false)
   const [showConstraintsModal, setShowConstraintsModal] = useState(false)
   const [showIndexingModal, setShowIndexingModal] = useState(false)
@@ -191,10 +193,35 @@ export default function Collections() {
     setShowMetadataModal(true)
   }
 
-  // Row body click opens the collection metadata modal; interactive controls inside the row are ignored.
+  const handleEditCollection = (collection) => {
+    setEditForm({
+      id: collection.id,
+      name: collection.name || '',
+      description: collection.description || '',
+    })
+    setShowEditModal(true)
+  }
+
+  const handleSaveEdit = async () => {
+    try {
+      setSaving(true)
+      await api.updateCollection(editForm.id, {
+        name: editForm.name,
+        description: editForm.description || null,
+      })
+      setShowEditModal(false)
+      await loadCollections()
+    } catch (err) {
+      setError('Failed to update collection: ' + err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Row body click opens the edit modal; interactive controls inside the row are ignored.
   const onRowClick = (event, collection) => {
     if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
-    handleViewMetadata(collection)
+    handleEditCollection(collection)
   }
 
   const handleViewConstraints = async (collection) => {
@@ -524,7 +551,7 @@ export default function Collections() {
                 </tr>
               ) : (
                 pagedCollections.map((collection) => (
-                  <tr key={collection.id} className="clickable-row" title="Click to view metadata" onClick={(event) => onRowClick(event, collection)}>
+                  <tr key={collection.id} className="clickable-row" title="Click to edit this collection" onClick={(event) => onRowClick(event, collection)}>
                     <td>
                       {collection.name}
                       <div className="collection-id">
@@ -537,6 +564,7 @@ export default function Collections() {
                     <td>
                       <ActionMenu
                         items={[
+                          { label: 'Edit Collection', onClick: () => handleEditCollection(collection) },
                           { label: 'View Metadata', onClick: () => handleViewMetadata(collection) },
                           { label: 'View Documents', onClick: () => handleViewDocuments(collection.id) },
                           { label: 'Add Document', onClick: () => handleAddDocument(collection.id) },
@@ -794,6 +822,49 @@ export default function Collections() {
             title="Create the collection with the settings entered above"
           >
             Create
+          </button>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        title="Edit Collection"
+        subtitle="Update the collection's name and description. Other settings are managed from their own dialogs."
+      >
+        <div className="form-group">
+          <label className="form-label" title="Required unique name used to identify this collection throughout the dashboard">Name *</label>
+          <input
+            type="text"
+            className="input"
+            value={editForm.name}
+            onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+            placeholder="Enter collection name"
+            title="Enter a required unique name for this collection"
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label" title="Optional description shown alongside the collection to explain its purpose">Description</label>
+          <textarea
+            className="textarea"
+            value={editForm.description}
+            onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+            placeholder="Optional description"
+            rows={3}
+            title="Enter an optional description explaining what this collection holds"
+          />
+        </div>
+        <div className="modal-actions">
+          <button className="btn btn-secondary" onClick={() => setShowEditModal(false)} title="Discard changes and close the dialog without saving">
+            Cancel
+          </button>
+          <button
+            className="btn btn-primary"
+            onClick={handleSaveEdit}
+            disabled={saving || !editForm.name}
+            title="Save the updated name and description for this collection"
+          >
+            {saving ? 'Saving...' : 'Save'}
           </button>
         </div>
       </Modal>

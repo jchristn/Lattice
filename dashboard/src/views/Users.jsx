@@ -25,12 +25,26 @@ export default function Users() {
   const [saving, setSaving] = useState(false)
   const [jsonRow, setJsonRow] = useState(null)
   const [viewRow, setViewRow] = useState(null)
+  const [editing, setEditing] = useState(null)
+  const [editForm, setEditForm] = useState({ firstName: '', lastName: '', password: '', isTenantAdmin: false, isAdmin: false, active: true })
 
   const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize))
 
+  const openEdit = (row) => {
+    setEditForm({
+      firstName: row.firstName || '',
+      lastName: row.lastName || '',
+      password: '',
+      isTenantAdmin: !!row.isTenantAdmin,
+      isAdmin: !!row.isAdmin,
+      active: !!row.active,
+    })
+    setEditing(row)
+  }
+
   const onRowClick = (event, row) => {
     if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
-    setViewRow(row)
+    openEdit(row)
   }
 
   const buildFields = (u) => u ? [
@@ -91,6 +105,32 @@ export default function Users() {
       await load()
     } catch (err) {
       setError('Failed to create user: ' + err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleUpdate = async () => {
+    if (!editing) return
+    try {
+      setSaving(true)
+      const payload = {
+        firstName: editForm.firstName || null,
+        lastName: editForm.lastName || null,
+        isTenantAdmin: editForm.isTenantAdmin,
+        active: editForm.active,
+      }
+      if (editForm.password) {
+        payload.password = editForm.password
+      }
+      if (isSystemAdmin) {
+        payload.isAdmin = editForm.isAdmin
+      }
+      await api.updateUser(editing.id, payload)
+      setEditing(null)
+      await load()
+    } catch (err) {
+      setError('Failed to update user: ' + err.message)
     } finally {
       setSaving(false)
     }
@@ -172,7 +212,7 @@ export default function Users() {
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.id} className="clickable-row" title="Click to view details" onClick={(e) => onRowClick(e, u)}>
+                <tr key={u.id} className="clickable-row" title="Click to edit" onClick={(e) => onRowClick(e, u)}>
                   <td><CopyableId value={u.id} /></td>
                   <td>{u.email}</td>
                   <td>{u.tenantId ? <CopyableId value={u.tenantId} /> : '-'}</td>
@@ -183,6 +223,11 @@ export default function Users() {
                   <td>
                     <ActionMenu
                       items={[
+                        {
+                          label: 'Edit',
+                          onClick: () => openEdit(u),
+                          title: 'Edit this user’s name, roles, password, and active status',
+                        },
                         {
                           label: 'View',
                           onClick: () => setViewRow(u),
@@ -296,6 +341,90 @@ export default function Users() {
             title="Create the user account with the details entered above"
           >
             {saving ? 'Creating...' : 'Create'}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={!!editing}
+        onClose={() => setEditing(null)}
+        title="Edit User"
+        subtitle={editing ? `Update the account for ${editing.email}.` : ''}
+      >
+        <div className="form-group">
+          <label className="form-label" title="The user's given name, shown in the console">First Name</label>
+          <input
+            type="text"
+            className="input"
+            value={editForm.firstName}
+            onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })}
+            placeholder="Optional"
+            title="Edit the user's first name (optional)"
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label" title="The user's family name, shown in the console">Last Name</label>
+          <input
+            type="text"
+            className="input"
+            value={editForm.lastName}
+            onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })}
+            placeholder="Optional"
+            title="Edit the user's last name (optional)"
+          />
+        </div>
+        <div className="form-group">
+          <label className="form-label" title="Set a new sign-in password; leave blank to keep the current password unchanged">Password</label>
+          <input
+            type="password"
+            className="input"
+            value={editForm.password}
+            onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+            placeholder="Leave blank to keep current"
+            title="Enter a new password only if you want to change it; leave blank to keep the current one"
+          />
+        </div>
+        <div className="form-group">
+          <label className="checkbox-label" title="Grant this user administrative control over their own tenant's users and settings">
+            <input
+              type="checkbox"
+              checked={editForm.isTenantAdmin}
+              onChange={(e) => setEditForm({ ...editForm, isTenantAdmin: e.target.checked })}
+              title="Make this user an administrator of their tenant"
+            />
+            Tenant administrator
+          </label>
+        </div>
+        {isSystemAdmin ? (
+          <div className="form-group">
+            <label className="checkbox-label" title="Grant this user system-wide administrative control over every tenant on the server">
+              <input
+                type="checkbox"
+                checked={editForm.isAdmin}
+                onChange={(e) => setEditForm({ ...editForm, isAdmin: e.target.checked })}
+                title="Make this user a system administrator across all tenants"
+              />
+              System administrator
+            </label>
+          </div>
+        ) : null}
+        <div className="form-group">
+          <label className="checkbox-label" title="Whether the account is active and allowed to sign in; inactive users cannot authenticate">
+            <input
+              type="checkbox"
+              checked={editForm.active}
+              onChange={(e) => setEditForm({ ...editForm, active: e.target.checked })}
+              title="Toggle whether this account is active and able to sign in"
+            />
+            Active
+          </label>
+        </div>
+        <div className="modal-actions">
+          <button className="btn btn-secondary" onClick={() => setEditing(null)} title="Discard your changes and close the dialog">
+            Cancel
+          </button>
+          <button className="btn btn-primary" onClick={handleUpdate} disabled={saving} title="Save the changes to this user account">
+            {saving ? 'Saving...' : 'Save'}
           </button>
         </div>
       </Modal>
