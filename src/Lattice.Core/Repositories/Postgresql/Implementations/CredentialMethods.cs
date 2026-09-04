@@ -119,6 +119,7 @@ namespace Lattice.Core.Repositories.Postgresql.Implementations
                 UPDATE credentials SET
                     name = {(credential.Name != null ? $"'{Sanitizer.Sanitize(credential.Name)}'" : "NULL")},
                     accesskeysha256 = '{Sanitizer.Sanitize(credential.AccessKeySha256)}',
+                    accesskey = {(credential.AccessKey != null ? $"'{Sanitizer.Sanitize(credential.AccessKey)}'" : "NULL")},
                     accesskeylast4 = {(credential.AccessKeyLast4 != null ? $"'{Sanitizer.Sanitize(credential.AccessKeyLast4)}'" : "NULL")},
                     expiresutc = {(credential.ExpiresUtc != null ? $"'{Converters.ToTimestamp(credential.ExpiresUtc.Value)}'" : "NULL")},
                     lastusedutc = {(credential.LastUsedUtc != null ? $"'{Converters.ToTimestamp(credential.LastUsedUtc.Value)}'" : "NULL")},

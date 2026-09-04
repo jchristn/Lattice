@@ -33,7 +33,7 @@ export default function Credentials() {
   const [jsonRow, setJsonRow] = useState(null)
   const [viewRow, setViewRow] = useState(null)
   const [editing, setEditing] = useState(null)
-  const [editForm, setEditForm] = useState({ name: '', active: true })
+  const [editForm, setEditForm] = useState({ name: '', accessKey: '', active: true })
 
   const filteredCredentials = useMemo(() => {
     let result = [...credentials]
@@ -72,7 +72,7 @@ export default function Credentials() {
   }
 
   const openEdit = (row) => {
-    setEditForm({ name: row.name || '', active: !!row.active })
+    setEditForm({ name: row.name || '', accessKey: row.accessKey || '', active: !!row.active })
     setEditing(row)
   }
 
@@ -150,7 +150,7 @@ export default function Credentials() {
     if (!editing) return
     try {
       setSaving(true)
-      await api.updateCredential(editing.id, { name: editForm.name || null, active: editForm.active })
+      await api.updateCredential(editing.id, { name: editForm.name || null, accessKey: editForm.accessKey || null, active: editForm.active })
       setEditing(null)
       await load()
     } catch (err) {
@@ -370,15 +370,20 @@ export default function Credentials() {
             title="Edit the optional descriptive name for this credential"
           />
         </div>
-        {editing?.accessKey ? (
-          <div className="form-group">
-            <label className="form-label" title="The full access key used as a bearer token; treat it as a secret. This value is read-only and cannot be changed.">Access Key</label>
-            <div className="key-reveal">
-              <code className="key-value" title="The full secret access key; read-only">{editing.accessKey}</code>
-              <CopyButton value={editing.accessKey} title="Copy the access key to your clipboard" />
-            </div>
+        <div className="form-group">
+          <label className="form-label" title="The full access key used as a bearer token; treat it as a secret. Editing this changes the key applications must present to authenticate.">Access Key</label>
+          <div className="key-reveal">
+            <input
+              type="text"
+              className="input key-value"
+              value={editForm.accessKey}
+              onChange={(e) => setEditForm({ ...editForm, accessKey: e.target.value })}
+              placeholder="No access key stored — type one to set it"
+              title="View or edit the full access key; saving updates the key applications must use to authenticate"
+            />
+            <CopyButton value={editForm.accessKey} title="Copy the access key to your clipboard" />
           </div>
-        ) : null}
+        </div>
         <div className="form-group">
           <label className="checkbox-label" title="Whether the credential is active and accepted for authentication; inactive credentials are rejected">
             <input

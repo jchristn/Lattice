@@ -664,10 +664,17 @@ namespace Lattice.Server.API.REST
                 if (request == null) return new ResponseContext(false, 400, "A credential body is required");
 
                 if (request.Name != null) credential.Name = request.Name;
+                if (!String.IsNullOrEmpty(request.AccessKey))
+                {
+                    // The access key is editable; recompute the hash and last-four so the new key authenticates.
+                    credential.AccessKey = request.AccessKey;
+                    credential.AccessKeySha256 = PasswordHasher.Sha256Hex(request.AccessKey);
+                    credential.AccessKeyLast4 = request.AccessKey.Length >= 4 ? request.AccessKey.Substring(request.AccessKey.Length - 4) : request.AccessKey;
+                }
                 if (request.Active.HasValue) credential.Active = request.Active.Value;
                 credential.LastUpdateUtc = DateTime.UtcNow;
                 Credential updated = await _Client.Credentials.Update(credential, CancellationToken.None).ConfigureAwait(false);
-                if (updated != null) updated.AccessKeySha256 = null; // hide the stored hash; the raw access key (if persisted) is returned
+                if (updated != null) updated.AccessKeySha256 = null; // hide the stored hash; the raw access key is returned
 
                 ServerTelemetry.RecordRbacMutation("credential", "update");
                 await WriteAuditEventAsync(reqCtx, "CredentialUpdated", ResourceType.Credential, credential.Id, 200).ConfigureAwait(false);

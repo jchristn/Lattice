@@ -118,6 +118,7 @@ namespace Lattice.Core.Repositories.SqlServer.Implementations
             string query = $@"
                 UPDATE [credentials] SET
                     [name] = {(credential.Name != null ? $"N'{Sanitizer.Sanitize(credential.Name)}'" : "NULL")},
+                    [accesskey] = {(credential.AccessKey != null ? $"'{Sanitizer.Sanitize(credential.AccessKey)}'" : "NULL")},
                     [accesskeysha256] = '{Sanitizer.Sanitize(credential.AccessKeySha256)}',
                     [accesskeylast4] = {(credential.AccessKeyLast4 != null ? $"'{Sanitizer.Sanitize(credential.AccessKeyLast4)}'" : "NULL")},
                     [expiresutc] = {(credential.ExpiresUtc != null ? $"'{Converters.ToTimestamp(credential.ExpiresUtc.Value)}'" : "NULL")},
