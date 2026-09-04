@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useApp } from '../context/AppContext'
 import { formatDate } from '../utils/api'
 import Modal from '../components/Modal'
@@ -33,7 +33,14 @@ export default function Roles() {
   const [forbidden, setForbidden] = useState(false)
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(25)
-  const [totalRecords, setTotalRecords] = useState(0)
+  const [filters, setFilters] = useState({
+    id: '',
+    name: '',
+    builtIn: '',
+    tenantId: '',
+    active: '',
+    created: '',
+  })
   const [jsonRow, setJsonRow] = useState(null)
   const [viewRow, setViewRow] = useState(null)
   // Grants for the currently viewed role, fetched on demand; null means unavailable/omit.
@@ -46,7 +53,41 @@ export default function Roles() {
   const [editorLoading, setEditorLoading] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize))
+  const filteredRoles = useMemo(() => {
+    let result = [...roles]
+    if (filters.id) {
+      const q = filters.id.toLowerCase()
+      result = result.filter((r) => (r.id || '').toLowerCase().includes(q))
+    }
+    if (filters.name) {
+      const q = filters.name.toLowerCase()
+      result = result.filter((r) => (r.name || '').toLowerCase().includes(q))
+    }
+    if (filters.builtIn) {
+      const q = filters.builtIn.toLowerCase()
+      result = result.filter((r) => (r.isBuiltIn ? 'yes' : 'no').includes(q))
+    }
+    if (filters.tenantId) {
+      const q = filters.tenantId.toLowerCase()
+      result = result.filter((r) => (r.tenantId || 'Global').toLowerCase().includes(q))
+    }
+    if (filters.active) {
+      const q = filters.active.toLowerCase()
+      result = result.filter((r) => (r.active ? 'yes' : 'no').includes(q))
+    }
+    if (filters.created) {
+      const q = filters.created.toLowerCase()
+      result = result.filter((r) => formatDate(r.createdUtc).toLowerCase().includes(q))
+    }
+    return result
+  }, [roles, filters])
+
+  const totalPages = Math.max(1, Math.ceil(filteredRoles.length / pageSize))
+  const pagedRoles = filteredRoles.slice(page * pageSize, (page + 1) * pageSize)
+
+  const handleFilterChange = (column, value) => {
+    setFilters((previous) => ({ ...previous, [column]: value }))
+  }
 
   const onRowClick = (event, row) => {
     if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
@@ -118,9 +159,8 @@ export default function Roles() {
   const load = async () => {
     try {
       setLoading(true)
-      const result = await api.getRoles({ maxResults: pageSize, skip: page * pageSize })
+      const result = await api.getRoles({ maxResults: 1000 })
       setRoles(result?.objects || [])
-      setTotalRecords(result?.totalRecords ?? (result?.objects?.length || 0))
       setForbidden(false)
     } catch (err) {
       if (err.status === 403) {
@@ -137,7 +177,17 @@ export default function Roles() {
   useEffect(() => {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, page, pageSize])
+  }, [api])
+
+  useEffect(() => {
+    setPage(0)
+  }, [filters])
+
+  useEffect(() => {
+    if (page > totalPages - 1) {
+      setPage(Math.max(totalPages - 1, 0))
+    }
+  }, [page, totalPages])
 
   const openCreate = () => {
     setEditingId(null)
@@ -283,7 +333,7 @@ export default function Roles() {
       ) : (
         <div className="card">
           <TablePagination
-            totalRecords={totalRecords}
+            totalRecords={filteredRoles.length}
             currentPage={page}
             totalPages={totalPages}
             onPageChange={setPage}
@@ -306,9 +356,23 @@ export default function Roles() {
                 <th title="When the role was first created">Created</th>
                 <th title="Edit or delete actions available for custom roles">Actions</th>
               </tr>
+              <tr className="filter-row">
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.id} onChange={(e) => handleFilterChange('id', e.target.value)} title="Filter the list to rows whose ID contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.name} onChange={(e) => handleFilterChange('name', e.target.value)} title="Filter the list to rows whose Name contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.builtIn} onChange={(e) => handleFilterChange('builtIn', e.target.value)} title="Filter the list to rows whose Built-in value contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.tenantId} onChange={(e) => handleFilterChange('tenantId', e.target.value)} title="Filter the list to rows whose Tenant ID contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.active} onChange={(e) => handleFilterChange('active', e.target.value)} title="Filter the list to rows whose Active value contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.created} onChange={(e) => handleFilterChange('created', e.target.value)} title="Filter the list to rows whose Created date contains this text" /></td>
+                <td className="no-filter"></td>
+              </tr>
             </thead>
             <tbody>
-              {roles.map((r) => (
+              {pagedRoles.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="empty-row">No roles match your filters.</td>
+                </tr>
+              ) : (
+                pagedRoles.map((r) => (
                 <tr key={r.id} className="clickable-row" title={isEditable(r) ? 'Click to edit this custom role and its permissions' : 'Click to view this role’s details'} onClick={(e) => onRowClick(e, r)}>
                   <td><CopyableId value={r.id} /></td>
                   <td>{r.name}</td>
@@ -359,7 +423,8 @@ export default function Roles() {
                     />
                   </td>
                 </tr>
-              ))}
+                ))
+              )}
             </tbody>
           </table>
         </div>

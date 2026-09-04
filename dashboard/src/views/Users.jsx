@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useApp } from '../context/AppContext'
 import { formatDate } from '../utils/api'
 import Modal from '../components/Modal'
@@ -19,7 +19,15 @@ export default function Users() {
   const [forbidden, setForbidden] = useState(false)
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(25)
-  const [totalRecords, setTotalRecords] = useState(0)
+  const [filters, setFilters] = useState({
+    id: '',
+    email: '',
+    tenantId: '',
+    admin: '',
+    tenantAdmin: '',
+    active: '',
+    created: '',
+  })
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
@@ -28,7 +36,45 @@ export default function Users() {
   const [editing, setEditing] = useState(null)
   const [editForm, setEditForm] = useState({ firstName: '', lastName: '', password: '', isTenantAdmin: false, isAdmin: false, active: true })
 
-  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize))
+  const filteredUsers = useMemo(() => {
+    let result = [...users]
+    if (filters.id) {
+      const query = filters.id.toLowerCase()
+      result = result.filter((u) => (u.id || '').toLowerCase().includes(query))
+    }
+    if (filters.email) {
+      const query = filters.email.toLowerCase()
+      result = result.filter((u) => (u.email || '').toLowerCase().includes(query))
+    }
+    if (filters.tenantId) {
+      const query = filters.tenantId.toLowerCase()
+      result = result.filter((u) => (u.tenantId || '-').toLowerCase().includes(query))
+    }
+    if (filters.admin) {
+      const query = filters.admin.toLowerCase()
+      result = result.filter((u) => (u.isAdmin ? 'yes' : 'no').includes(query))
+    }
+    if (filters.tenantAdmin) {
+      const query = filters.tenantAdmin.toLowerCase()
+      result = result.filter((u) => (u.isTenantAdmin ? 'yes' : 'no').includes(query))
+    }
+    if (filters.active) {
+      const query = filters.active.toLowerCase()
+      result = result.filter((u) => (u.active ? 'yes' : 'no').includes(query))
+    }
+    if (filters.created) {
+      const query = filters.created.toLowerCase()
+      result = result.filter((u) => formatDate(u.createdUtc).toLowerCase().includes(query))
+    }
+    return result
+  }, [users, filters])
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize))
+  const pagedUsers = filteredUsers.slice(page * pageSize, (page + 1) * pageSize)
+
+  const handleFilterChange = (column, value) => {
+    setFilters((previous) => ({ ...previous, [column]: value }))
+  }
 
   const openEdit = (row) => {
     setEditForm({
@@ -64,9 +110,8 @@ export default function Users() {
   const load = async () => {
     try {
       setLoading(true)
-      const result = await api.getUsers({ maxResults: pageSize, skip: page * pageSize })
+      const result = await api.getUsers({ maxResults: 1000 })
       setUsers(result?.objects || [])
-      setTotalRecords(result?.totalRecords ?? (result?.objects?.length || 0))
       setForbidden(false)
     } catch (err) {
       if (err.status === 403) {
@@ -83,7 +128,11 @@ export default function Users() {
   useEffect(() => {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, page, pageSize])
+  }, [api])
+
+  useEffect(() => {
+    setPage(0)
+  }, [filters])
 
   const handleCreate = async () => {
     try {
@@ -185,7 +234,7 @@ export default function Users() {
       ) : (
         <div className="card">
           <TablePagination
-            totalRecords={totalRecords}
+            totalRecords={filteredUsers.length}
             currentPage={page}
             totalPages={totalPages}
             onPageChange={setPage}
@@ -209,9 +258,24 @@ export default function Users() {
                 <th title="When the user account was created">Created</th>
                 <th title="Actions you can perform on this user">Actions</th>
               </tr>
+              <tr className="filter-row">
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.id} onChange={(e) => handleFilterChange('id', e.target.value)} title="Filter the list to rows whose ID contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.email} onChange={(e) => handleFilterChange('email', e.target.value)} title="Filter the list to rows whose Email contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.tenantId} onChange={(e) => handleFilterChange('tenantId', e.target.value)} title="Filter the list to rows whose Tenant ID contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.admin} onChange={(e) => handleFilterChange('admin', e.target.value)} title="Filter the list to rows whose Admin contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.tenantAdmin} onChange={(e) => handleFilterChange('tenantAdmin', e.target.value)} title="Filter the list to rows whose Tenant Admin contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.active} onChange={(e) => handleFilterChange('active', e.target.value)} title="Filter the list to rows whose Active contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.created} onChange={(e) => handleFilterChange('created', e.target.value)} title="Filter the list to rows whose Created contains this text" /></td>
+                <td className="no-filter"></td>
+              </tr>
             </thead>
             <tbody>
-              {users.map((u) => (
+              {pagedUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="empty-row">No users match your filters.</td>
+                </tr>
+              ) : (
+              pagedUsers.map((u) => (
                 <tr key={u.id} className="clickable-row" title="Click to edit" onClick={(e) => onRowClick(e, u)}>
                   <td><CopyableId value={u.id} /></td>
                   <td>{u.email}</td>
@@ -250,7 +314,8 @@ export default function Users() {
                     />
                   </td>
                 </tr>
-              ))}
+              ))
+              )}
             </tbody>
           </table>
         </div>

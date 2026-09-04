@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useApp } from '../context/AppContext'
 import { formatDate } from '../utils/api'
 import ActionMenu from '../components/ActionMenu'
@@ -15,14 +15,61 @@ export default function Audit() {
   const [forbidden, setForbidden] = useState(false)
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(50)
-  const [totalRecords, setTotalRecords] = useState(0)
-  // Draft filter inputs vs. the applied event-type filter used in the query.
-  const [eventTypeDraft, setEventTypeDraft] = useState('')
-  const [eventType, setEventType] = useState('')
+  // How many entries to fetch from the server; those rows are then filtered client-side.
+  const [fetchLimit, setFetchLimit] = useState(1000)
+  const [filters, setFilters] = useState({
+    time: '',
+    eventType: '',
+    method: '',
+    path: '',
+    response: '',
+    authz: '',
+    principal: '',
+  })
   const [jsonRow, setJsonRow] = useState(null)
   const [viewRow, setViewRow] = useState(null)
 
-  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize))
+  const principalOf = (e) => e.userId || e.credentialId || '-'
+
+  const filteredEntries = useMemo(() => {
+    let result = [...entries]
+    if (filters.time) {
+      const q = filters.time.toLowerCase()
+      result = result.filter((e) => formatDate(e.createdUtc).toLowerCase().includes(q))
+    }
+    if (filters.eventType) {
+      const q = filters.eventType.toLowerCase()
+      result = result.filter((e) => (e.eventType || '').toLowerCase().includes(q))
+    }
+    if (filters.method) {
+      const q = filters.method.toLowerCase()
+      result = result.filter((e) => (e.method || '').toLowerCase().includes(q))
+    }
+    if (filters.path) {
+      const q = filters.path.toLowerCase()
+      result = result.filter((e) => (e.path || '').toLowerCase().includes(q))
+    }
+    if (filters.response) {
+      const q = filters.response.toLowerCase()
+      result = result.filter((e) => ((e.responseCode !== null && e.responseCode !== undefined) ? String(e.responseCode) : '').toLowerCase().includes(q))
+    }
+    if (filters.authz) {
+      const q = filters.authz.toLowerCase()
+      result = result.filter((e) => ((e.authzResult || '') + (e.denialReason ? ` (${e.denialReason})` : '')).toLowerCase().includes(q))
+    }
+    if (filters.principal) {
+      const q = filters.principal.toLowerCase()
+      result = result.filter((e) => (e.userId || e.credentialId || '').toLowerCase().includes(q))
+    }
+    return result
+  }, [entries, filters])
+
+  const totalPages = Math.max(1, Math.ceil(filteredEntries.length / pageSize))
+  const pagedEntries = filteredEntries.slice(page * pageSize, (page + 1) * pageSize)
+
+  const handleFilterChange = (column, value) => {
+    setFilters((previous) => ({ ...previous, [column]: value }))
+  }
 
   const onRowClick = (event, row) => {
     if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
@@ -52,13 +99,8 @@ export default function Audit() {
   const load = async () => {
     try {
       setLoading(true)
-      const result = await api.getAudit({
-        eventType: eventType || undefined,
-        maxResults: pageSize,
-        skip: page * pageSize,
-      })
+      const result = await api.getAudit({ maxResults: fetchLimit })
       setEntries(result?.objects || [])
-      setTotalRecords(result?.totalRecords ?? (result?.objects?.length || 0))
       setForbidden(false)
     } catch (err) {
       if (err.status === 403) {
@@ -75,12 +117,17 @@ export default function Audit() {
   useEffect(() => {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, page, pageSize, eventType])
+  }, [api, fetchLimit])
 
-  const applyFilters = () => {
+  useEffect(() => {
     setPage(0)
-    setEventType(eventTypeDraft.trim())
-  }
+  }, [filters])
+
+  useEffect(() => {
+    if (page > totalPages - 1) {
+      setPage(Math.max(totalPages - 1, 0))
+    }
+  }, [page, totalPages])
 
   const handleDelete = async (entry) => {
     if (!confirm('Delete this audit log entry? This permanently removes the record of the event.')) {
@@ -94,8 +141,6 @@ export default function Audit() {
     }
   }
 
-  const principalOf = (e) => e.userId || e.credentialId || '-'
-
   return (
     <div className="audit">
       <div className="page-header">
@@ -108,33 +153,18 @@ export default function Audit() {
       {!forbidden ? (
         <div className="audit-filters">
           <div className="audit-filter">
-            <label className="form-label" title="Filter the log to a single event type, such as Authorize or CreateUser">Event Type</label>
-            <input
-              type="text"
-              className="input"
-              value={eventTypeDraft}
-              onChange={(e) => setEventTypeDraft(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') applyFilters() }}
-              placeholder="e.g., Authorize"
-              title="Enter an event type to filter the audit log by"
-            />
-          </div>
-          <div className="audit-filter">
-            <label className="form-label" title="The maximum number of audit entries to fetch per page">Max Results</label>
+            <label className="form-label" title="The maximum number of audit entries to fetch from the server before filtering">Load Size</label>
             <select
               className="input"
-              value={pageSize}
-              onChange={(e) => { setPage(0); setPageSize(Number.parseInt(e.target.value, 10)) }}
-              title="Choose how many audit entries to load per page"
+              value={fetchLimit}
+              onChange={(e) => { setPage(0); setFetchLimit(Number.parseInt(e.target.value, 10)) }}
+              title="Choose how many audit entries to fetch from the server; the per-column filters then narrow these rows"
             >
-              {[25, 50, 100, 250, 500, 1000].map((n) => (
+              {[100, 250, 500, 1000, 2500, 5000].map((n) => (
                 <option key={n} value={n}>{n}</option>
               ))}
             </select>
           </div>
-          <button className="btn btn-primary audit-apply" onClick={applyFilters} title="Apply the event-type filter and reload the audit log">
-            Apply
-          </button>
         </div>
       ) : null}
 
@@ -149,7 +179,7 @@ export default function Audit() {
       ) : (
         <div className="card">
           <TablePagination
-            totalRecords={totalRecords}
+            totalRecords={filteredEntries.length}
             currentPage={page}
             totalPages={totalPages}
             onPageChange={setPage}
@@ -173,9 +203,24 @@ export default function Audit() {
                 <th title="The user or credential that performed the action">Principal</th>
                 <th title="Actions you can perform on this audit entry">Actions</th>
               </tr>
+              <tr className="filter-row">
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.time} onChange={(e) => handleFilterChange('time', e.target.value)} title="Filter the list to rows whose Time contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.eventType} onChange={(e) => handleFilterChange('eventType', e.target.value)} title="Filter the list to rows whose Event Type contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.method} onChange={(e) => handleFilterChange('method', e.target.value)} title="Filter the list to rows whose Method contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.path} onChange={(e) => handleFilterChange('path', e.target.value)} title="Filter the list to rows whose Path contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.response} onChange={(e) => handleFilterChange('response', e.target.value)} title="Filter the list to rows whose Response code contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.authz} onChange={(e) => handleFilterChange('authz', e.target.value)} title="Filter the list to rows whose Authz result contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.principal} onChange={(e) => handleFilterChange('principal', e.target.value)} title="Filter the list to rows whose Principal contains this text" /></td>
+                <td className="no-filter"></td>
+              </tr>
             </thead>
             <tbody>
-              {entries.map((e) => (
+              {pagedEntries.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="empty-row">No audit entries match your filters.</td>
+                </tr>
+              ) : (
+                pagedEntries.map((e) => (
                 <tr key={e.id} className="clickable-row" title="Click to view details" onClick={(ev) => onRowClick(ev, e)}>
                   <td>{formatDate(e.createdUtc)}</td>
                   <td>{e.eventType || '-'}</td>
@@ -212,7 +257,8 @@ export default function Audit() {
                     />
                   </td>
                 </tr>
-              ))}
+                ))
+              )}
             </tbody>
           </table>
         </div>

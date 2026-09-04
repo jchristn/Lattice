@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useApp } from '../context/AppContext'
 import { formatDate } from '../utils/api'
 import Modal from '../components/Modal'
@@ -17,7 +17,14 @@ export default function Credentials() {
   const [forbidden, setForbidden] = useState(false)
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(25)
-  const [totalRecords, setTotalRecords] = useState(0)
+  const [filters, setFilters] = useState({
+    id: '',
+    name: '',
+    userId: '',
+    last4: '',
+    active: '',
+    created: '',
+  })
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState({ name: '', userId: '' })
   const [saving, setSaving] = useState(false)
@@ -28,7 +35,41 @@ export default function Credentials() {
   const [editing, setEditing] = useState(null)
   const [editForm, setEditForm] = useState({ name: '', active: true })
 
-  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize))
+  const filteredCredentials = useMemo(() => {
+    let result = [...credentials]
+    if (filters.id) {
+      const query = filters.id.toLowerCase()
+      result = result.filter((c) => (c.id || '').toLowerCase().includes(query))
+    }
+    if (filters.name) {
+      const query = filters.name.toLowerCase()
+      result = result.filter((c) => (c.name || '-').toLowerCase().includes(query))
+    }
+    if (filters.userId) {
+      const query = filters.userId.toLowerCase()
+      result = result.filter((c) => (c.userId || '-').toLowerCase().includes(query))
+    }
+    if (filters.last4) {
+      const query = filters.last4.toLowerCase()
+      result = result.filter((c) => (c.accessKeyLast4 ? `…${c.accessKeyLast4}` : '-').toLowerCase().includes(query))
+    }
+    if (filters.active) {
+      const query = filters.active.toLowerCase()
+      result = result.filter((c) => (c.active ? 'yes' : 'no').includes(query))
+    }
+    if (filters.created) {
+      const query = filters.created.toLowerCase()
+      result = result.filter((c) => formatDate(c.createdUtc).toLowerCase().includes(query))
+    }
+    return result
+  }, [credentials, filters])
+
+  const totalPages = Math.max(1, Math.ceil(filteredCredentials.length / pageSize))
+  const pagedCredentials = filteredCredentials.slice(page * pageSize, (page + 1) * pageSize)
+
+  const handleFilterChange = (column, value) => {
+    setFilters((previous) => ({ ...previous, [column]: value }))
+  }
 
   const openEdit = (row) => {
     setEditForm({ name: row.name || '', active: !!row.active })
@@ -56,9 +97,8 @@ export default function Credentials() {
   const load = async () => {
     try {
       setLoading(true)
-      const result = await api.getCredentials({ maxResults: pageSize, skip: page * pageSize })
+      const result = await api.getCredentials({ maxResults: 1000 })
       setCredentials(result?.objects || [])
-      setTotalRecords(result?.totalRecords ?? (result?.objects?.length || 0))
       setForbidden(false)
     } catch (err) {
       if (err.status === 403) {
@@ -75,7 +115,11 @@ export default function Credentials() {
   useEffect(() => {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, page, pageSize])
+  }, [api])
+
+  useEffect(() => {
+    setPage(0)
+  }, [filters])
 
   const handleCreate = async () => {
     try {
@@ -166,7 +210,7 @@ export default function Credentials() {
       ) : (
         <div className="card">
           <TablePagination
-            totalRecords={totalRecords}
+            totalRecords={filteredCredentials.length}
             currentPage={page}
             totalPages={totalPages}
             onPageChange={setPage}
@@ -189,9 +233,23 @@ export default function Credentials() {
                 <th title="When the credential was created">Created</th>
                 <th title="Actions you can perform on this credential">Actions</th>
               </tr>
+              <tr className="filter-row">
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.id} onChange={(e) => handleFilterChange('id', e.target.value)} title="Filter the list to rows whose ID contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.name} onChange={(e) => handleFilterChange('name', e.target.value)} title="Filter the list to rows whose Name contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.userId} onChange={(e) => handleFilterChange('userId', e.target.value)} title="Filter the list to rows whose User ID contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.last4} onChange={(e) => handleFilterChange('last4', e.target.value)} title="Filter the list to rows whose Last4 contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.active} onChange={(e) => handleFilterChange('active', e.target.value)} title="Filter the list to rows whose Active contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.created} onChange={(e) => handleFilterChange('created', e.target.value)} title="Filter the list to rows whose Created contains this text" /></td>
+                <td className="no-filter"></td>
+              </tr>
             </thead>
             <tbody>
-              {credentials.map((c) => (
+              {pagedCredentials.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="empty-row">No credentials match your filters.</td>
+                </tr>
+              ) : (
+              pagedCredentials.map((c) => (
                 <tr key={c.id} className="clickable-row" title="Click to edit" onClick={(e) => onRowClick(e, c)}>
                   <td><CopyableId value={c.id} /></td>
                   <td>{c.name || '-'}</td>
@@ -227,7 +285,8 @@ export default function Credentials() {
                     />
                   </td>
                 </tr>
-              ))}
+              ))
+              )}
             </tbody>
           </table>
         </div>

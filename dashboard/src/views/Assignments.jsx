@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useApp } from '../context/AppContext'
 import { formatDate } from '../utils/api'
 import Modal from '../components/Modal'
@@ -18,14 +18,55 @@ export default function Assignments() {
   const [forbidden, setForbidden] = useState(false)
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(25)
-  const [totalRecords, setTotalRecords] = useState(0)
+  const [filters, setFilters] = useState({
+    id: '',
+    userId: '',
+    role: '',
+    scope: '',
+    resourceId: '',
+    created: '',
+  })
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [jsonRow, setJsonRow] = useState(null)
   const [viewRow, setViewRow] = useState(null)
 
-  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize))
+  const filteredAssignments = useMemo(() => {
+    let result = [...assignments]
+    if (filters.id) {
+      const q = filters.id.toLowerCase()
+      result = result.filter((a) => (a.id || '').toLowerCase().includes(q))
+    }
+    if (filters.userId) {
+      const q = filters.userId.toLowerCase()
+      result = result.filter((a) => (a.userId || '').toLowerCase().includes(q))
+    }
+    if (filters.role) {
+      const q = filters.role.toLowerCase()
+      result = result.filter((a) => (a.roleName || a.roleId || '').toLowerCase().includes(q))
+    }
+    if (filters.scope) {
+      const q = filters.scope.toLowerCase()
+      result = result.filter((a) => (a.resourceScope || 'All').toLowerCase().includes(q))
+    }
+    if (filters.resourceId) {
+      const q = filters.resourceId.toLowerCase()
+      result = result.filter((a) => (a.resourceId || '').toLowerCase().includes(q))
+    }
+    if (filters.created) {
+      const q = filters.created.toLowerCase()
+      result = result.filter((a) => formatDate(a.createdUtc).toLowerCase().includes(q))
+    }
+    return result
+  }, [assignments, filters])
+
+  const totalPages = Math.max(1, Math.ceil(filteredAssignments.length / pageSize))
+  const pagedAssignments = filteredAssignments.slice(page * pageSize, (page + 1) * pageSize)
+
+  const handleFilterChange = (column, value) => {
+    setFilters((previous) => ({ ...previous, [column]: value }))
+  }
 
   const onRowClick = (event, row) => {
     if (event.target.closest('button, a, input, select, textarea, label, .action-menu, .copyable-id, [role="button"]')) return
@@ -48,9 +89,8 @@ export default function Assignments() {
   const load = async () => {
     try {
       setLoading(true)
-      const result = await api.getAssignments({ maxResults: pageSize, skip: page * pageSize })
+      const result = await api.getAssignments({ maxResults: 1000 })
       setAssignments(result?.objects || [])
-      setTotalRecords(result?.totalRecords ?? (result?.objects?.length || 0))
       setForbidden(false)
     } catch (err) {
       if (err.status === 403) {
@@ -67,7 +107,17 @@ export default function Assignments() {
   useEffect(() => {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, page, pageSize])
+  }, [api])
+
+  useEffect(() => {
+    setPage(0)
+  }, [filters])
+
+  useEffect(() => {
+    if (page > totalPages - 1) {
+      setPage(Math.max(totalPages - 1, 0))
+    }
+  }, [page, totalPages])
 
   const canSubmit = form.userId.trim() && (form.roleName.trim() || form.roleId.trim())
 
@@ -141,7 +191,7 @@ export default function Assignments() {
       ) : (
         <div className="card">
           <TablePagination
-            totalRecords={totalRecords}
+            totalRecords={filteredAssignments.length}
             currentPage={page}
             totalPages={totalPages}
             onPageChange={setPage}
@@ -164,9 +214,23 @@ export default function Assignments() {
                 <th title="When this role assignment was created">Created</th>
                 <th title="Actions you can perform on this assignment">Actions</th>
               </tr>
+              <tr className="filter-row">
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.id} onChange={(e) => handleFilterChange('id', e.target.value)} title="Filter the list to rows whose ID contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.userId} onChange={(e) => handleFilterChange('userId', e.target.value)} title="Filter the list to rows whose User ID contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.role} onChange={(e) => handleFilterChange('role', e.target.value)} title="Filter the list to rows whose Role contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.scope} onChange={(e) => handleFilterChange('scope', e.target.value)} title="Filter the list to rows whose Scope contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.resourceId} onChange={(e) => handleFilterChange('resourceId', e.target.value)} title="Filter the list to rows whose Resource ID contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.created} onChange={(e) => handleFilterChange('created', e.target.value)} title="Filter the list to rows whose Created date contains this text" /></td>
+                <td className="no-filter"></td>
+              </tr>
             </thead>
             <tbody>
-              {assignments.map((a) => (
+              {pagedAssignments.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="empty-row">No role assignments match your filters.</td>
+                </tr>
+              ) : (
+                pagedAssignments.map((a) => (
                 <tr key={a.id} className="clickable-row" title="Click to view details" onClick={(e) => onRowClick(e, a)}>
                   <td><CopyableId value={a.id} /></td>
                   <td>{a.userId ? <CopyableId value={a.userId} /> : '-'}</td>
@@ -197,7 +261,8 @@ export default function Assignments() {
                     />
                   </td>
                 </tr>
-              ))}
+                ))
+              )}
             </tbody>
           </table>
         </div>

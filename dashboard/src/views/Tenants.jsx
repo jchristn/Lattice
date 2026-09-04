@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useApp } from '../context/AppContext'
 import { formatDate } from '../utils/api'
 import Modal from '../components/Modal'
@@ -16,7 +16,13 @@ export default function Tenants() {
   const [forbidden, setForbidden] = useState(false)
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(25)
-  const [totalRecords, setTotalRecords] = useState(0)
+  const [filters, setFilters] = useState({
+    id: '',
+    name: '',
+    active: '',
+    protected: '',
+    created: '',
+  })
   const [showCreate, setShowCreate] = useState(false)
   const [name, setName] = useState('')
   const [saving, setSaving] = useState(false)
@@ -25,7 +31,37 @@ export default function Tenants() {
   const [editing, setEditing] = useState(null)
   const [editForm, setEditForm] = useState({ name: '', active: true })
 
-  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize))
+  const filteredTenants = useMemo(() => {
+    let result = [...tenants]
+    if (filters.id) {
+      const query = filters.id.toLowerCase()
+      result = result.filter((t) => (t.id || '').toLowerCase().includes(query))
+    }
+    if (filters.name) {
+      const query = filters.name.toLowerCase()
+      result = result.filter((t) => (t.name || '').toLowerCase().includes(query))
+    }
+    if (filters.active) {
+      const query = filters.active.toLowerCase()
+      result = result.filter((t) => (t.active ? 'yes' : 'no').includes(query))
+    }
+    if (filters.protected) {
+      const query = filters.protected.toLowerCase()
+      result = result.filter((t) => (t.isProtected ? 'yes' : 'no').includes(query))
+    }
+    if (filters.created) {
+      const query = filters.created.toLowerCase()
+      result = result.filter((t) => formatDate(t.createdUtc).toLowerCase().includes(query))
+    }
+    return result
+  }, [tenants, filters])
+
+  const totalPages = Math.max(1, Math.ceil(filteredTenants.length / pageSize))
+  const pagedTenants = filteredTenants.slice(page * pageSize, (page + 1) * pageSize)
+
+  const handleFilterChange = (column, value) => {
+    setFilters((previous) => ({ ...previous, [column]: value }))
+  }
 
   const openEdit = (row) => {
     setEditForm({ name: row.name || '', active: !!row.active })
@@ -49,9 +85,8 @@ export default function Tenants() {
   const load = async () => {
     try {
       setLoading(true)
-      const result = await api.getTenants({ maxResults: pageSize, skip: page * pageSize })
+      const result = await api.getTenants({ maxResults: 1000 })
       setTenants(result?.objects || [])
-      setTotalRecords(result?.totalRecords ?? (result?.objects?.length || 0))
       setForbidden(false)
     } catch (err) {
       if (err.status === 403) {
@@ -68,7 +103,11 @@ export default function Tenants() {
   useEffect(() => {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, page, pageSize])
+  }, [api])
+
+  useEffect(() => {
+    setPage(0)
+  }, [filters])
 
   const handleCreate = async () => {
     try {
@@ -148,7 +187,7 @@ export default function Tenants() {
       ) : (
         <div className="card">
           <TablePagination
-            totalRecords={totalRecords}
+            totalRecords={filteredTenants.length}
             currentPage={page}
             totalPages={totalPages}
             onPageChange={setPage}
@@ -170,9 +209,22 @@ export default function Tenants() {
                 <th title="When the tenant was first created">Created</th>
                 <th title="Actions you can perform on this tenant">Actions</th>
               </tr>
+              <tr className="filter-row">
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.id} onChange={(e) => handleFilterChange('id', e.target.value)} title="Filter the list to rows whose ID contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.name} onChange={(e) => handleFilterChange('name', e.target.value)} title="Filter the list to rows whose Name contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.active} onChange={(e) => handleFilterChange('active', e.target.value)} title="Filter the list to rows whose Active contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.protected} onChange={(e) => handleFilterChange('protected', e.target.value)} title="Filter the list to rows whose Protected contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.created} onChange={(e) => handleFilterChange('created', e.target.value)} title="Filter the list to rows whose Created contains this text" /></td>
+                <td className="no-filter"></td>
+              </tr>
             </thead>
             <tbody>
-              {tenants.map((t) => (
+              {pagedTenants.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="empty-row">No tenants match your filters.</td>
+                </tr>
+              ) : (
+              pagedTenants.map((t) => (
                 <tr key={t.id} className="clickable-row" title="Click to edit" onClick={(e) => onRowClick(e, t)}>
                   <td><CopyableId value={t.id} /></td>
                   <td>{t.name}</td>
@@ -209,7 +261,8 @@ export default function Tenants() {
                     />
                   </td>
                 </tr>
-              ))}
+              ))
+              )}
             </tbody>
           </table>
         </div>
