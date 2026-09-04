@@ -1,57 +1,92 @@
 .detail-modal {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 
-.detail-grid {
+/* Borderless key/value table: label column on the left, value column on the right. */
+.detail-kv {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 12px;
+  grid-template-columns: minmax(150px, 220px) 1fr;
+  gap: 10px 20px;
+  margin: 0;
+  align-items: baseline;
 }
 
-.detail-item {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 14px 16px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background-color: var(--bg-secondary);
-  min-width: 0;
-}
-
-.detail-item-full {
-  grid-column: 1 / -1;
-}
-
-.detail-item-label {
+.detail-kv dt {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 11.5px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
 }
 
-.detail-item-value {
-  font-size: 14px;
+.detail-kv dd {
+  margin: 0;
   color: var(--text-primary);
+  font-size: 14px;
   line-height: 1.45;
   word-break: break-word;
   overflow-wrap: anywhere;
+  min-width: 0;
 }
 
-.detail-item-copyable {
-  padding-top: 2px;
+.detail-mono {
+  font-family: monospace;
+  font-size: 13px;
 }
 
-.detail-item-code {
+.detail-empty {
+  color: var(--text-muted);
+}
+
+/* Collapsible sections for large/structured content. */
+.detail-section {
+  border-top: 1px solid var(--border-color);
+  padding-top: 14px;
+}
+
+.detail-section > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.detail-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.detail-section > summary::before {
+  content: '▸';
+  font-size: 10px;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+
+.detail-section[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.detail-section-body {
+  padding-top: 12px;
+}
+
+.detail-code {
   margin: 0;
   padding: 12px 14px;
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: monospace;
   font-size: 12.5px;
   line-height: 1.5;
   color: var(--text-primary);
-  background-color: var(--bg-primary);
+  background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 6px;
   white-space: pre-wrap;
@@ -60,8 +95,18 @@
   overflow: auto;
 }
 
-@media (max-width: 560px) {
-  .detail-grid {
+/* Timestamps sit at the bottom, visually separated from the main rows. */
+.detail-timestamps {
+  border-top: 1px solid var(--border-color);
+  padding-top: 14px;
+}
+
+@media (max-width: 520px) {
+  .detail-kv {
     grid-template-columns: 1fr;
+    gap: 2px 0;
+  }
+  .detail-kv dd {
+    margin-bottom: 8px;
   }
 }

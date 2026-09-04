@@ -1,50 +1,73 @@
+import { Fragment } from 'react'
 import Modal from './Modal'
 import CopyableId from './CopyableId'
 import './DetailModal.css'
 
-// A read-only, formatted detail view rendered as a responsive grid of labeled value cards. Each field is
-// `{ label, value, title?, copyable?, full?, code?, node? }`:
-//   copyable -> a CopyableId chip
-//   code     -> a wrapping/scrolling monospace block (for JSON or long text); spans the full width
-//   node     -> arbitrary formatted JSX as the value (e.g. a structured list); spans the full width
-//   full     -> spans the full width even when not code/node
-// Falsy field entries are skipped so callers can inline conditionals. Values always wrap, so nothing is
-// clipped, and the modal is extra-wide to give multi-field records room to breathe.
+// A read-only detail view laid out as a clean, borderless key/value table (label on the left, value on
+// the right) — no cards. IDs (copyable, monospace) naturally sort to the top and timestamps to the bottom;
+// large/structured content (a `node`, or `code`/`multiline` text) renders in collapsible sections between
+// the main rows and the timestamps.
+//
+// Each field is `{ label, value, title?, copyable?, mono?, code?, node?, timestamp?, defaultOpen? }`.
+// Falsy field entries are skipped so callers can inline conditionals.
+
+const TIMESTAMP_LABEL = /^(created|updated|last\s|modified)/i
+
+function isSection(field) {
+  return !!field.node || !!field.code || !!field.multiline
+}
+
+function isTimestamp(field) {
+  return field.timestamp === true || (!isSection(field) && TIMESTAMP_LABEL.test(field.label || ''))
+}
+
+function KvRows({ fields }) {
+  return (
+    <dl className="detail-kv">
+      {fields.map((field, index) => {
+        const value = field.value === null || field.value === undefined ? '' : String(field.value)
+        let rendered
+        if (field.copyable && value) rendered = <CopyableId value={value} />
+        else if (field.mono) rendered = <span className="detail-mono">{value || '—'}</span>
+        else rendered = value === '' ? <span className="detail-empty">—</span> : value
+
+        return (
+          <Fragment key={index}>
+            <dt title={field.title || undefined}>{field.label}</dt>
+            <dd>{rendered}</dd>
+          </Fragment>
+        )
+      })}
+    </dl>
+  )
+}
+
 export default function DetailModal({ isOpen, onClose, title, subtitle, fields = [] }) {
   const visible = fields.filter(Boolean)
+  const sections = visible.filter(isSection)
+  const rest = visible.filter((f) => !isSection(f))
+  const timestamps = rest.filter(isTimestamp)
+  const mainRows = rest.filter((f) => !isTimestamp(f))
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title} subtitle={subtitle} extraWide>
+    <Modal isOpen={isOpen} onClose={onClose} title={title} subtitle={subtitle} wide>
       <div className="detail-modal">
-        <div className="detail-grid">
-          {visible.map((field, index) => {
-            const raw = field.value === null || field.value === undefined ? '' : field.value
-            const value = String(raw)
-            const isCode = !!field.code || !!field.multiline
-            const spanFull = isCode || !!field.full || !!field.node
+        {mainRows.length > 0 ? <KvRows fields={mainRows} /> : null}
 
-            return (
-              <div
-                className={`detail-item ${spanFull ? 'detail-item-full' : ''}`}
-                key={index}
-                title={field.title || undefined}
-              >
-                <span className="detail-item-label">{field.label}</span>
-                {field.node ? (
-                  <div className="detail-item-node">{field.node}</div>
-                ) : field.copyable && value ? (
-                  <div className="detail-item-value detail-item-copyable">
-                    <CopyableId value={value} />
-                  </div>
-                ) : isCode ? (
-                  <pre className="detail-item-code">{value || '—'}</pre>
-                ) : (
-                  <span className="detail-item-value">{value || '—'}</span>
-                )}
-              </div>
-            )
-          })}
-        </div>
+        {sections.map((field, index) => (
+          <details className="detail-section" key={index} open={field.defaultOpen !== false}>
+            <summary title={field.title || undefined}>{field.label}</summary>
+            <div className="detail-section-body">
+              {field.node ? field.node : <pre className="detail-code">{field.value ? String(field.value) : '—'}</pre>}
+            </div>
+          </details>
+        ))}
+
+        {timestamps.length > 0 ? (
+          <div className="detail-timestamps">
+            <KvRows fields={timestamps} />
+          </div>
+        ) : null}
       </div>
     </Modal>
   )
