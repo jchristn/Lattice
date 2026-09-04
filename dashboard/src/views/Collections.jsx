@@ -525,7 +525,7 @@ export default function Collections() {
                 pagedCollections.map((collection) => (
                   <tr key={collection.id} className="clickable-row" title="Click to view metadata" onClick={(event) => onRowClick(event, collection)}>
                     <td>
-                      <strong>{collection.name}</strong>
+                      {collection.name}
                       <div className="collection-id">
                         <CopyableId value={collection.id} />
                       </div>

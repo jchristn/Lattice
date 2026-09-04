@@ -158,7 +158,7 @@ export default function Users() {
               {users.map((u) => (
                 <tr key={u.id} className="clickable-row" title="Click to view the full record as JSON" onClick={(e) => onRowClick(e, u)}>
                   <td><CopyableId value={u.id} /></td>
-                  <td><strong>{u.email}</strong></td>
+                  <td>{u.email}</td>
                   <td>{u.tenantId ? <CopyableId value={u.tenantId} /> : '-'}</td>
                   <td title={u.isAdmin ? 'System administrator' : 'Not a system administrator'}>{u.isAdmin ? 'Yes' : 'No'}</td>
                   <td title={u.isTenantAdmin ? 'Tenant administrator' : 'Not a tenant administrator'}>{u.isTenantAdmin ? 'Yes' : 'No'}</td>

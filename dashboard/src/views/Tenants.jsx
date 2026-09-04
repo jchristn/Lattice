@@ -143,7 +143,7 @@ export default function Tenants() {
               {tenants.map((t) => (
                 <tr key={t.id} className="clickable-row" title="Click to view the full record as JSON" onClick={(e) => onRowClick(e, t)}>
                   <td><CopyableId value={t.id} /></td>
-                  <td><strong>{t.name}</strong></td>
+                  <td>{t.name}</td>
                   <td title={t.active ? 'This tenant is active' : 'This tenant is inactive'}>{t.active ? 'Yes' : 'No'}</td>
                   <td title={t.isProtected ? 'System-managed; cannot be deleted' : 'Can be deleted'}>{t.isProtected ? 'Yes' : 'No'}</td>
                   <td>{formatDate(t.createdUtc)}</td>

@@ -158,7 +158,7 @@ export default function Credentials() {
               {credentials.map((c) => (
                 <tr key={c.id} className="clickable-row" title="Click to view the full record as JSON" onClick={(e) => onRowClick(e, c)}>
                   <td><CopyableId value={c.id} /></td>
-                  <td><strong>{c.name || '-'}</strong></td>
+                  <td>{c.name || '-'}</td>
                   <td>{c.userId ? <CopyableId value={c.userId} /> : '-'}</td>
                   <td className="monospace" title="The last four characters of this credential's access key">{c.accessKeyLast4 ? `…${c.accessKeyLast4}` : '-'}</td>
                   <td title={c.active ? 'Credential is active' : 'Credential is inactive'}>{c.active ? 'Yes' : 'No'}</td>

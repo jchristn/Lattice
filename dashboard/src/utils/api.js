@@ -374,9 +374,30 @@ export class LatticeApi {
   }
 
   // Roles
-  // Returns an EnumerationResult<Role>: { ...pagination, objects: Role[] }. List-only.
+  // Returns an EnumerationResult<Role>: { ...pagination, objects: Role[] }.
   async getRoles({ maxResults, skip } = {}) {
     return this.request('GET', '/v1.0/roles', null, { query: { maxResults, skip } })
+  }
+
+  // Create a custom role. Body { name, permissions: [ { permissionType, resourceTypes, operationTypes } ] }.
+  // Returns the created role including its permissions. 409 if the name already exists.
+  async createRole(data) {
+    return this.request('PUT', '/v1.0/roles', data)
+  }
+
+  // Returns the role including its permissions array.
+  async getRole(id) {
+    return this.request('GET', `/v1.0/roles/${id}`)
+  }
+
+  // Update a custom role. Body { name?, permissions? } renames and/or replaces grants. 409 for built-in roles.
+  async updateRole(id, data) {
+    return this.request('PUT', `/v1.0/roles/${id}`, data)
+  }
+
+  // Delete a custom role. 409 for built-in roles.
+  async deleteRole(id) {
+    return this.request('DELETE', `/v1.0/roles/${id}`)
   }
 
   // Role Assignments

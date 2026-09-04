@@ -30,3 +30,103 @@
 .clickable-row:hover {
   background-color: var(--bg-secondary);
 }
+
+/* Small button variant, used for grant add/remove controls. */
+.roles .btn-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+/* "Built-in" read-only marker shown in the table. */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.badge-builtin {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+/* Permission editor */
+.perm-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.perm-empty {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin: 4px 0 0;
+}
+
+.perm-grants {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.perm-grant {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.perm-grant-top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.perm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.perm-grant-top .perm-field {
+  flex: 0 0 auto;
+  min-width: 160px;
+}
+
+.perm-field-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.perm-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.perm-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.perm-check input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.perm-remove {
+  flex: 0 0 auto;
+}
