@@ -20,23 +20,40 @@ Lattice is a JSON document store with automatic schema detection, SQL-like query
 
 ## Screenshots
 
-### Creating a Collection
+<details>
+<summary><b>Click to expand — a tour of the dashboard</b></summary>
 
-<img src="https://raw.githubusercontent.com/jchristn/Lattice/main/assets/screenshot1.png" alt="Creating a Collection">
+### Collections
 
-Create collections with custom labels, tags, schema enforcement modes, and indexing options.
+<img src="https://raw.githubusercontent.com/jchristn/Lattice/main/assets/screenshot1.png" alt="Collections">
 
-### Adding a Document
+Browse and manage collections — each row shows its ID, name, description, and creation time, with per-column filters and quick actions.
 
-<img src="https://raw.githubusercontent.com/jchristn/Lattice/main/assets/screenshot2.png" alt="Adding a Document">
+### Editing a Collection
 
-Add JSON documents with optional names, labels, and key-value tags for metadata.
+<img src="https://raw.githubusercontent.com/jchristn/Lattice/main/assets/screenshot2.png" alt="Editing a Collection">
+
+Click any row to edit a collection's name and description; schema constraints and indexing are managed from their own dialogs.
+
+### Documents
+
+<img src="https://raw.githubusercontent.com/jchristn/Lattice/main/assets/screenshot3.png" alt="Documents">
+
+Open a collection to page through its documents with per-column filters, inspect schema assignment, and add new documents with labels and tags.
+
+### Request History
+
+<img src="https://raw.githubusercontent.com/jchristn/Lattice/main/assets/screenshot4.png" alt="Request History">
+
+Inspect captured request metadata, timings, headers, and bodies, with a traffic-summary chart of successes and failures over selectable time ranges.
 
 ### Searching Documents
 
-<img src="https://raw.githubusercontent.com/jchristn/Lattice/main/assets/screenshot3.png" alt="Searching Documents">
+<img src="https://raw.githubusercontent.com/jchristn/Lattice/main/assets/screenshot5.png" alt="Searching Documents">
 
-Search documents by labels, tags, and SQL-like expressions on data properties.
+Run label, tag, and SQL-style searches against a collection to validate query behavior and inspect the exact documents returned.
+
+</details>
 
 ## Getting Started
 
