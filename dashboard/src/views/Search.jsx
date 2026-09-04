@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import usePersistedPageSize from '../hooks/usePersistedPageSize'
 import { useApp } from '../context/AppContext'
 import { formatDate } from '../utils/api'
 import ActionMenu from '../components/ActionMenu'
@@ -23,7 +24,7 @@ export default function Search() {
   const [showMetadataModal, setShowMetadataModal] = useState(false)
   const [selectedDocument, setSelectedDocument] = useState(null)
   const [page, setPage] = useState(0)
-  const [pageSize, setPageSize] = useState(25)
+  const [pageSize, setPageSize] = usePersistedPageSize('search', 25)
   const [jsonViewer, setJsonViewer] = useState({ open: false, title: '', subtitle: '', identifier: '', value: null })
 
   useEffect(() => {

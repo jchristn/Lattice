@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import usePersistedPageSize from '../hooks/usePersistedPageSize'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { formatDate } from '../utils/api'
@@ -47,7 +48,7 @@ export default function Collections() {
   const [rebuildProgress, setRebuildProgress] = useState(null)
   const [rebuildResult, setRebuildResult] = useState(null)
   const [page, setPage] = useState(0)
-  const [pageSize, setPageSize] = useState(25)
+  const [pageSize, setPageSize] = usePersistedPageSize('collections', 25)
   const [saving, setSaving] = useState(false)
   const [jsonViewer, setJsonViewer] = useState({ open: false, title: '', subtitle: '', identifier: '', value: null })
   const [newCollection, setNewCollection] = useState({

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import usePersistedPageSize from '../hooks/usePersistedPageSize'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import ActionMenu from '../components/ActionMenu'
@@ -17,7 +18,7 @@ export default function SchemaElements() {
   const [schemasLoaded, setSchemasLoaded] = useState(false)
   const [manualSchemaId, setManualSchemaId] = useState('')
   const [page, setPage] = useState(0)
-  const [pageSize, setPageSize] = useState(25)
+  const [pageSize, setPageSize] = usePersistedPageSize('schemaelements', 25)
   const [jsonViewer, setJsonViewer] = useState({ open: false, title: '', subtitle: '', identifier: '', value: null })
   const [viewRow, setViewRow] = useState(null)
   const [filters, setFilters] = useState({

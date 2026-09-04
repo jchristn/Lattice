@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import usePersistedPageSize from '../hooks/usePersistedPageSize'
 import { createPortal } from 'react-dom'
 import { useApp } from '../context/AppContext'
 import ActionMenu from '../components/ActionMenu'
@@ -331,7 +332,7 @@ export default function RequestHistory() {
   const [summaryLoading, setSummaryLoading] = useState(true)
   const [refreshToken, setRefreshToken] = useState(0)
   const [page, setPage] = useState(0)
-  const [pageSize, setPageSize] = useState(25)
+  const [pageSize, setPageSize] = usePersistedPageSize('requesthistory', 25)
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [selectedEntry, setSelectedEntry] = useState(null)

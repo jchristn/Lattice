@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import usePersistedPageSize from '../hooks/usePersistedPageSize'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { formatDate } from '../utils/api'
@@ -33,7 +34,7 @@ export default function Documents() {
   const [metaRow, setMetaRow] = useState(null)
   const [jsonViewer, setJsonViewer] = useState({ open: false, title: '', subtitle: '', identifier: '', value: null })
   const [page, setPage] = useState(0)
-  const [pageSize, setPageSize] = useState(25)
+  const [pageSize, setPageSize] = usePersistedPageSize('documents', 25)
   const [newDocument, setNewDocument] = useState({
     name: '',
     content: '{\n  \n}',

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import usePersistedPageSize from '../hooks/usePersistedPageSize'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { formatDate } from '../utils/api'
@@ -15,7 +16,7 @@ export default function Schemas() {
   const [schemas, setSchemas] = useState([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
-  const [pageSize, setPageSize] = useState(25)
+  const [pageSize, setPageSize] = usePersistedPageSize('schemas', 25)
   const [filters, setFilters] = useState({
     id: '',
     hash: '',

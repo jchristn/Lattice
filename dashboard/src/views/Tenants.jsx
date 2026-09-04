@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import usePersistedPageSize from '../hooks/usePersistedPageSize'
 import { useApp } from '../context/AppContext'
 import { formatDate } from '../utils/api'
 import Modal from '../components/Modal'
@@ -15,7 +16,7 @@ export default function Tenants() {
   const [loading, setLoading] = useState(true)
   const [forbidden, setForbidden] = useState(false)
   const [page, setPage] = useState(0)
-  const [pageSize, setPageSize] = useState(25)
+  const [pageSize, setPageSize] = usePersistedPageSize('tenants', 25)
   const [filters, setFilters] = useState({
     id: '',
     name: '',

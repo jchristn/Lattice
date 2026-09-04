@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import usePersistedPageSize from '../hooks/usePersistedPageSize'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { formatDate } from '../utils/api'
@@ -16,7 +17,7 @@ export default function Tables() {
   const [tables, setTables] = useState([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
-  const [pageSize, setPageSize] = useState(25)
+  const [pageSize, setPageSize] = usePersistedPageSize('tables', 25)
   const [jsonViewer, setJsonViewer] = useState({ open: false, title: '', subtitle: '', identifier: '', value: null })
   const [viewRow, setViewRow] = useState(null)
   const [filters, setFilters] = useState({

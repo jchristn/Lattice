@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import usePersistedPageSize from '../hooks/usePersistedPageSize'
 import { useSearchParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { copyToClipboard } from '../utils/clipboard'
@@ -20,7 +21,7 @@ export default function IndexEntries() {
   const [loading, setLoading] = useState(true)
   const [entriesLoading, setEntriesLoading] = useState(false)
   const [page, setPage] = useState(0)
-  const [pageSize, setPageSize] = useState(50)
+  const [pageSize, setPageSize] = usePersistedPageSize('indexentries', 50)
   const [jsonViewer, setJsonViewer] = useState({ open: false, title: '', subtitle: '', identifier: '', value: null })
   const [viewRow, setViewRow] = useState(null)
   const [filters, setFilters] = useState({

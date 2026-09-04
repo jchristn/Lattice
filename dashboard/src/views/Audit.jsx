@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import usePersistedPageSize from '../hooks/usePersistedPageSize'
 import { useApp } from '../context/AppContext'
 import { formatDate } from '../utils/api'
 import ActionMenu from '../components/ActionMenu'
@@ -14,7 +15,7 @@ export default function Audit() {
   const [loading, setLoading] = useState(true)
   const [forbidden, setForbidden] = useState(false)
   const [page, setPage] = useState(0)
-  const [pageSize, setPageSize] = useState(50)
+  const [pageSize, setPageSize] = usePersistedPageSize('audit', 50)
   // How many entries to fetch from the server; those rows are then filtered client-side.
   const [fetchLimit, setFetchLimit] = useState(1000)
   const [filters, setFilters] = useState({
