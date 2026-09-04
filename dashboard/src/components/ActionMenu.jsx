@@ -74,6 +74,11 @@ export default function ActionMenu({ items }) {
     item.onClick()
   }
 
+  // No actions for this row (e.g. a protected record): render nothing rather than an empty menu.
+  if (!items || items.length === 0) {
+    return null
+  }
+
   return (
     <div className="action-menu">
       <button
