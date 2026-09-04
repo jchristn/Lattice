@@ -258,6 +258,7 @@ namespace Lattice.Core.Repositories.Postgresql.Queries
                     tenantid VARCHAR(64) NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
                     userid VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                     name VARCHAR(512),
+                    accesskey VARCHAR(128),
                     accesskeysha256 VARCHAR(128) NOT NULL,
                     accesskeylast4 VARCHAR(16),
                     expiresutc TIMESTAMP,
@@ -414,6 +415,7 @@ namespace Lattice.Core.Repositories.Postgresql.Queries
                 "ALTER TABLE documents ADD COLUMN IF NOT EXISTS sha256hash VARCHAR(128);",
                 // Add tenantid column then its index (index created here so it runs after the column exists).
                 "ALTER TABLE collections ADD COLUMN IF NOT EXISTS tenantid VARCHAR(64);",
+                "ALTER TABLE credentials ADD COLUMN IF NOT EXISTS accesskey VARCHAR(128);",
                 "CREATE INDEX IF NOT EXISTS idx_collections_tenantid ON collections(tenantid);"
             };
         }

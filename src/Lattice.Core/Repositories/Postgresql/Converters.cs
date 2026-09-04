@@ -401,6 +401,7 @@ namespace Lattice.Core.Repositories.Postgresql
                 TenantId = row["tenantid"]?.ToString(),
                 UserId = row["userid"]?.ToString(),
                 Name = row["name"] != DBNull.Value ? row["name"]?.ToString() : null,
+                AccessKey = row.Table.Columns.Contains("accesskey") && row["accesskey"] != DBNull.Value ? row["accesskey"]?.ToString() : null,
                 AccessKeySha256 = row["accesskeysha256"]?.ToString(),
                 AccessKeyLast4 = row["accesskeylast4"] != DBNull.Value ? row["accesskeylast4"]?.ToString() : null,
                 ExpiresUtc = row["expiresutc"] != DBNull.Value ? Convert.ToDateTime(row["expiresutc"]) : (DateTime?)null,

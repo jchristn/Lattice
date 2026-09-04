@@ -305,6 +305,7 @@ namespace Lattice.Server.API.REST
                         TenantId = tenantId,
                         UserId = userId,
                         Name = args.Name,
+                        AccessKey = rawAccessKey,
                         AccessKeySha256 = PasswordHasher.Sha256Hex(rawAccessKey),
                         AccessKeyLast4 = rawAccessKey.Substring(rawAccessKey.Length - 4),
                         CreatedUtc = DateTime.UtcNow,

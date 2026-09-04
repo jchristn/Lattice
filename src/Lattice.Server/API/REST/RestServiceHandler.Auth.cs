@@ -122,6 +122,12 @@ namespace Lattice.Server.API.REST
                     .WithParameter(OpenApiParameterMetadata.Path("tenantId", "Tenant identifier", OpenApiSchemaMetadata.String()))
                     .WithResponse(200, OpenApiResponseMetadata.Create("Tenant retrieved."))
                     .WithResponse(404, OpenApiResponseMetadata.NotFound()));
+            routes.PreAuthentication.Parameter.Add(HttpMethod.PUT, "/v1.0/tenants/{tenantId}", UpdateTenantRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Update a tenant", "Tenants")
+                    .WithDescription("Update a tenant's name and/or active flag. Only supplied fields change.")
+                    .WithParameter(OpenApiParameterMetadata.Path("tenantId", "Tenant identifier", OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Tenant updated."))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
             routes.PreAuthentication.Parameter.Add(HttpMethod.DELETE, "/v1.0/tenants/{tenantId}", DeleteTenantRoute, ExceptionRoute,
                 openApiMetadata: OpenApiRouteMetadata.Create("Delete a tenant", "Tenants")
                     .WithParameter(OpenApiParameterMetadata.Path("tenantId", "Tenant identifier", OpenApiSchemaMetadata.String()))
@@ -157,6 +163,12 @@ namespace Lattice.Server.API.REST
                     .WithParameter(OpenApiParameterMetadata.Path("userId", "User identifier", OpenApiSchemaMetadata.String()))
                     .WithResponse(200, OpenApiResponseMetadata.Create("User retrieved."))
                     .WithResponse(404, OpenApiResponseMetadata.NotFound()));
+            routes.PreAuthentication.Parameter.Add(HttpMethod.PUT, "/v1.0/users/{userId}", UpdateUserRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Update a user", "Users")
+                    .WithDescription("Update a user's name, password, tenant-admin/admin flags, or active state. Only supplied fields change.")
+                    .WithParameter(OpenApiParameterMetadata.Path("userId", "User identifier", OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("User updated."))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
             routes.PreAuthentication.Parameter.Add(HttpMethod.DELETE, "/v1.0/users/{userId}", DeleteUserRoute, ExceptionRoute,
                 openApiMetadata: OpenApiRouteMetadata.Create("Delete a user", "Users")
                     .WithParameter(OpenApiParameterMetadata.Path("userId", "User identifier", OpenApiSchemaMetadata.String()))
@@ -187,6 +199,12 @@ namespace Lattice.Server.API.REST
                 openApiMetadata: OpenApiRouteMetadata.Create("Get a credential", "Credentials")
                     .WithParameter(OpenApiParameterMetadata.Path("credentialId", "Credential identifier", OpenApiSchemaMetadata.String()))
                     .WithResponse(200, OpenApiResponseMetadata.Create("Credential retrieved."))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
+            routes.PreAuthentication.Parameter.Add(HttpMethod.PUT, "/v1.0/credentials/{credentialId}", UpdateCredentialRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Update a credential", "Credentials")
+                    .WithDescription("Update a credential's name and/or active flag. Only supplied fields change.")
+                    .WithParameter(OpenApiParameterMetadata.Path("credentialId", "Credential identifier", OpenApiSchemaMetadata.String()))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Credential updated."))
                     .WithResponse(404, OpenApiResponseMetadata.NotFound()));
             routes.PreAuthentication.Parameter.Add(HttpMethod.DELETE, "/v1.0/credentials/{credentialId}", DeleteCredentialRoute, ExceptionRoute,
                 openApiMetadata: OpenApiRouteMetadata.Create("Delete a credential", "Credentials")
@@ -433,6 +451,28 @@ namespace Lattice.Server.API.REST
             }).ConfigureAwait(false);
         }
 
+        private async Task UpdateTenantRoute(HttpContextBase ctx)
+        {
+            await WrappedRequestHandler(ctx, RequestTypeEnum.Collection, async (reqCtx) =>
+            {
+                string tenantId = ctx.Request.Url.Parameters["tenantId"];
+                Tenant tenant = await _Client.Tenants.ReadById(tenantId, CancellationToken.None).ConfigureAwait(false);
+                if (tenant == null || !TenantVisible(reqCtx, tenant.Id)) return new ResponseContext(false, 404, "Tenant not found");
+
+                UpdateTenantRequest request = Deserialize<UpdateTenantRequest>(reqCtx.RequestBody);
+                if (request == null) return new ResponseContext(false, 400, "A tenant body is required");
+
+                if (!String.IsNullOrWhiteSpace(request.Name)) tenant.Name = request.Name;
+                if (request.Active.HasValue) tenant.Active = request.Active.Value;
+                tenant.LastUpdateUtc = DateTime.UtcNow;
+                Tenant updated = await _Client.Tenants.Update(tenant, CancellationToken.None).ConfigureAwait(false);
+
+                ServerTelemetry.RecordRbacMutation("tenant", "update");
+                await WriteAuditEventAsync(reqCtx, "TenantUpdated", ResourceType.Tenant, tenant.Id, 200).ConfigureAwait(false);
+                return new ResponseContext { Success = true, StatusCode = 200, Data = updated };
+            }).ConfigureAwait(false);
+        }
+
         private async Task DeleteTenantRoute(HttpContextBase ctx)
         {
             await WrappedRequestHandler(ctx, RequestTypeEnum.Collection, async (reqCtx) =>
@@ -509,6 +549,33 @@ namespace Lattice.Server.API.REST
             }).ConfigureAwait(false);
         }
 
+        private async Task UpdateUserRoute(HttpContextBase ctx)
+        {
+            await WrappedRequestHandler(ctx, RequestTypeEnum.Collection, async (reqCtx) =>
+            {
+                string userId = ctx.Request.Url.Parameters["userId"];
+                User user = await _Client.Users.ReadById(userId, CancellationToken.None).ConfigureAwait(false);
+                if (user == null || !TenantVisible(reqCtx, user.TenantId)) return new ResponseContext(false, 404, "User not found");
+
+                UpdateUserRequest request = Deserialize<UpdateUserRequest>(reqCtx.RequestBody);
+                if (request == null) return new ResponseContext(false, 400, "A user body is required");
+
+                if (request.FirstName != null) user.FirstName = request.FirstName;
+                if (request.LastName != null) user.LastName = request.LastName;
+                if (!String.IsNullOrEmpty(request.Password)) user.PasswordSha256 = PasswordHasher.Sha256Hex(request.Password);
+                if (request.IsTenantAdmin.HasValue) user.IsTenantAdmin = request.IsTenantAdmin.Value;
+                if (request.IsAdmin.HasValue && reqCtx.Caller != null && reqCtx.Caller.IsAdmin) user.IsAdmin = request.IsAdmin.Value;
+                if (request.Active.HasValue) user.Active = request.Active.Value;
+                user.LastUpdateUtc = DateTime.UtcNow;
+                User updated = await _Client.Users.Update(user, CancellationToken.None).ConfigureAwait(false);
+                if (updated != null) updated.PasswordSha256 = null;
+
+                ServerTelemetry.RecordRbacMutation("user", "update");
+                await WriteAuditEventAsync(reqCtx, "UserUpdated", ResourceType.User, user.Id, 200).ConfigureAwait(false);
+                return new ResponseContext { Success = true, StatusCode = 200, Data = updated };
+            }).ConfigureAwait(false);
+        }
+
         private async Task DeleteUserRoute(HttpContextBase ctx)
         {
             await WrappedRequestHandler(ctx, RequestTypeEnum.Collection, async (reqCtx) =>
@@ -555,6 +622,7 @@ namespace Lattice.Server.API.REST
                     TenantId = tenantId,
                     UserId = userId,
                     Name = request.Name,
+                    AccessKey = rawAccessKey,
                     AccessKeySha256 = PasswordHasher.Sha256Hex(rawAccessKey),
                     AccessKeyLast4 = rawAccessKey.Substring(rawAccessKey.Length - 4),
                     CreatedUtc = DateTime.UtcNow,
@@ -581,6 +649,29 @@ namespace Lattice.Server.API.REST
                 if (credential == null || !TenantVisible(reqCtx, credential.TenantId)) return new ResponseContext(false, 404, "Credential not found");
                 credential.AccessKeySha256 = null;
                 return new ResponseContext { Success = true, StatusCode = 200, Data = credential };
+            }).ConfigureAwait(false);
+        }
+
+        private async Task UpdateCredentialRoute(HttpContextBase ctx)
+        {
+            await WrappedRequestHandler(ctx, RequestTypeEnum.Collection, async (reqCtx) =>
+            {
+                string credentialId = ctx.Request.Url.Parameters["credentialId"];
+                Credential credential = await _Client.Credentials.ReadById(credentialId, CancellationToken.None).ConfigureAwait(false);
+                if (credential == null || !TenantVisible(reqCtx, credential.TenantId)) return new ResponseContext(false, 404, "Credential not found");
+
+                UpdateCredentialRequest request = Deserialize<UpdateCredentialRequest>(reqCtx.RequestBody);
+                if (request == null) return new ResponseContext(false, 400, "A credential body is required");
+
+                if (request.Name != null) credential.Name = request.Name;
+                if (request.Active.HasValue) credential.Active = request.Active.Value;
+                credential.LastUpdateUtc = DateTime.UtcNow;
+                Credential updated = await _Client.Credentials.Update(credential, CancellationToken.None).ConfigureAwait(false);
+                if (updated != null) updated.AccessKeySha256 = null; // hide the stored hash; the raw access key (if persisted) is returned
+
+                ServerTelemetry.RecordRbacMutation("credential", "update");
+                await WriteAuditEventAsync(reqCtx, "CredentialUpdated", ResourceType.Credential, credential.Id, 200).ConfigureAwait(false);
+                return new ResponseContext { Success = true, StatusCode = 200, Data = updated };
             }).ConfigureAwait(false);
         }
 

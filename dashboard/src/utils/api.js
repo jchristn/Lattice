@@ -188,6 +188,10 @@ export class LatticeApi {
     return this.request('GET', `/v1.0/collections/${id}`)
   }
 
+  async updateCollection(id, data) {
+    return this.request('PUT', `/v1.0/collections/${id}`, data)
+  }
+
   async deleteCollection(id) {
     return this.request('DELETE', `/v1.0/collections/${id}`)
   }
@@ -332,6 +336,10 @@ export class LatticeApi {
     return this.request('GET', `/v1.0/tenants/${id}`)
   }
 
+  async updateTenant(id, data) {
+    return this.request('PUT', `/v1.0/tenants/${id}`, data)
+  }
+
   async deleteTenant(id) {
     return this.request('DELETE', `/v1.0/tenants/${id}`)
   }
@@ -348,6 +356,10 @@ export class LatticeApi {
 
   async getUser(id) {
     return this.request('GET', `/v1.0/users/${id}`)
+  }
+
+  async updateUser(id, data) {
+    return this.request('PUT', `/v1.0/users/${id}`, data)
   }
 
   async deleteUser(id) {
@@ -367,6 +379,10 @@ export class LatticeApi {
 
   async getCredential(id) {
     return this.request('GET', `/v1.0/credentials/${id}`)
+  }
+
+  async updateCredential(id, data) {
+    return this.request('PUT', `/v1.0/credentials/${id}`, data)
   }
 
   async deleteCredential(id) {

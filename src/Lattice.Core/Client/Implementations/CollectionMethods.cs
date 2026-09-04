@@ -223,6 +223,30 @@ namespace Lattice.Core.Client.Implementations
         }
 
         /// <inheritdoc />
+        public async Task<Collection> Update(string collectionId, string name = null, string description = null, CancellationToken token = default)
+        {
+            if (string.IsNullOrWhiteSpace(collectionId)) throw new ArgumentNullException(nameof(collectionId));
+
+            using OperationScope op = LatticeTelemetry.StartOperation("collection.update", collectionId);
+            try
+            {
+                Collection collection = await _Repo.Collections.ReadById(collectionId, token);
+                if (collection == null) return null;
+
+                if (name != null) collection.Name = name;
+                if (description != null) collection.Description = description;
+                collection.LastUpdateUtc = DateTime.UtcNow;
+
+                return await _Repo.Collections.Update(collection, token);
+            }
+            catch (Exception e)
+            {
+                op.Fail(e);
+                throw;
+            }
+        }
+
+        /// <inheritdoc />
         public async Task Delete(string id, CancellationToken token = default)
         {
             using OperationScope op = LatticeTelemetry.StartOperation("collection.delete", id);

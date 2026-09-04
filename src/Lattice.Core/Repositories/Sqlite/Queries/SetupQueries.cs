@@ -263,6 +263,7 @@ namespace Lattice.Core.Repositories.Sqlite.Queries
                     tenantid TEXT NOT NULL,
                     userid TEXT NOT NULL,
                     name TEXT,
+                    accesskey TEXT,
                     accesskeysha256 TEXT NOT NULL,
                     accesskeylast4 TEXT,
                     expiresutc TEXT,
@@ -426,7 +427,9 @@ namespace Lattice.Core.Repositories.Sqlite.Queries
                 // created here (not in CreateTablesAndIndices) so it runs only after the column exists on
                 // databases created before multi-tenancy.
                 "ALTER TABLE collections ADD COLUMN tenantid TEXT;",
-                "CREATE INDEX IF NOT EXISTS idx_collections_tenantid ON collections(tenantid);"
+                "CREATE INDEX IF NOT EXISTS idx_collections_tenantid ON collections(tenantid);",
+                // Persist the raw access key so it can be shown in the credential detail view.
+                "ALTER TABLE credentials ADD COLUMN accesskey TEXT;"
             };
         }
 

@@ -54,6 +54,17 @@ namespace Lattice.Core.Client.Interfaces
         Task<List<Collection>> ReadAll(CancellationToken token = default);
 
         /// <summary>
+        /// Update a collection's descriptive fields (name and/or description). Null arguments leave the
+        /// corresponding field unchanged.
+        /// </summary>
+        /// <param name="collectionId">Collection ID.</param>
+        /// <param name="name">New name, or null to leave unchanged.</param>
+        /// <param name="description">New description, or null to leave unchanged.</param>
+        /// <param name="token">Cancellation token.</param>
+        /// <returns>The updated collection, or null if not found.</returns>
+        Task<Collection> Update(string collectionId, string name = null, string description = null, CancellationToken token = default);
+
+        /// <summary>
         /// Delete a collection and all its documents.
         /// </summary>
         /// <param name="id">Collection ID.</param>

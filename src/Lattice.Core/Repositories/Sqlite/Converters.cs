@@ -404,6 +404,7 @@ namespace Lattice.Core.Repositories.Sqlite
                 TenantId = row["tenantid"]?.ToString(),
                 UserId = row["userid"]?.ToString(),
                 Name = row["name"] != DBNull.Value ? row["name"]?.ToString() : null,
+                AccessKey = row.Table.Columns.Contains("accesskey") && row["accesskey"] != DBNull.Value ? row["accesskey"]?.ToString() : null,
                 AccessKeySha256 = row["accesskeysha256"]?.ToString(),
                 AccessKeyLast4 = row["accesskeylast4"] != DBNull.Value ? row["accesskeylast4"]?.ToString() : null,
                 ExpiresUtc = row["expiresutc"] != DBNull.Value ? DateTime.Parse(row["expiresutc"].ToString()) : (DateTime?)null,

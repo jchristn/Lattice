@@ -288,6 +288,7 @@ namespace Lattice.Core.Repositories.Mysql.Queries
                     `tenantid` VARCHAR(64) NOT NULL,
                     `userid` VARCHAR(64) NOT NULL,
                     `name` VARCHAR(512),
+                    `accesskey` VARCHAR(128),
                     `accesskeysha256` VARCHAR(128) NOT NULL,
                     `accesskeylast4` VARCHAR(16),
                     `expiresutc` DATETIME(6),
@@ -465,6 +466,7 @@ namespace Lattice.Core.Repositories.Mysql.Queries
                 "ALTER TABLE `documents` ADD COLUMN `sha256hash` VARCHAR(128);",
                 // Add tenantid column then its index (index created here so it runs after the column exists).
                 "ALTER TABLE `collections` ADD COLUMN `tenantid` VARCHAR(64);",
+                "ALTER TABLE `credentials` ADD COLUMN `accesskey` VARCHAR(128);",
                 "CREATE INDEX IF NOT EXISTS `idx_collections_tenantid` ON `collections`(`tenantid`);"
             };
         }

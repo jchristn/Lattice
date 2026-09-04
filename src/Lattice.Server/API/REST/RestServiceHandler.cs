@@ -384,6 +384,24 @@ namespace Lattice.Server.API.REST
                     .WithResponse(404, OpenApiResponseMetadata.NotFound()));
 
             _Webserver.Routes.PreAuthentication.Parameter.Add(
+                HttpMethod.PUT, "/v1.0/collections/{collectionId}", PutCollectionUpdateRoute, ExceptionRoute,
+                openApiMetadata: OpenApiRouteMetadata.Create("Update a collection", "Collections")
+                    .WithDescription("Updates a collection's name and/or description. Only supplied fields change.")
+                    .WithParameter(OpenApiParameterMetadata.Path("collectionId", "The unique identifier of the collection", OpenApiSchemaMetadata.String()))
+                    .WithRequestBody(OpenApiRequestBodyMetadata.Json(
+                        new OpenApiSchemaMetadata
+                        {
+                            Type = "object",
+                            Properties = new Dictionary<string, OpenApiSchemaMetadata>
+                            {
+                                ["name"] = new OpenApiSchemaMetadata { Type = "string", Description = "New collection name" },
+                                ["description"] = new OpenApiSchemaMetadata { Type = "string", Description = "New description" }
+                            }
+                        }, "Collection update", false))
+                    .WithResponse(200, OpenApiResponseMetadata.Create("Collection updated successfully"))
+                    .WithResponse(404, OpenApiResponseMetadata.NotFound()));
+
+            _Webserver.Routes.PreAuthentication.Parameter.Add(
                 HttpMethod.DELETE, "/v1.0/collections/{collectionId}", DeleteCollectionRoute, ExceptionRoute,
                 openApiMetadata: OpenApiRouteMetadata.Create("Delete a collection", "Collections")
                     .WithDescription("Deletes a collection and all its documents")
@@ -1412,6 +1430,36 @@ namespace Lattice.Server.API.REST
                     Success = true,
                     StatusCode = 200
                 };
+            }).ConfigureAwait(false);
+        }
+
+        private async Task PutCollectionUpdateRoute(HttpContextBase ctx)
+        {
+            await WrappedRequestHandler(ctx, RequestTypeEnum.Collection, async (reqCtx) =>
+            {
+                string? collectionId = ctx.Request.Url.Parameters["collectionId"];
+                if (String.IsNullOrEmpty(collectionId))
+                {
+                    return new ResponseContext(false, 400, "Collection ID is required");
+                }
+
+                Collection? collection = await _Client.Collection.ReadById(collectionId, CancellationToken.None).ConfigureAwait(false);
+                if (collection == null || !CollectionVisible(reqCtx, collection))
+                {
+                    return new ResponseContext(false, 404, "Collection not found");
+                }
+
+                string body = reqCtx.RequestBody ?? String.Empty;
+                UpdateCollectionRequest? request = String.IsNullOrEmpty(body)
+                    ? null
+                    : JsonSerializer.Deserialize<UpdateCollectionRequest>(body, _JsonOptions);
+                if (request == null)
+                {
+                    return new ResponseContext(false, 400, "A collection body is required");
+                }
+
+                Collection updated = await _Client.Collection.Update(collectionId, request.Name, request.Description, CancellationToken.None).ConfigureAwait(false);
+                return new ResponseContext { Success = true, StatusCode = 200, Data = updated };
             }).ConfigureAwait(false);
         }
 

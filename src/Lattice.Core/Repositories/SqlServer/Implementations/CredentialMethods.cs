@@ -26,12 +26,13 @@ namespace Lattice.Core.Repositories.SqlServer.Implementations
             token.ThrowIfCancellationRequested();
 
             string query = $@"
-                INSERT INTO [credentials] ([id], [tenantid], [userid], [name], [accesskeysha256], [accesskeylast4], [expiresutc], [lastusedutc], [active], [isprotected], [createdutc], [lastupdateutc])
+                INSERT INTO [credentials] ([id], [tenantid], [userid], [name], [accesskey], [accesskeysha256], [accesskeylast4], [expiresutc], [lastusedutc], [active], [isprotected], [createdutc], [lastupdateutc])
                 OUTPUT INSERTED.*
                 VALUES ('{Sanitizer.Sanitize(credential.Id)}',
                         '{Sanitizer.Sanitize(credential.TenantId)}',
                         '{Sanitizer.Sanitize(credential.UserId)}',
                         {(credential.Name != null ? $"N'{Sanitizer.Sanitize(credential.Name)}'" : "NULL")},
+                        {(credential.AccessKey != null ? $"'{Sanitizer.Sanitize(credential.AccessKey)}'" : "NULL")},
                         '{Sanitizer.Sanitize(credential.AccessKeySha256)}',
                         {(credential.AccessKeyLast4 != null ? $"'{Sanitizer.Sanitize(credential.AccessKeyLast4)}'" : "NULL")},
                         {(credential.ExpiresUtc != null ? $"'{Converters.ToTimestamp(credential.ExpiresUtc.Value)}'" : "NULL")},
