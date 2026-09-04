@@ -23,7 +23,6 @@ export default function Audit() {
     method: '',
     path: '',
     response: '',
-    authz: '',
     principal: '',
   })
   const [jsonRow, setJsonRow] = useState(null)
@@ -52,10 +51,6 @@ export default function Audit() {
     if (filters.response) {
       const q = filters.response.toLowerCase()
       result = result.filter((e) => ((e.responseCode !== null && e.responseCode !== undefined) ? String(e.responseCode) : '').toLowerCase().includes(q))
-    }
-    if (filters.authz) {
-      const q = filters.authz.toLowerCase()
-      result = result.filter((e) => ((e.authzResult || '') + (e.denialReason ? ` (${e.denialReason})` : '')).toLowerCase().includes(q))
     }
     if (filters.principal) {
       const q = filters.principal.toLowerCase()
@@ -194,12 +189,11 @@ export default function Audit() {
           <table className="table">
             <thead>
               <tr>
-                <th title="When the audited event occurred (UTC)">Time</th>
+                <th className="col-time" title="When the audited event occurred (UTC)">Time</th>
                 <th title="The category of the event, such as Authorize or CreateUser">Event Type</th>
                 <th title="The HTTP method of the request that triggered the event">Method</th>
                 <th title="The request path that was accessed">Path</th>
                 <th title="The HTTP status code returned for the request">Response</th>
-                <th title="The authorization decision, including any reason the request was denied">Authz</th>
                 <th title="The user or credential that performed the action">Principal</th>
                 <th title="Actions you can perform on this audit entry">Actions</th>
               </tr>
@@ -209,7 +203,6 @@ export default function Audit() {
                 <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.method} onChange={(e) => handleFilterChange('method', e.target.value)} title="Filter the list to rows whose Method contains this text" /></td>
                 <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.path} onChange={(e) => handleFilterChange('path', e.target.value)} title="Filter the list to rows whose Path contains this text" /></td>
                 <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.response} onChange={(e) => handleFilterChange('response', e.target.value)} title="Filter the list to rows whose Response code contains this text" /></td>
-                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.authz} onChange={(e) => handleFilterChange('authz', e.target.value)} title="Filter the list to rows whose Authz result contains this text" /></td>
                 <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.principal} onChange={(e) => handleFilterChange('principal', e.target.value)} title="Filter the list to rows whose Principal contains this text" /></td>
                 <td className="no-filter"></td>
               </tr>
@@ -217,20 +210,16 @@ export default function Audit() {
             <tbody>
               {pagedEntries.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="empty-row">No audit entries match your filters.</td>
+                  <td colSpan={7} className="empty-row">No audit entries match your filters.</td>
                 </tr>
               ) : (
                 pagedEntries.map((e) => (
                 <tr key={e.id} className="clickable-row" title="Click to view details" onClick={(ev) => onRowClick(ev, e)}>
-                  <td>{formatDate(e.createdUtc)}</td>
+                  <td className="col-time">{formatDate(e.createdUtc)}</td>
                   <td>{e.eventType || '-'}</td>
                   <td className="monospace" title="HTTP method">{e.method || '-'}</td>
                   <td className="monospace" title={e.path || ''}>{e.path || '-'}</td>
                   <td title="HTTP response status code">{e.responseCode ?? '-'}</td>
-                  <td title={e.denialReason || 'Authorization result'}>
-                    {e.authzResult || '-'}
-                    {e.denialReason ? <span className="audit-denial"> ({e.denialReason})</span> : null}
-                  </td>
                   <td title="The user or credential responsible for the event">
                     {principalOf(e) !== '-' ? <CopyableId value={principalOf(e)} /> : '-'}
                   </td>

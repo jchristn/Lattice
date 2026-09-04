@@ -77,6 +77,7 @@ namespace Lattice.Core.Security
                 TenantId = tenant.Id,
                 UserId = admin.Id,
                 Name = "Default API Key",
+                AccessKey = rawAccessKey,
                 AccessKeySha256 = PasswordHasher.Sha256Hex(rawAccessKey),
                 AccessKeyLast4 = rawAccessKey.Substring(rawAccessKey.Length - 4),
                 Active = true,

@@ -324,7 +324,7 @@ export default function RequestHistory() {
   const [filters, setFilters] = useState(() => createEmptyFilters())
   const [appliedFilters, setAppliedFilters] = useState(() => normalizeFilters(createEmptyFilters()))
   const [timeRange, setTimeRange] = useState('day')
-  const [filtersOpen, setFiltersOpen] = useState(true)
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [entries, setEntries] = useState([])
   const [summary, setSummary] = useState(null)
   const [loading, setLoading] = useState(true)

@@ -28,6 +28,11 @@
   font-size: 13px;
 }
 
+.audit .table th.col-time,
+.audit .table td.col-time {
+  white-space: nowrap;
+}
+
 .audit-filters {
   display: flex;
   align-items: flex-end;

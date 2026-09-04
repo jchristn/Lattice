@@ -21,7 +21,7 @@ export default function Credentials() {
     id: '',
     name: '',
     userId: '',
-    last4: '',
+    accessKey: '',
     active: '',
     created: '',
   })
@@ -49,9 +49,9 @@ export default function Credentials() {
       const query = filters.userId.toLowerCase()
       result = result.filter((c) => (c.userId || '-').toLowerCase().includes(query))
     }
-    if (filters.last4) {
-      const query = filters.last4.toLowerCase()
-      result = result.filter((c) => (c.accessKeyLast4 ? `…${c.accessKeyLast4}` : '-').toLowerCase().includes(query))
+    if (filters.accessKey) {
+      const query = filters.accessKey.toLowerCase()
+      result = result.filter((c) => (c.accessKey || '-').toLowerCase().includes(query))
     }
     if (filters.active) {
       const query = filters.active.toLowerCase()
@@ -86,8 +86,7 @@ export default function Credentials() {
     c.name ? { label: 'Name', value: c.name, title: 'The human-readable label describing this credential’s purpose' } : null,
     { label: 'User ID', value: c.userId, copyable: true, title: 'The user this credential authenticates as and inherits permissions from' },
     { label: 'Tenant ID', value: c.tenantId, copyable: true, title: 'The tenant this credential belongs to' },
-    c.accessKey ? { label: 'Access Key', value: c.accessKey, copyable: true, title: 'The full access key used as a bearer token; treat it as a secret' } : null,
-    c.accessKeyLast4 ? { label: 'Access key (last 4)', value: c.accessKeyLast4, title: 'The last four characters of the access key, for identifying it without exposing the secret' } : null,
+    { label: 'Access Key', value: c.accessKey || '-', copyable: !!c.accessKey, mono: true, title: 'The full access key used as a bearer token; treat it as a secret' },
     { label: 'Active', value: c.active ? 'Yes' : 'No', title: 'Whether the credential is active and accepted for authentication' },
     { label: 'Protected', value: c.isProtected ? 'Yes' : 'No', title: 'Protected credentials are system-managed and cannot be deleted' },
     { label: 'Created', value: formatDate(c.createdUtc), title: 'When the credential was created' },
@@ -228,7 +227,7 @@ export default function Credentials() {
                 <th title="The unique identifier of the credential; use it when referencing the credential via the API">ID</th>
                 <th title="The human-readable label given to this credential to describe its purpose">Name</th>
                 <th title="The user this credential authenticates as and inherits permissions from">User ID</th>
-                <th title="The last four characters of the access key, for identifying it without exposing the secret">Last4</th>
+                <th title="The full access key used as a bearer token; treat it as a secret">Access Key</th>
                 <th title="Whether the credential is active and accepted for authentication">Active</th>
                 <th title="When the credential was created">Created</th>
                 <th title="Actions you can perform on this credential">Actions</th>
@@ -237,7 +236,7 @@ export default function Credentials() {
                 <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.id} onChange={(e) => handleFilterChange('id', e.target.value)} title="Filter the list to rows whose ID contains this text" /></td>
                 <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.name} onChange={(e) => handleFilterChange('name', e.target.value)} title="Filter the list to rows whose Name contains this text" /></td>
                 <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.userId} onChange={(e) => handleFilterChange('userId', e.target.value)} title="Filter the list to rows whose User ID contains this text" /></td>
-                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.last4} onChange={(e) => handleFilterChange('last4', e.target.value)} title="Filter the list to rows whose Last4 contains this text" /></td>
+                <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.accessKey} onChange={(e) => handleFilterChange('accessKey', e.target.value)} title="Filter the list to rows whose Access Key contains this text" /></td>
                 <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.active} onChange={(e) => handleFilterChange('active', e.target.value)} title="Filter the list to rows whose Active contains this text" /></td>
                 <td><input type="text" className="column-filter" placeholder="Filter..." value={filters.created} onChange={(e) => handleFilterChange('created', e.target.value)} title="Filter the list to rows whose Created contains this text" /></td>
                 <td className="no-filter"></td>
@@ -254,7 +253,7 @@ export default function Credentials() {
                   <td><CopyableId value={c.id} /></td>
                   <td>{c.name || '-'}</td>
                   <td>{c.userId ? <CopyableId value={c.userId} /> : '-'}</td>
-                  <td className="monospace" title="The last four characters of this credential's access key">{c.accessKeyLast4 ? `…${c.accessKeyLast4}` : '-'}</td>
+                  <td title="The full access key for this credential">{c.accessKey ? <CopyableId value={c.accessKey} /> : '-'}</td>
                   <td title={c.active ? 'Credential is active' : 'Credential is inactive'}>{c.active ? 'Yes' : 'No'}</td>
                   <td>{formatDate(c.createdUtc)}</td>
                   <td>

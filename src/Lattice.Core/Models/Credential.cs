@@ -4,8 +4,9 @@ namespace Lattice.Core.Models
 
     /// <summary>
     /// A machine credential owned by a user within a tenant. The credential's access key is used directly
-    /// as a bearer token; only its SHA-256 hash and last four characters are stored. The raw access key
-    /// is returned once, at creation, via <see cref="AccessKey"/> and never persisted.
+    /// as a bearer token. The raw access key is persisted (in <see cref="AccessKey"/>) so it can be
+    /// retrieved and viewed after creation; its SHA-256 hash (<see cref="AccessKeySha256"/>) is used to
+    /// resolve a bearer token to this credential and is never returned to callers.
     /// </summary>
     public class Credential
     {
@@ -32,7 +33,7 @@ namespace Lattice.Core.Models
         public string Name { get; set; } = null;
 
         /// <summary>
-        /// The raw access key. Populated only on creation so it can be returned once; null when read back.
+        /// The raw access key. Persisted so it can be returned on reads and viewed after creation; treat as a secret.
         /// </summary>
         public string AccessKey { get; set; } = null;
 
