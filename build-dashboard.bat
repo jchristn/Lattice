@@ -16,4 +16,8 @@ docker buildx build ^
     --push ^
     dashboard
 
+echo Pulling pushed images into the local registry...
+docker pull jchristn77/lattice-ui:%~1
+docker pull jchristn77/lattice-ui:latest
+
 echo Build complete.

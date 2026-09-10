@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { GithubIcon } from '../components/Icons'
+import { DiscordIcon, GithubIcon } from '../components/Icons'
 import './Login.css'
 
 export default function Login() {
@@ -295,6 +295,16 @@ export default function Login() {
             aria-label="Open the Lattice project on GitHub"
           >
             <GithubIcon size={18} />
+          </a>
+          <a
+            className="login-github"
+            href="https://discord.gg/tRAN8HgvK5"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Join the Lattice community on Discord in a new tab"
+            aria-label="Join the Lattice community on Discord"
+          >
+            <DiscordIcon size={18} />
           </a>
         </div>
       </div>

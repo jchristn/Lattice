@@ -1,6 +1,6 @@
 import { useApp } from '../context/AppContext'
 import CopyButton from './CopyButton'
-import { GithubIcon, LogoutIcon, MoonIcon, SunIcon } from './Icons'
+import { DiscordIcon, GithubIcon, LogoutIcon, MoonIcon, SunIcon } from './Icons'
 import './Topbar.css'
 
 export default function Topbar() {
@@ -44,6 +44,16 @@ export default function Topbar() {
           aria-label="Open the Lattice project on GitHub"
         >
           <GithubIcon size={16} />
+        </a>
+        <a
+          className="topbar-btn"
+          href="https://discord.gg/tRAN8HgvK5"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Join the Lattice community on Discord in a new tab"
+          aria-label="Join the Lattice community on Discord"
+        >
+          <DiscordIcon size={16} />
         </a>
         <button
           className="topbar-btn"

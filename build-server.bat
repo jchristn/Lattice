@@ -16,4 +16,8 @@ docker buildx build ^
     --push ^
     src
 
+echo Pulling pushed images into the local registry...
+docker pull jchristn77/lattice:%~1
+docker pull jchristn77/lattice:latest
+
 echo Build complete.
