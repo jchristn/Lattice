@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageId>Lattice.Sdk</PackageId>
-    <Version>0.3.0</Version>
+    <Version>0.3.1</Version>
     <Description>A comprehensive REST SDK for consuming a Lattice server</Description>
     <Authors>Lattice</Authors>
     <IncludeSymbols>true</IncludeSymbols>
@@ -14,7 +14,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Text.Json" Version="10.0.11" />
+    <PackageReference Include="System.Text.Json" Version="10.0.12" />
   </ItemGroup>
 
 </Project>

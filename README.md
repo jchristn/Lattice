@@ -75,14 +75,17 @@ Data persists in the `lattice-data` and `lattice-documents` Docker volumes.
 
 ## Installation
 
+Embedded library ([NuGet: Lattice](https://www.nuget.org/packages/Lattice), targets net8.0 and net10.0):
 ```bash
-dotnet add package Lattice.Core
+dotnet add package Lattice
 ```
 
-For the REST server:
+C# client for the REST server ([NuGet: Lattice.Sdk](https://www.nuget.org/packages/Lattice.Sdk)):
 ```bash
-dotnet add package Lattice.Server
+dotnet add package Lattice.Sdk
 ```
+
+The REST server itself ships as a Docker image (`jchristn77/lattice`); see [Docker](#docker).
 
 ## Quick Start
 
@@ -559,8 +562,12 @@ sdk/
 # Build the solution
 dotnet build
 
-# Run automated tests
+# Run automated tests (console runner)
 dotnet run --project src/Test.Automated
+
+# Run the same suites under xUnit or NUnit
+dotnet test src/Test.Xunit
+dotnet test src/Test.Nunit
 
 # Run throughput tests
 dotnet run --project src/Test.Throughput

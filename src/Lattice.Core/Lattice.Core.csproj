@@ -8,7 +8,7 @@
 		<ApplicationIcon>logo.ico</ApplicationIcon>
 		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
 		<Title>Lattice</Title>
-		<Version>0.3.0</Version>
+		<Version>0.3.1</Version>
 		<Authors>Joel Christner</Authors>
 		<Description>Lattice is a JSON document store with real-time schema processing, indexing during ingestion, and a SQL-like interface for querying data</Description>
 		<Copyright>(c)2026 Joel Christner</Copyright>
@@ -45,8 +45,8 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.2" />
-		<PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.11" />
+		<PackageReference Include="Microsoft.Data.SqlClient" Version="7.1.1" />
+		<PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
 		<PackageReference Include="MySqlConnector" Version="2.6.2" />
 		<PackageReference Include="Npgsql" Version="10.0.3" />
 		<PackageReference Include="PrettyId" Version="2.0.1" />

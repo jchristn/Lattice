@@ -7,7 +7,7 @@
     <Nullable>disable</Nullable>
     <AssemblyName>latticeload</AssemblyName>
     <RootNamespace>Lattice.LoadGenerator</RootNamespace>
-    <Version>0.3.0</Version>
+    <Version>0.3.1</Version>
     <Description>Seeds a Lattice database with realistic synthetic collections, documents, request history, audit, and identity/RBAC activity so the dashboard renders a fully hydrated, believable system for demos and screenshots.</Description>
   </PropertyGroup>
 

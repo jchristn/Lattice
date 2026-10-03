@@ -2,6 +2,27 @@
 
 ## Current release
 
+**v0.3.1** (2026-10-03)
+
+### Changed
+- Dependency updates (no API changes; all xUnit, NUnit, Touchstone, and SDK harness suites pass on net8.0 and net10.0):
+  - `Microsoft.Data.SqlClient` 7.0.2 -> 7.1.1 (Lattice.Core)
+  - `Microsoft.Data.Sqlite` 10.0.11 -> 10.0.12 (Lattice.Core)
+  - `Watson` 7.1.0 -> 7.2.2 (Lattice.Server)
+  - `SyslogLogging` 2.2.1 -> 2.3.1 (Lattice.Server)
+  - `System.Text.Json` 10.0.11 -> 10.0.12 (Lattice.Sdk)
+  - Test dependencies: `Touchstone.*` 0.1.12 -> 0.2.0, `Microsoft.NET.Test.Sdk` 18.9.0 -> 18.10.1,
+    `NUnit` 4.6.1 -> 5.0.0, `NUnit3TestAdapter` 6.2.0 -> 6.3.0
+- MCP `initialize` now reports `serverInfo.version` 0.3.1.
+- Docker images `jchristn77/lattice` and `jchristn77/lattice-ui` rebuilt in place under the existing `v0.3.0`
+  and `latest` tags.
+
+### Version bumps
+- `Lattice.Core`: 0.3.0 -> 0.3.1
+- `Lattice.Sdk` (C#): 0.3.0 -> 0.3.1
+
+## Previous versions
+
 **v0.3.0** (2026-09-04)
 
 ### Added
@@ -74,8 +95,6 @@
 - `Lattice.Sdk` (C#): 0.3.0
 - `lattice-sdk` (npm): 0.3.0
 - `lattice-sdk` (pip): 0.3.0
-
-## Previous versions
 
 **v0.2.1** (2026-09-02)
 

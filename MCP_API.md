@@ -80,7 +80,7 @@ Response:
   "id": 1,
   "result": {
     "protocolVersion": "2024-11-05",
-    "serverInfo": { "name": "lattice", "version": "0.3.0" },
+    "serverInfo": { "name": "lattice", "version": "0.3.1" },
     "capabilities": { "tools": {} }
   }
 }

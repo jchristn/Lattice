@@ -19,7 +19,7 @@ namespace Lattice.Server.API.MCP
             return new
             {
                 protocolVersion = "2024-11-05",
-                serverInfo = new { name = string.IsNullOrEmpty(serverName) ? "lattice" : serverName, version = "0.3.0" },
+                serverInfo = new { name = string.IsNullOrEmpty(serverName) ? "lattice" : serverName, version = "0.3.1" },
                 capabilities = new { tools = new { } }
             };
         }
